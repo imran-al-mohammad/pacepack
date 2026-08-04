@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PacePack — Online Group Race Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <!-- Loading -->
+  <div id="boot-screen" class="boot-screen">
+    <div class="boot-card">
+      <div class="brand-mark boot-logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <p id="boot-msg">Connecting…</p>
+    </div>
+  </div>
+
+  <!-- Auth gate -->
+  <div id="auth-screen" class="auth-screen" hidden>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>PacePack</h1>
+          <p>Shared online race tracker for your group</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth-tab="signin">Sign in</button>
+        <button type="button" class="auth-tab" data-auth-tab="signup">Create account</button>
+      </div>
+
+      <form id="form-signin" class="form-grid auth-form">
+        <div class="field">
+          <label for="signin-email">Email</label>
+          <input class="input" id="signin-email" type="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="signin-password">Password</label>
+          <input class="input" id="signin-password" type="password" required minlength="6" autocomplete="current-password" />
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      </form>
+
+      <form id="form-signup" class="form-grid auth-form" hidden>
+        <div class="field">
+          <label for="signup-name">Display name</label>
+          <input class="input" id="signup-name" type="text" required autocomplete="name" placeholder="Your name" />
+        </div>
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input class="input" id="signup-email" type="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="signup-password">Password (min 6 characters)</label>
+          <input class="input" id="signup-password" type="password" required minlength="6" autocomplete="new-password" />
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+      </form>
+
+      <p class="auth-error" id="auth-error" hidden></p>
+      <p class="auth-hint">After signing in you can create a group (Admin) or join with an invite code (Member).</p>
+    </div>
+  </div>
+
+  <!-- Onboarding: create or join group -->
+  <div id="onboard-screen" class="auth-screen" hidden>
+    <div class="auth-card">
+      <h2 class="auth-title">Join your running group</h2>
+      <p class="auth-sub" id="onboard-user-label"></p>
+
+      <div class="onboard-grid">
+        <div class="panel onboard-panel">
+          <h3>Create a new group</h3>
+          <p class="panel-hint">You become <strong>Admin</strong> and get an invite code to share.</p>
+          <form id="form-create-group" class="form-grid">
+            <div class="field">
+              <label for="group-name">Group name</label>
+              <input class="input" id="group-name" required placeholder="e.g. Downtown Run Club" />
+            </div>
+            <button class="btn btn-primary" type="submit">Create group</button>
+          </form>
+        </div>
+
+        <div class="panel onboard-panel">
+          <h3>Join with invite code</h3>
+          <p class="panel-hint">You join as a <strong>Member</strong>. An Admin can promote you later.</p>
+          <form id="form-join-group" class="form-grid">
+            <div class="field">
+              <label for="invite-code">Invite code</label>
+              <input class="input" id="invite-code" required placeholder="e.g. AB12CD34" style="text-transform:uppercase;letter-spacing:0.12em" maxlength="12" />
+            </div>
+            <button class="btn btn-secondary" type="submit">Join group</button>
+          </form>
+        </div>
+      </div>
+
+      <p class="auth-error" id="onboard-error" hidden></p>
+      <button type="button" class="btn btn-ghost" id="btn-signout-onboard">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div id="app-shell" class="app" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>PacePack</h1>
+          <p class="brand-sub" id="group-name-label">Group</p>
+        </div>
+      </div>
+
+      <div class="role-pill" id="role-pill" title="Your role in this group">
+        <span class="role-dot"></span>
+        <span id="role-label">Member</span>
+      </div>
+
+      <nav class="nav" role="navigation">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">◈</span> Dashboard</button>
+        <button class="nav-item" data-view="marathons"><span class="nav-icon">◎</span> Marathons</button>
+        <button class="nav-item" data-view="members"><span class="nav-icon">◉</span> Runners</button>
+        <button class="nav-item" data-view="registrations"><span class="nav-icon">✓</span> Registrations</button>
+        <button class="nav-item" data-view="results"><span class="nav-icon">⏱</span> Results &amp; times</button>
+        <button class="nav-item" data-view="team"><span class="nav-icon">⚙</span> Team &amp; access</button>
+      </nav>
+
+      <div class="sidebar-footer sidebar-user">
+        <div class="user-chip">
+          <span id="user-display">User</span>
+          <button class="btn btn-ghost btn-sm" id="btn-signout" type="button">Sign out</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="view-title">Dashboard</h2>
+          <p class="view-desc" id="view-desc">Live group overview</p>
+        </div>
+        <div class="topbar-actions" id="topbar-actions"></div>
+      </header>
+
+      <div id="live-banner" class="live-banner" hidden>
+        <span class="live-dot"></span> Live — changes sync for everyone in the group
+      </div>
+
+      <section class="view active" id="view-dashboard">
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="dashboard-grid">
+          <div class="panel">
+            <div class="panel-header"><h3>Upcoming races</h3></div>
+            <div id="upcoming-list" class="list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h3>Recent results</h3></div>
+            <div id="recent-results" class="list"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Who's running what</h3>
+            <p class="panel-hint">Group matrix of runners × races</p>
+          </div>
+          <div class="table-wrap" id="matrix-wrap"></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-marathons">
+        <div class="toolbar">
+          <input type="search" class="search" id="marathon-search" placeholder="Search races…" />
+          <select id="marathon-filter-status" class="select">
+            <option value="all">All races</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+          </select>
+        </div>
+        <div class="card-grid" id="marathon-list"></div>
+      </section>
+
+      <section class="view" id="view-members">
+        <div class="toolbar">
+          <input type="search" class="search" id="member-search" placeholder="Search runners…" />
+        </div>
+        <div class="card-grid" id="member-list"></div>
+      </section>
+
+      <section class="view" id="view-registrations">
+        <div class="toolbar">
+          <input type="search" class="search" id="reg-search" placeholder="Search registrations…" />
+          <select id="reg-filter-marathon" class="select"><option value="all">All marathons</option></select>
+          <select id="reg-filter-status" class="select">
+            <option value="all">All statuses</option>
+            <option value="interested">Interested</option>
+            <option value="registered">Registered</option>
+            <option value="waitlisted">Waitlisted</option>
+            <option value="completed">Completed</option>
+            <option value="dns">DNS</option>
+            <option value="dnf">DNF</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Runner</th>
+                <th>Marathon</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Finish time</th>
+                <th>Pace</th>
+                <th>Bib / notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="reg-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-results">
+        <div class="toolbar">
+          <select id="results-marathon" class="select"><option value="">Select a race…</option></select>
+          <select id="results-sort" class="select">
+            <option value="time">Sort by finish time</option>
+            <option value="place">Sort by place</option>
+            <option value="name">Sort by name</option>
+          </select>
+          <label class="check-inline">
+            <input type="checkbox" id="results-completed-only" checked />
+            Finished only
+          </label>
+        </div>
+        <div class="panel results-summary" id="results-summary"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Runner</th>
+                <th>Status</th>
+                <th>Gun time</th>
+                <th>Chip time</th>
+                <th>Pace</th>
+                <th>Place</th>
+                <th>AG place</th>
+                <th>PR</th>
+                <th>Notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-team">
+        <div class="share-layout">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Invite people</h3>
+              <p class="panel-hint">Share this link or code. New joiners start as <strong>Member</strong>.</p>
+            </div>
+            <div id="invite-panel"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Team roles</h3>
+              <p class="panel-hint">
+                <strong>Admin</strong> — full control &amp; roles ·
+                <strong>Moderator</strong> — manage races &amp; delete ·
+                <strong>Member</strong> — add/update runners, races, results
+              </p>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="team-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><h3>Permission summary</h3></div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Admin</th>
+                    <th>Moderator</th>
+                    <th>Member</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>View all data</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                  <tr><td>Add / edit runners, races, results</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                  <tr><td>Delete runners, races, registrations</td><td>✓</td><td>✓</td><td>—</td></tr>
+                  <tr><td>Change roles / remove users</td><td>✓</td><td>—</td><td>—</td></tr>
+                  <tr><td>Manage invite code</td><td>✓</td><td>—</td><td>—</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 id="modal-title">Dialog</h3>
+        <button class="icon-btn" id="modal-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <div class="toast-host" id="toast-host" aria-live="polite"></div>
+
+  <!-- Config missing -->
+  <div id="config-screen" class="auth-screen" hidden>
+    <div class="auth-card">
+      <h2 class="auth-title">Connect Supabase</h2>
+      <p class="auth-sub">Add your project URL and anon key to <code>config.js</code>, then redeploy / refresh.</p>
+      <pre class="code-block">window.PACEPACK_CONFIG = {
+  supabaseUrl: "https://xxxx.supabase.co",
+  supabaseAnonKey: "eyJ..."
+};</pre>
+      <p class="auth-hint">Then run <code>supabase-schema.sql</code> in the Supabase SQL Editor. See ONLINE-SETUP.md.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
