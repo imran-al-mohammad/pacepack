@@ -1,60 +1,43 @@
-# PacePack — Marathon Group Manager
+# PacePack — Online Marathon Group Manager
 
-Track **races**, **who from your group registered**, and **finish results & times**.  
-Works offline on one device, or **shared online** so the whole group stays in sync.
+Full **online**, multi-user race tracker for a running club.
 
-## Open locally
+- Sign in with email/password  
+- Shared live data (Supabase)  
+- Roles: **Admin**, **Moderator**, **Member**  
+- Marathons, runners, registrations, finish times & results  
 
-1. Open folder: `Documents\marathon-manager`
-2. Double-click **`index.html`**
+## Quick start
 
-## Features
-
-### Marathons & members
-- Races: name, date, distance, location, notes  
-- Group roster: contact + notes  
-- Registrations with status: Interested → Registered → Waitlisted → Completed / DNS / DNF  
-
-### Results & times
-- **Gun time** and **chip / net time** (`H:MM:SS` or `M:SS`)  
-- Auto **pace** (per km & per mile) from distance + finish time  
-- Overall / gender / age-group **place**  
-- **PR** flag and result notes  
-- Per-race **leaderboard** with group best, median, finisher count  
-
-### Shared online
-- Free **Supabase** backend (see `ONLINE-SETUP.md`)  
-- Create or join a **room code**  
-- Live sync across phones and laptops  
-- Share link: `yoursite.com/?room=ABC123`  
-
-### Backup
-- Export / import JSON from the sidebar  
-
-## Shared online (short version)
-
-1. Free project at [supabase.com](https://supabase.com)  
+1. Create a free [Supabase](https://supabase.com) project  
 2. Run `supabase-schema.sql` in the SQL Editor  
-3. Paste Project URL + **anon** key under **Shared online**  
-4. **Create room** → send code or link to the group  
-5. Host this folder on **GitHub Pages** or **Netlify Drop** so everyone uses one URL  
+3. Disable **Confirm email** (Auth → Email) for easiest club onboarding  
+4. Put Project URL + **anon** key in `config.js`  
+5. Host on GitHub Pages (or open `index.html` locally)  
+6. Create an account → **Create group** (you are Admin)  
+7. Share invite link from **Team & access**  
 
-Full walkthrough: **`ONLINE-SETUP.md`**
+Full details: **[ONLINE-SETUP.md](ONLINE-SETUP.md)**
+
+## Roles
+
+| | Admin | Moderator | Member |
+|--|:-----:|:---------:|:------:|
+| View / edit races, runners, results | ✓ | ✓ | ✓ |
+| Delete races, runners, registrations | ✓ | ✓ | |
+| Manage user roles & remove access | ✓ | | |
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `index.html` | App shell |
+| `index.html` | App shell + auth screens |
 | `styles.css` | UI |
-| `app.js` | Logic, results, sync |
-| `config.js` | Optional prefilled Supabase keys |
-| `supabase-schema.sql` | Database setup |
-| `ONLINE-SETUP.md` | Shared hosting guide |
+| `app.js` | Auth, roles, live CRUD |
+| `config.js` | Supabase URL + anon key |
+| `supabase-schema.sql` | Database, RLS, RPCs |
+| `ONLINE-SETUP.md` | Setup guide |
 
-## Tips
+## Local testing
 
-- Chip time is preferred for pace when both gun and chip are set.  
-- Entering a finish time auto-sets status to **Completed** (unless DNS/DNF).  
-- Demo data appears on first launch — replace with your group.  
-- Export a backup before big imports or when switching rooms.  
+Fill `config.js`, then open `index.html` in a browser (or use a static server).

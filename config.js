@@ -1,13 +1,11 @@
 /**
- * Optional static config for shared online mode.
- * You can leave these empty and paste keys in the app under "Shared online".
+ * PacePack — required for the online app
  *
- * How to get values:
- * 1. Create a free project at https://supabase.com
- * 2. Project Settings → API → Project URL + anon public key
- * 3. Run supabase-schema.sql in the SQL Editor
+ * Auth: Authentication → Providers → Email ON
+ *       Confirm email OFF (recommended for a club)
+ * Schema: run supabase-schema.sql in SQL Editor
  */
 window.PACEPACK_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: "",
+  supabaseUrl: "https://pzpsjifvlrpmxojyfkyh.supabase.co",
+  supabaseAnonKey: "sb_publishable_Oln222ZepjMBoW50oKmZaw_q32jW7ak",
 };

@@ -1068,3 +1068,245 @@ button {
 .modal.wide {
   width: min(640px, 100%);
 }
+
+/* Boot / auth screens */
+.boot-screen,
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.boot-screen[hidden],
+.auth-screen[hidden],
+#app-shell[hidden] {
+  display: none !important;
+}
+
+.boot-card {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.boot-logo {
+  margin: 0 auto 1rem;
+  width: 52px;
+  height: 52px;
+}
+
+.auth-card {
+  width: min(520px, 100%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.auth-card .auth-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--display);
+  font-size: 1.45rem;
+}
+
+.auth-sub {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.auth-brand {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.auth-brand h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.35rem;
+}
+
+.auth-brand p {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  background: var(--bg-elevated);
+  padding: 0.3rem;
+  border-radius: 12px;
+}
+
+.auth-tab {
+  padding: 0.6rem;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.auth-tab.active {
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.auth-error {
+  margin: 0.85rem 0 0;
+  color: var(--danger);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.auth-hint {
+  margin: 1rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.auth-hint code,
+.code-block {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.code-block {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem;
+  overflow: auto;
+  color: var(--teal);
+  margin: 1rem 0;
+}
+
+.onboard-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.onboard-panel h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--display);
+  font-size: 1.05rem;
+}
+
+.role-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0.35rem;
+  text-transform: capitalize;
+}
+
+.role-pill.admin {
+  color: var(--accent);
+  border-color: rgba(255, 107, 74, 0.35);
+  background: var(--accent-soft);
+}
+
+.role-pill.moderator {
+  color: var(--amber);
+  border-color: rgba(251, 191, 36, 0.35);
+  background: var(--amber-soft);
+}
+
+.role-pill.member {
+  color: var(--teal);
+  border-color: rgba(45, 212, 191, 0.3);
+  background: var(--teal-soft);
+}
+
+.role-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.live-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--teal);
+  font-weight: 600;
+  margin: -0.75rem 0 1.15rem;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+  animation: pulse 1.6s ease infinite;
+}
+
+.sidebar-user {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+.user-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-code-big {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-align: center;
+  padding: 0.9rem;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--teal);
+  margin: 0.5rem 0 0.85rem;
+  user-select: all;
+}
+
+.badge-role-admin { background: var(--accent-soft); color: var(--accent); }
+.badge-role-moderator { background: var(--amber-soft); color: var(--amber); }
+.badge-role-member { background: var(--teal-soft); color: var(--teal); }
+
+@media (min-width: 720px) {
+  .onboard-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  #onboard-screen .auth-card {
+    width: min(760px, 100%);
+  }
+}
