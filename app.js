@@ -465,18 +465,6 @@ async function signIn(email, password) {
   if (error) throw error;
 }
 
-async function signUp(email, password, displayName) {
-  const { data, error } = await sb.auth.signUp({
-    email,
-    password,
-    options: { data: { display_name: displayName } },
-  });
-  if (error) throw error;
-  if (data.user && !data.session) {
-    throw new Error("Check your email to confirm the account, or disable email confirmation in Supabase Auth settings.");
-  }
-}
-
 async function signOut() {
   unsubscribeAll();
   await sb.auth.signOut();
@@ -1506,17 +1494,6 @@ function confirmDeleteRegistration(id) {
 // ─── Wire UI ─────────────────────────────────────────────────────────────────
 
 function wireAuthUi() {
-  document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll("[data-auth-tab]").forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
-      const mode = tab.dataset.authTab;
-      document.getElementById("form-signin").hidden = mode !== "signin";
-      document.getElementById("form-signup").hidden = mode !== "signup";
-      document.getElementById("auth-error").hidden = true;
-    });
-  });
-
   document.getElementById("form-signin").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errEl = document.getElementById("auth-error");
@@ -1526,23 +1503,6 @@ function wireAuthUi() {
         document.getElementById("signin-email").value.trim(),
         document.getElementById("signin-password").value
       );
-    } catch (err) {
-      errEl.textContent = errMsg(err);
-      errEl.hidden = false;
-    }
-  });
-
-  document.getElementById("form-signup").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById("auth-error");
-    errEl.hidden = true;
-    try {
-      await signUp(
-        document.getElementById("signup-email").value.trim(),
-        document.getElementById("signup-password").value,
-        document.getElementById("signup-name").value.trim()
-      );
-      toast("Account created");
     } catch (err) {
       errEl.textContent = errMsg(err);
       errEl.hidden = false;

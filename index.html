@@ -45,7 +45,6 @@
 
       <div class="auth-tabs">
         <button type="button" class="auth-tab active" data-auth-tab="signin">Sign in</button>
-        <button type="button" class="auth-tab" data-auth-tab="signup">Create account</button>
       </div>
 
       <form id="form-signin" class="form-grid auth-form">
@@ -60,24 +59,8 @@
         <button class="btn btn-primary btn-block" type="submit">Sign in</button>
       </form>
 
-      <form id="form-signup" class="form-grid auth-form" hidden>
-        <div class="field">
-          <label for="signup-name">Display name</label>
-          <input class="input" id="signup-name" type="text" required autocomplete="name" placeholder="Your name" />
-        </div>
-        <div class="field">
-          <label for="signup-email">Email</label>
-          <input class="input" id="signup-email" type="email" required autocomplete="email" />
-        </div>
-        <div class="field">
-          <label for="signup-password">Password (min 6 characters)</label>
-          <input class="input" id="signup-password" type="password" required minlength="6" autocomplete="new-password" />
-        </div>
-        <button class="btn btn-primary btn-block" type="submit">Create account</button>
-      </form>
-
       <p class="auth-error" id="auth-error" hidden></p>
-      <p class="auth-hint">After signing in you can create a group (Admin) or join with an invite code (Member).</p>
+      <p class="auth-hint">Accounts are created by an admin. After signing in, your admin can add you to a group.</p>
     </div>
   </div>
 
