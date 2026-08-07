@@ -1494,51 +1494,63 @@ function confirmDeleteRegistration(id) {
 // ─── Wire UI ─────────────────────────────────────────────────────────────────
 
 function wireAuthUi() {
-  document.getElementById("form-signin").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById("auth-error");
-    errEl.hidden = true;
-    try {
-      await signIn(
-        document.getElementById("signin-email").value.trim(),
-        document.getElementById("signin-password").value
-      );
-    } catch (err) {
-      errEl.textContent = errMsg(err);
-      errEl.hidden = false;
-    }
-  });
+  const signinForm = document.getElementById("form-signin");
+  if (signinForm) {
+    signinForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("auth-error");
+      errEl.hidden = true;
+      try {
+        await signIn(
+          document.getElementById("signin-email").value.trim(),
+          document.getElementById("signin-password").value
+        );
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      }
+    });
+  }
 
-  document.getElementById("form-create-group").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById("onboard-error");
-    errEl.hidden = true;
-    try {
-      await createGroup(document.getElementById("group-name").value.trim());
-      await enterApp();
-      toast("Group created — share your invite code from Team & access");
-    } catch (err) {
-      errEl.textContent = errMsg(err);
-      errEl.hidden = false;
-    }
-  });
+  const createGroupForm = document.getElementById("form-create-group");
+  if (createGroupForm) {
+    createGroupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("onboard-error");
+      errEl.hidden = true;
+      try {
+        await createGroup(document.getElementById("group-name").value.trim());
+        await enterApp();
+        toast("Group created — share your invite code from Team & access");
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      }
+    });
+  }
 
-  document.getElementById("form-join-group").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById("onboard-error");
-    errEl.hidden = true;
-    try {
-      await joinGroup(document.getElementById("invite-code").value.trim());
-      await enterApp();
-      toast("Joined group");
-    } catch (err) {
-      errEl.textContent = errMsg(err);
-      errEl.hidden = false;
-    }
-  });
+  const joinGroupForm = document.getElementById("form-join-group");
+  if (joinGroupForm) {
+    joinGroupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("onboard-error");
+      errEl.hidden = true;
+      try {
+        await joinGroup(document.getElementById("invite-code").value.trim());
+        await enterApp();
+        toast("Joined group");
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      }
+    });
+  }
 
-  document.getElementById("btn-signout").onclick = () => signOut();
-  document.getElementById("btn-signout-onboard").onclick = () => signOut();
+  const signoutButton = document.getElementById("btn-signout");
+  if (signoutButton) signoutButton.onclick = () => signOut();
+
+  const onboardSignoutButton = document.getElementById("btn-signout-onboard");
+  if (onboardSignoutButton) onboardSignoutButton.onclick = () => signOut();
 }
 
 function wireAppUi() {
@@ -1546,9 +1558,12 @@ function wireAppUi() {
     btn.addEventListener("click", () => setView(btn.dataset.view));
   });
   document.getElementById("modal-close").onclick = closeModal;
-  document.getElementById("modal-backdrop").addEventListener("click", (e) => {
-    if (e.target.id === "modal-backdrop") closeModal();
-  });
+  const modalBackdrop = document.getElementById("modal-backdrop");
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener("click", (e) => {
+      if (e.target.id === "modal-backdrop") closeModal();
+    });
+  }
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !document.getElementById("modal-backdrop").hidden) closeModal();
   });
