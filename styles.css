@@ -1,33 +1,33 @@
 :root {
-  --bg: #0b1220;
-  --bg-elevated: #121a2b;
-  --bg-panel: #151f33;
-  --bg-hover: #1c2740;
-  --border: rgba(148, 163, 184, 0.14);
-  --border-strong: rgba(148, 163, 184, 0.28);
-  --text: #e8eef9;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  --accent: #ff6b4a;
-  --accent-soft: rgba(255, 107, 74, 0.14);
-  --accent-hover: #ff8266;
-  --teal: #2dd4bf;
-  --teal-soft: rgba(45, 212, 191, 0.12);
-  --blue: #60a5fa;
-  --blue-soft: rgba(96, 165, 250, 0.14);
-  --amber: #fbbf24;
-  --amber-soft: rgba(251, 191, 36, 0.14);
-  --green: #4ade80;
-  --green-soft: rgba(74, 222, 128, 0.14);
-  --purple: #c084fc;
-  --purple-soft: rgba(192, 132, 252, 0.14);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.14);
+  --bg: #EEE8E8;
+  --bg-elevated: #F4ECEC;
+  --bg-panel: #D9D0D1;
+  --bg-hover: #E6D9DA;
+  --border: rgba(48, 48, 50, 0.16);
+  --border-strong: rgba(48, 48, 50, 0.25);
+  --text: #151515;
+  --text-muted: #303032;
+  --text-dim: #6f6768;
+  --accent: #BDAFAE;
+  --accent-soft: rgba(189, 175, 174, 0.22);
+  --accent-hover: #A99795;
+  --teal: #7f8d86;
+  --teal-soft: rgba(127, 141, 134, 0.16);
+  --blue: #8f9bb0;
+  --blue-soft: rgba(143, 155, 176, 0.16);
+  --amber: #9a7f5f;
+  --amber-soft: rgba(154, 127, 95, 0.16);
+  --green: #6f7d63;
+  --green-soft: rgba(111, 125, 99, 0.16);
+  --purple: #8c7d90;
+  --purple-soft: rgba(140, 125, 144, 0.16);
+  --danger: #8b5e5e;
+  --danger-soft: rgba(139, 94, 94, 0.16);
   --radius: 14px;
   --radius-sm: 10px;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-  --font: "DM Sans", system-ui, sans-serif;
-  --display: "Outfit", "DM Sans", system-ui, sans-serif;
+  --shadow: 0 18px 50px rgba(21, 21, 21, 0.12);
+  --font: "Bargain", "Georgia", serif;
+  --display: "Bargain", "Georgia", serif;
   --sidebar-w: 260px;
 }
 
@@ -48,9 +48,9 @@ html, body {
 
 body {
   background-image:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(255, 107, 74, 0.12), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(45, 212, 191, 0.08), transparent 45%),
-    radial-gradient(ellipse 50% 30% at 50% 100%, rgba(96, 165, 250, 0.06), transparent 50%);
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(189, 175, 174, 0.18), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(217, 208, 209, 0.25), transparent 45%),
+    radial-gradient(ellipse 50% 30% at 50% 100%, rgba(48, 48, 50, 0.07), transparent 50%);
   background-attachment: fixed;
 }
 
@@ -78,7 +78,7 @@ button {
   height: 100vh;
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border);
-  background: rgba(11, 18, 32, 0.85);
+  background: rgba(238, 232, 232, 0.9);
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
@@ -98,9 +98,9 @@ button {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, var(--accent), #ff8f4a);
+  background: linear-gradient(135deg, var(--accent), #a99795);
   color: white;
-  box-shadow: 0 8px 24px rgba(255, 107, 74, 0.3);
+  box-shadow: 0 8px 24px rgba(189, 175, 174, 0.3);
 }
 
 .brand-mark svg {
@@ -234,13 +234,13 @@ button {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), #ff8f4a);
+  background: linear-gradient(135deg, var(--accent), #a99795);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(255, 107, 74, 0.28);
+  box-shadow: 0 6px 18px rgba(189, 175, 174, 0.28);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--accent-hover), #ff9d62);
+  background: linear-gradient(135deg, var(--accent-hover), #b7a8a6);
 }
 
 .btn-secondary {
@@ -486,7 +486,7 @@ button {
 }
 
 .search:focus, .select:focus, .input:focus, .textarea:focus {
-  border-color: rgba(255, 107, 74, 0.5);
+  border-color: rgba(189, 175, 174, 0.5);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -1220,7 +1220,7 @@ button {
 
 .role-pill.admin {
   color: var(--accent);
-  border-color: rgba(255, 107, 74, 0.35);
+  border-color: rgba(189, 175, 174, 0.35);
   background: var(--accent-soft);
 }
 
