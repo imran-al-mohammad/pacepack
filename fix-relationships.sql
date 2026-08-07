@@ -14,8 +14,11 @@ create table if not exists public.groups (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   invite_code text not null unique,
+  logo_url text default '',
   created_at timestamptz not null default now()
 );
+
+alter table public.groups add column if not exists logo_url text default '';
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -27,6 +30,8 @@ create table if not exists public.profiles (
 -- Optional columns used by admin user-creation / full schema
 alter table public.profiles add column if not exists group_id uuid;
 alter table public.profiles add column if not exists user_type text default 'member';
+alter table public.profiles add column if not exists profile_picture_url text default '';
+alter table public.profiles add column if not exists must_change_password boolean default false;
 
 create table if not exists public.group_memberships (
   id uuid primary key default gen_random_uuid(),
@@ -44,6 +49,7 @@ create table if not exists public.runners (
   email text default '',
   phone text default '',
   image_url text default '',
+  user_id uuid,
   notes text default '',
   created_by uuid,
   created_at timestamptz not null default now(),
@@ -51,12 +57,14 @@ create table if not exists public.runners (
 );
 
 alter table public.runners add column if not exists image_url text default '';
+alter table public.runners add column if not exists user_id uuid;
 
 create table if not exists public.marathons (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null,
   name text not null,
   race_date date not null,
+  race_time text default '09:00',
   location text default '',
   image_url text default '',
   distance text default 'Marathon',
@@ -67,6 +75,7 @@ create table if not exists public.marathons (
 );
 
 alter table public.marathons add column if not exists image_url text default '';
+alter table public.marathons add column if not exists race_time text default '09:00';
 
 create table if not exists public.registrations (
   id uuid primary key default gen_random_uuid(),

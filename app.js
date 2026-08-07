@@ -33,13 +33,21 @@ const AVATAR_COLORS = [
 const VIEW_META = {
   dashboard: { title: "Dashboard", desc: "Live overview of races and results" },
   marathons: { title: "Marathons", desc: "Races the group is tracking" },
-  members: { title: "Runners", desc: "People in the running roster" },
-  registrations: { title: "Registrations", desc: "Who signed up for which race" },
-  results: { title: "Results & times", desc: "Finish times, pace, places, and PRs" },
+  members: { title: "Runners", desc: "People in the running roster (one per app member)" },
+  registrations: { title: "Registrations", desc: "Who is signed up for which race" },
+  results: { title: "Results & times", desc: "Finish times for registered runners only" },
   team: { title: "Team & access", desc: "Create users, invite codes, roles, and permissions" },
+  profile: { title: "My profile", desc: "Photo, display name, and password" },
 };
 
 const ROLE_RANK = { member: 1, moderator: 2, admin: 3 };
+
+const DEFAULT_BRAND_SVG = `
+  <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+    <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
 
 // ─── App state ───────────────────────────────────────────────────────────────
 
@@ -59,6 +67,9 @@ let state = {
 let currentView = "dashboard";
 let channels = [];
 let suppressToast = false;
+let raceTimerId = null;
+let selectedWhosRunningMarathonId = null;
+const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 
 // ─── Config / client ─────────────────────────────────────────────────────────
 
@@ -125,13 +136,50 @@ function formatDate(iso) {
   });
 }
 
-function isPast(iso) {
-  return String(iso).slice(0, 10) < todayISO();
+/** Normalize race_time to HH:MM:SS for local Date parsing (default 09:00). */
+function normalizeRaceTime(t) {
+  const raw = String(t || "").trim();
+  const m = raw.match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/);
+  if (!m) return "09:00:00";
+  const h = String(Math.min(23, Number(m[1]))).padStart(2, "0");
+  const min = m[2];
+  const sec = m[3] || "00";
+  return `${h}:${min}:${sec}`;
 }
 
-function daysUntil(iso) {
+function formatRaceTime(t) {
+  return normalizeRaceTime(t).slice(0, 5);
+}
+
+function formatRaceDateTime(marathon) {
+  if (!marathon?.race_date) return "—";
+  return `${formatDate(marathon.race_date)} · ${formatRaceTime(marathon.race_time)}`;
+}
+
+/**
+ * True if a race has already started.
+ * Accepts a marathon object (uses race_date + race_time) or a date string (date-only).
+ */
+function isPast(isoOrMarathon) {
+  if (isoOrMarathon && typeof isoOrMarathon === "object") {
+    const target = nextRaceTargetDate(isoOrMarathon);
+    return !target || target.getTime() <= Date.now();
+  }
+  return String(isoOrMarathon || "").slice(0, 10) < todayISO();
+}
+
+function daysUntil(isoOrMarathon) {
+  if (isoOrMarathon && typeof isoOrMarathon === "object") {
+    const target = nextRaceTargetDate(isoOrMarathon);
+    if (!target) return 0;
+    const a = new Date();
+    a.setHours(0, 0, 0, 0);
+    const b = new Date(target);
+    b.setHours(0, 0, 0, 0);
+    return Math.round((b - a) / 86400000);
+  }
   const a = new Date(todayISO() + "T12:00:00");
-  const b = new Date(String(iso).slice(0, 10) + "T12:00:00");
+  const b = new Date(String(isoOrMarathon).slice(0, 10) + "T12:00:00");
   return Math.round((b - a) / 86400000);
 }
 
@@ -237,6 +285,15 @@ function getRunner(id) {
   return state.runners.find((r) => r.id === id);
 }
 
+function getRunnerForUser(userId) {
+  if (!userId) return null;
+  return state.runners.find((r) => r.user_id === userId) || null;
+}
+
+function profileImageUrl(p) {
+  return (p?.profile_picture_url || p?.image_url || "").trim();
+}
+
 function getMarathon(id) {
   return state.marathons.find((m) => m.id === id);
 }
@@ -262,7 +319,12 @@ function roleBadge(role) {
 }
 
 function sortMarathons(list) {
-  return [...list].sort((a, b) => String(a.race_date).localeCompare(String(b.race_date)) || a.name.localeCompare(b.name));
+  return [...list].sort((a, b) => {
+    const ta = nextRaceTargetDate(a)?.getTime() ?? 0;
+    const tb = nextRaceTargetDate(b)?.getTime() ?? 0;
+    if (ta !== tb) return ta - tb;
+    return (a.name || "").localeCompare(b.name || "");
+  });
 }
 
 function sortRunners(list) {
@@ -313,7 +375,34 @@ function showScreen(name) {
   document.getElementById("config-screen").hidden = name !== "config";
   document.getElementById("auth-screen").hidden = name !== "auth";
   document.getElementById("onboard-screen").hidden = name !== "onboard";
+  const passwordGate = document.getElementById("password-gate-screen");
+  if (passwordGate) passwordGate.hidden = name !== "password-gate";
   document.getElementById("app-shell").hidden = name !== "app";
+}
+
+function mustChangePassword() {
+  const meta = session?.user?.user_metadata?.must_change_password;
+  const prof = profile?.must_change_password;
+  return meta === true || meta === "true" || prof === true;
+}
+
+function brandLogoHtml(url) {
+  const src = (url || "").trim();
+  if (src) {
+    return `<img class="brand-logo-img" src="${escapeHtml(src)}" alt="" />`;
+  }
+  return DEFAULT_BRAND_SVG;
+}
+
+function applyBrandLogo() {
+  const url = group?.logo_url || "";
+  document.querySelectorAll("[data-brand-logo]").forEach((el) => {
+    el.innerHTML = brandLogoHtml(url);
+  });
+  const preview = document.querySelector("[data-brand-logo-preview]");
+  if (preview) preview.innerHTML = brandLogoHtml(url);
+  const title = document.getElementById("brand-title");
+  if (title) title.textContent = group?.name || "Impulsive Runners";
 }
 
 function setBoot(msg) {
@@ -366,11 +455,13 @@ async function loadMembership() {
     return false;
   }
 
-  const { data: g, error: gErr } = await sb
+  let g = null;
+  let gErr = null;
+  ({ data: g, error: gErr } = await sb
     .from("groups")
-    .select("id, name, invite_code, created_at")
+    .select("*")
     .eq("id", membership.group_id)
-    .maybeSingle();
+    .maybeSingle());
   if (gErr) throw gErr;
   if (!g) {
     // Membership row exists but group missing / blocked by RLS
@@ -416,7 +507,7 @@ async function loadGroupData() {
   if (userIds.length) {
     const { data: profiles, error: pErr } = await sb
       .from("profiles")
-      .select("id, display_name, email")
+      .select("id, display_name, email, profile_picture_url")
       .in("id", userIds);
     if (pErr) {
       // Non-fatal: still show team without names
@@ -436,8 +527,12 @@ async function loadGroupData() {
     profile: profileMap[row.user_id] || {
       display_name: row.user_id === session.user.id ? (profile?.display_name || "You") : "User",
       email: row.user_id === session.user.id ? (session.user.email || "") : "",
+      profile_picture_url: row.user_id === session.user.id ? (profile?.profile_picture_url || "") : "",
     },
   }));
+
+  // Each app member is also a runner on the roster
+  await ensureRunnersForTeamMembers();
 }
 
 function unsubscribeAll() {
@@ -501,6 +596,7 @@ async function signIn(email, password) {
 }
 
 async function signOut() {
+  stopRaceTimer();
   unsubscribeAll();
   await sb.auth.signOut();
   session = null;
@@ -509,7 +605,109 @@ async function signOut() {
   myRole = null;
   state = { marathons: [], runners: [], registrations: [] };
   team = [];
+  selectedWhosRunningMarathonId = null;
   showScreen("auth");
+}
+
+function isSidebarCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function setSidebarCollapsed(collapsed) {
+  const shell = document.getElementById("app-shell");
+  if (!shell) return;
+  shell.classList.toggle("sidebar-collapsed", !!collapsed);
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch (_) {
+    /* ignore */
+  }
+  document.querySelectorAll("#btn-sidebar-toggle, #btn-sidebar-toggle-mobile").forEach((btn) => {
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
+    const icon = btn.querySelector(".sidebar-toggle-icon");
+    if (icon) icon.textContent = collapsed ? "⟩" : "⟨";
+  });
+}
+
+function toggleSidebar() {
+  setSidebarCollapsed(!document.getElementById("app-shell")?.classList.contains("sidebar-collapsed"));
+}
+
+function stopRaceTimer() {
+  if (raceTimerId) {
+    clearInterval(raceTimerId);
+    raceTimerId = null;
+  }
+}
+
+function nextRaceTargetDate(marathon) {
+  if (!marathon?.race_date) return null;
+  // Countdown to race start (date + race_time, default 09:00 local)
+  const date = String(marathon.race_date).slice(0, 10);
+  const time = normalizeRaceTime(marathon.race_time);
+  return new Date(`${date}T${time}`);
+}
+
+function formatCountdownParts(target) {
+  const now = Date.now();
+  let diff = Math.max(0, target.getTime() - now);
+  const days = Math.floor(diff / 86400000);
+  diff -= days * 86400000;
+  const hours = Math.floor(diff / 3600000);
+  diff -= hours * 3600000;
+  const mins = Math.floor(diff / 60000);
+  diff -= mins * 60000;
+  const secs = Math.floor(diff / 1000);
+  return { days, hours, mins, secs, done: target.getTime() <= now };
+}
+
+function updateRaceTimerDisplay(marathon) {
+  const meta = document.getElementById("next-race-meta");
+  const panel = document.getElementById("next-race-panel");
+  if (!meta || !panel) return;
+
+  if (!marathon) {
+    meta.textContent = "No upcoming races scheduled";
+    panel.classList.add("next-race-empty");
+    ["days", "hours", "mins", "secs"].forEach((u) => {
+      const el = panel.querySelector(`[data-unit="${u}"]`);
+      if (el) el.textContent = "0";
+    });
+    return;
+  }
+
+  panel.classList.remove("next-race-empty");
+  const target = nextRaceTargetDate(marathon);
+  const parts = formatCountdownParts(target);
+  const count = regsForMarathon(marathon.id).length;
+  if (parts.done) {
+    meta.textContent = `${marathon.name} · ${formatRaceDateTime(marathon)} · started · ${count} signed up`;
+  } else {
+    meta.textContent = `${marathon.name} · ${formatRaceDateTime(marathon)} · ${marathon.location || "TBD"} · ${count} signed up`;
+  }
+  const map = { days: parts.days, hours: parts.hours, mins: parts.mins, secs: parts.secs };
+  Object.entries(map).forEach(([u, v]) => {
+    const el = panel.querySelector(`[data-unit="${u}"]`);
+    if (el) el.textContent = String(v);
+  });
+}
+
+function startRaceTimer() {
+  stopRaceTimer();
+  const upcoming = sortMarathons(state.marathons.filter((m) => !isPast(m)));
+  const next = upcoming[0] || null;
+  updateRaceTimerDisplay(next);
+  if (!next) return;
+  raceTimerId = setInterval(() => {
+    if (currentView !== "dashboard") return;
+    const still = sortMarathons(state.marathons.filter((m) => !isPast(m)))[0] || null;
+    updateRaceTimerDisplay(still);
+  }, 1000);
 }
 
 async function createGroup(name) {
@@ -577,7 +775,12 @@ async function adminCreateUser({ email, password, displayName, role }) {
   const { data, error } = await temp.auth.signUp({
     email: mail,
     password: pass,
-    options: { data: { display_name: name } },
+    options: {
+      data: {
+        display_name: name,
+        must_change_password: true,
+      },
+    },
   });
   if (error) throw error;
   if (!data.user?.id) {
@@ -614,24 +817,176 @@ async function adminCreateUser({ email, password, displayName, role }) {
   try {
     await sb
       .from("profiles")
-      .update({ display_name: name, email: mail })
+      .update({
+        display_name: name,
+        email: mail,
+        must_change_password: true,
+      })
       .eq("id", data.user.id);
   } catch (_) {
     /* ignore */
   }
+
+  // Each team member is also a runner on the race roster
+  try {
+    await createRunnerForMember({
+      userId: data.user.id,
+      name,
+      email: mail,
+      imageUrl: "",
+    });
+  } catch (runnerErr) {
+    console.warn("runner create:", runnerErr);
+  }
+}
+
+/**
+ * Ensure a runners row exists for an app member (linked via user_id when available).
+ * Returns true if a new runner was created.
+ */
+async function createRunnerForMember({ userId, name, email, imageUrl }) {
+  if (!group?.id) return false;
+  const displayName = (name || email || "Runner").trim() || "Runner";
+  const mail = (email || "").trim();
+  const photo = (imageUrl || "").trim();
+
+  const existing =
+    (userId && state.runners.find((r) => r.user_id === userId)) ||
+    (mail && state.runners.find((r) => (r.email || "").toLowerCase() === mail.toLowerCase())) ||
+    null;
+
+  if (existing) {
+    const patch = {};
+    if (userId && !existing.user_id) patch.user_id = userId;
+    if (displayName && existing.name !== displayName) patch.name = displayName;
+    if (mail && existing.email !== mail) patch.email = mail;
+    if (photo && existing.image_url !== photo) patch.image_url = photo;
+    if (Object.keys(patch).length) {
+      const { error } = await sb.from("runners").update(patch).eq("id", existing.id);
+      if (!error) Object.assign(existing, patch);
+    }
+    return false;
+  }
+
+  const row = {
+    group_id: group.id,
+    name: displayName,
+    email: mail,
+    image_url: photo,
+    notes: "",
+    created_by: session?.user?.id || null,
+  };
+  if (userId) row.user_id = userId;
+
+  let { data, error } = await sb.from("runners").insert(row).select().single();
+  if (error && userId && /user_id|column/i.test(error.message || "")) {
+    delete row.user_id;
+    ({ data, error } = await sb.from("runners").insert(row).select().single());
+  }
+  if (error) throw error;
+  if (data) state.runners.push(data);
+  return true;
+}
+
+async function ensureRunnersForTeamMembers() {
+  if (!group?.id || !team.length) return;
+  let created = false;
+  for (const m of team) {
+    try {
+      const did = await createRunnerForMember({
+        userId: m.user_id,
+        name: m.profile?.display_name,
+        email: m.profile?.email,
+        imageUrl: profileImageUrl(m.profile),
+      });
+      if (did) created = true;
+    } catch (e) {
+      console.warn("ensure runner for member:", m.user_id, e);
+    }
+  }
+  if (created) {
+    const { data, error } = await sb
+      .from("runners")
+      .select("*")
+      .eq("group_id", group.id)
+      .order("name");
+    if (!error && data) state.runners = data;
+  }
 }
 
 async function enterApp() {
+  if (mustChangePassword()) {
+    showScreen("password-gate");
+    return;
+  }
   setBoot("Loading group data…");
   await loadGroupData();
   subscribeRealtime();
   showScreen("app");
-  document.getElementById("live-banner").hidden = false;
   document.getElementById("group-name-label").textContent = group.name;
-  document.getElementById("user-display").textContent =
-    profile?.display_name || session.user.email || "User";
+  applyBrandLogo();
+  updateUserChrome();
   updateRolePill();
+  setSidebarCollapsed(isSidebarCollapsed());
   setView("dashboard");
+}
+
+async function completePasswordGate(newPassword) {
+  const { error } = await sb.auth.updateUser({
+    password: newPassword,
+    data: { must_change_password: false },
+  });
+  if (error) throw error;
+
+  try {
+    await sb
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", session.user.id);
+  } catch (_) {
+    /* column may not exist yet */
+  }
+
+  // Refresh session metadata
+  const { data } = await sb.auth.getSession();
+  session = data.session || session;
+  if (profile) profile.must_change_password = false;
+  await loadProfile().catch(() => {});
+  await enterApp();
+}
+
+async function saveGroupLogo(url) {
+  if (!canManageRoles()) throw new Error("Only admins can change the logo");
+  if (!group?.id) throw new Error("No group loaded");
+  const logo_url = (url || "").trim();
+  const { data, error } = await sb
+    .from("groups")
+    .update({ logo_url })
+    .eq("id", group.id)
+    .select("*")
+    .maybeSingle();
+  if (error) {
+    if (/logo_url|column/i.test(error.message || "")) {
+      throw new Error("Run SQL to add groups.logo_url (see add-image-url-columns.sql), then try again.");
+    }
+    throw error;
+  }
+  group = data || { ...group, logo_url };
+  applyBrandLogo();
+}
+
+function updateUserChrome() {
+  const name = profile?.display_name || session?.user?.email || "User";
+  const display = document.getElementById("user-display");
+  if (display) display.textContent = name;
+  const slot = document.getElementById("user-avatar-slot");
+  if (slot) {
+    slot.innerHTML = renderProfileAvatar(
+      { image_url: profileImageUrl(profile) },
+      name,
+      session?.user?.id
+    );
+  }
 }
 
 function updateRolePill() {
@@ -682,6 +1037,7 @@ function setView(view) {
   const meta = VIEW_META[view];
   document.getElementById("view-title").textContent = meta.title;
   document.getElementById("view-desc").textContent = meta.desc;
+  if (view !== "dashboard") stopRaceTimer();
   renderTopbarActions();
   render();
 }
@@ -703,13 +1059,13 @@ function renderTopbarActions() {
     document.getElementById("btn-add-reg").onclick = () => openRegistrationForm();
   } else if (currentView === "results") {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-result">+ Enter result</button>`;
-    document.getElementById("btn-add-result").onclick = () => openRegistrationForm(null, { preferResult: true });
+    document.getElementById("btn-add-result").onclick = () => openResultForm();
   } else if (currentView === "dashboard") {
     el.innerHTML = `
       <button class="btn btn-secondary" id="btn-dash-result">+ Result</button>
       <button class="btn btn-primary" id="btn-dash-marathon">+ Marathon</button>
     `;
-    document.getElementById("btn-dash-result").onclick = () => openRegistrationForm(null, { preferResult: true });
+    document.getElementById("btn-dash-result").onclick = () => openResultForm();
     document.getElementById("btn-dash-marathon").onclick = () => openMarathonForm();
   } else {
     el.innerHTML = "";
@@ -721,6 +1077,7 @@ function renderTopbarActions() {
 function render() {
   if (document.getElementById("app-shell").hidden) return;
   document.getElementById("group-name-label").textContent = group?.name || "Group";
+  applyBrandLogo();
   updateRolePill();
   if (currentView === "dashboard") renderDashboard();
   if (currentView === "marathons") renderMarathons();
@@ -728,14 +1085,98 @@ function render() {
   if (currentView === "registrations") renderRegistrations();
   if (currentView === "results") renderResults();
   if (currentView === "team") renderTeam();
+  if (currentView === "profile") renderProfile();
+}
+
+function computeLeaderboard() {
+  const byRunner = new Map();
+  for (const r of state.registrations) {
+    const finished = r.status === "completed" || !!displayFinishTime(r);
+    if (!finished && !r.is_pr) continue;
+    const cur = byRunner.get(r.runner_id) || { runnerId: r.runner_id, finishes: 0, prs: 0, score: 0 };
+    if (finished) cur.finishes += 1;
+    if (r.is_pr) cur.prs += 1;
+    cur.score = cur.finishes + cur.prs * 2;
+    byRunner.set(r.runner_id, cur);
+  }
+  return [...byRunner.values()]
+    .map((row) => ({
+      ...row,
+      runner: getRunner(row.runnerId),
+      name: getRunner(row.runnerId)?.name || "Unknown",
+    }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || b.finishes - a.finishes || a.name.localeCompare(b.name));
+}
+
+function renderLeaderboardChart(entries) {
+  const chartEl = document.getElementById("leaderboard-chart");
+  const listEl = document.getElementById("leaderboard-list");
+  if (!chartEl || !listEl) return;
+
+  const top = entries.slice(0, 8);
+  if (!top.length) {
+    chartEl.innerHTML = `<div class="empty" style="border:none;padding:1rem 0.5rem"><strong>No leaderboard yet</strong>Log race results to rank runners.</div>`;
+    listEl.innerHTML = "";
+    return;
+  }
+
+  const max = Math.max(...top.map((e) => e.score), 1);
+  const barW = 36;
+  const gap = 18;
+  const padL = 28;
+  const padR = 16;
+  const padT = 24;
+  const padB = 48;
+  const chartH = 160;
+  const width = Math.max(280, padL + padR + top.length * (barW + gap) - gap);
+  const height = padT + chartH + padB;
+
+  const bars = top.map((e, i) => {
+    const h = Math.max(6, Math.round((e.score / max) * chartH));
+    const x = padL + i * (barW + gap);
+    const y = padT + chartH - h;
+    const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const label = e.name.length > 10 ? `${e.name.slice(0, 9)}…` : e.name;
+    return `
+      <g class="lb-bar-group">
+        <rect class="lb-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="8" fill="${color}" opacity="0.9">
+          <title>${escapeHtml(e.name)}: ${e.score} pts (${e.finishes} finishes, ${e.prs} PRs)</title>
+        </rect>
+        <text class="lb-value" x="${x + barW / 2}" y="${y - 8}" text-anchor="middle">${e.score}</text>
+        <text class="lb-label" x="${x + barW / 2}" y="${padT + chartH + 18}" text-anchor="middle">${escapeHtml(label)}</text>
+      </g>`;
+  }).join("");
+
+  chartEl.innerHTML = `
+    <div class="leaderboard-chart-scroll">
+      <svg class="leaderboard-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Runner leaderboard bar chart">
+        <line class="lb-axis" x1="${padL - 8}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" />
+        ${bars}
+      </svg>
+    </div>`;
+
+  listEl.innerHTML = `
+    <ol class="leaderboard-ranks">
+      ${top.map((e, i) => `
+        <li class="leaderboard-rank-item">
+          <span class="lb-rank">#${i + 1}</span>
+          <span class="lb-avatar">${renderProfileAvatar(e.runner, e.name, e.runnerId)}</span>
+          <span class="lb-name" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>
+          <span class="lb-meta">${e.finishes} finish${e.finishes === 1 ? "" : "es"} · ${e.prs} PR${e.prs === 1 ? "" : "s"}</span>
+          <span class="lb-score">${e.score}</span>
+        </li>`).join("")}
+    </ol>`;
 }
 
 function renderDashboard() {
-  const upcoming = sortMarathons(state.marathons.filter((m) => !isPast(m.race_date)));
-  const past = state.marathons.filter((m) => isPast(m.race_date));
+  const upcoming = sortMarathons(state.marathons.filter((m) => !isPast(m)));
+  const past = state.marathons.filter((m) => isPast(m));
   const registered = state.registrations.filter((r) => r.status === "registered").length;
   const completed = state.registrations.filter((r) => r.status === "completed").length;
   const withTimes = state.registrations.filter((r) => displayFinishTime(r)).length;
+
+  renderLeaderboardChart(computeLeaderboard());
 
   document.getElementById("stats-grid").innerHTML = `
     <div class="stat-card" style="--stat-color: var(--accent)">
@@ -766,13 +1207,13 @@ function renderDashboard() {
   } else {
     upcomingEl.innerHTML = upcoming.slice(0, 6).map((m) => {
       const count = regsForMarathon(m.id).length;
-      const days = daysUntil(m.race_date);
+      const days = daysUntil(m);
       const when = days === 0 ? "Today!" : days === 1 ? "Tomorrow" : `In ${days} days`;
       return `
         <div class="list-item">
           <div class="list-item-main">
             <p class="list-item-title">${escapeHtml(m.name)}</p>
-            <p class="list-item-sub">${formatDate(m.race_date)} · ${escapeHtml(m.location || "TBD")} · ${escapeHtml(m.distance)}</p>
+            <p class="list-item-sub">${formatRaceDateTime(m)} · ${escapeHtml(m.location || "TBD")} · ${escapeHtml(m.distance)}</p>
           </div>
           <div style="display:flex;gap:0.5rem;align-items:center">
             <span class="badge badge-count">${count} signed</span>
@@ -810,40 +1251,142 @@ function renderDashboard() {
     }).join("");
   }
 
-  renderMatrix();
+  startRaceTimer();
+  renderWhosRunningChart();
 }
 
-function renderMatrix() {
+/**
+ * Interactive bar chart: registration counts per race.
+ * Click a bar to list who is signed up for that race.
+ */
+function renderWhosRunningChart() {
   const wrap = document.getElementById("matrix-wrap");
-  const marathons = sortMarathons(state.marathons).slice(-8);
-  const runners = sortRunners(state.runners);
-  if (!marathons.length || !runners.length) {
-    wrap.innerHTML = `<div class="empty" style="border:none"><strong>Matrix needs data</strong>Add runners and marathons.</div>`;
+  if (!wrap) return;
+
+  const marathons = sortMarathons(state.marathons);
+  if (!marathons.length) {
+    wrap.innerHTML = `<div class="empty" style="border:none"><strong>No races yet</strong>Add marathons to see who's running what.</div>`;
     return;
   }
-  const head = marathons.map((m) =>
-    `<th title="${escapeHtml(m.name)}">${escapeHtml(m.name.length > 14 ? m.name.slice(0, 12) + "…" : m.name)}<br><span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">${escapeHtml(String(m.race_date).slice(5))}</span></th>`
-  ).join("");
-  const rows = runners.map((runner) => {
-    const cells = marathons.map((m) => {
-      const reg = state.registrations.find((r) => r.runner_id === runner.id && r.marathon_id === m.id);
-      if (!reg) return `<td><span class="matrix-dot"></span></td>`;
-      if (displayFinishTime(reg)) {
-        return `<td><span class="time-mono" style="font-size:0.78rem">${escapeHtml(displayFinishTime(reg))}</span></td>`;
-      }
-      return `<td>${statusBadge(reg.status)}</td>`;
-    }).join("");
-    return `<tr><td>${escapeHtml(runner.name)}</td>${cells}</tr>`;
+
+  const series = marathons.map((m, i) => {
+    const regs = regsForMarathon(m.id);
+    const byStatus = {};
+    regs.forEach((r) => {
+      byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+    });
+    return {
+      marathon: m,
+      count: regs.length,
+      byStatus,
+      color: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    };
+  });
+
+  if (selectedWhosRunningMarathonId && !series.some((s) => s.marathon.id === selectedWhosRunningMarathonId)) {
+    selectedWhosRunningMarathonId = null;
+  }
+  // Default select next upcoming race with signups, else first with count, else first
+  if (!selectedWhosRunningMarathonId) {
+    const upcoming = series.find((s) => !isPast(s.marathon) && s.count > 0)
+      || series.find((s) => s.count > 0)
+      || series[0];
+    selectedWhosRunningMarathonId = upcoming?.marathon.id || null;
+  }
+
+  const max = Math.max(...series.map((s) => s.count), 1);
+  const barW = 42;
+  const gap = 16;
+  const padL = 36;
+  const padR = 20;
+  const padT = 28;
+  const padB = 56;
+  const chartH = 170;
+  const width = Math.max(320, padL + padR + series.length * (barW + gap) - gap);
+  const height = padT + chartH + padB;
+
+  const bars = series.map((s, i) => {
+    const h = s.count === 0 ? 4 : Math.max(8, Math.round((s.count / max) * chartH));
+    const x = padL + i * (barW + gap);
+    const y = padT + chartH - h;
+    const selected = s.marathon.id === selectedWhosRunningMarathonId;
+    const label = s.marathon.name.length > 11 ? `${s.marathon.name.slice(0, 10)}…` : s.marathon.name;
+    const dateShort = String(s.marathon.race_date).slice(5);
+    return `
+      <g class="wr-bar-group${selected ? " is-selected" : ""}" data-marathon-id="${s.marathon.id}" role="button" tabindex="0" style="cursor:pointer">
+        <rect class="wr-bar-hit" x="${x - 6}" y="${padT}" width="${barW + 12}" height="${chartH + padB - 8}" fill="transparent"></rect>
+        <rect class="wr-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="9"
+          fill="${s.color}" opacity="${selected ? "1" : "0.72"}">
+          <title>${escapeHtml(s.marathon.name)} — ${s.count} signed up</title>
+        </rect>
+        <text class="wr-value" x="${x + barW / 2}" y="${y - 8}" text-anchor="middle">${s.count}</text>
+        <text class="wr-label" x="${x + barW / 2}" y="${padT + chartH + 18}" text-anchor="middle">${escapeHtml(label)}</text>
+        <text class="wr-date" x="${x + barW / 2}" y="${padT + chartH + 34}" text-anchor="middle">${escapeHtml(dateShort)}</text>
+      </g>`;
   }).join("");
-  wrap.innerHTML = `<table class="data-table matrix-table"><thead><tr><th>Runner</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+
+  const selected = series.find((s) => s.marathon.id === selectedWhosRunningMarathonId);
+  const selectedRegs = selected
+    ? regsForMarathon(selected.marathon.id).slice().sort((a, b) =>
+        (getRunner(a.runner_id)?.name || "").localeCompare(getRunner(b.runner_id)?.name || "")
+      )
+    : [];
+
+  const detail = selected
+    ? `
+      <div class="wr-detail">
+        <div class="wr-detail-head">
+          <h4 class="wr-detail-title">${escapeHtml(selected.marathon.name)}</h4>
+          <p class="panel-hint" style="margin:0">${formatRaceDateTime(selected.marathon)} · ${escapeHtml(selected.marathon.distance || "")} · ${selected.count} runner${selected.count === 1 ? "" : "s"}</p>
+        </div>
+        ${selectedRegs.length
+          ? `<ul class="wr-runner-list">
+              ${selectedRegs.map((r) => {
+                const runner = getRunner(r.runner_id);
+                const time = displayFinishTime(r);
+                return `<li class="wr-runner-item">
+                  ${renderProfileAvatar(runner, runner?.name || "?", r.runner_id)}
+                  <span class="wr-runner-name" title="${escapeHtml(runner?.name || "")}">${escapeHtml(runner?.name || "Unknown")}</span>
+                  ${statusBadge(r.status)}
+                  ${time ? `<span class="time-mono wr-runner-time">${escapeHtml(time)}</span>` : ""}
+                  ${r.is_pr ? `<span class="badge badge-pr">PR</span>` : ""}
+                </li>`;
+              }).join("")}
+            </ul>`
+          : `<div class="empty" style="border:none;padding:0.75rem 0"><strong>No one signed up yet</strong>Add registrations for this race.</div>`}
+      </div>`
+    : "";
+
+  wrap.innerHTML = `
+    <div class="leaderboard-chart-scroll">
+      <svg class="whos-running-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Registrations by race bar chart">
+        <line class="lb-axis" x1="${padL - 10}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" />
+        ${bars}
+      </svg>
+    </div>
+    ${detail}`;
+
+  wrap.querySelectorAll("[data-marathon-id]").forEach((g) => {
+    const pick = () => {
+      selectedWhosRunningMarathonId = g.getAttribute("data-marathon-id");
+      renderWhosRunningChart();
+    };
+    g.addEventListener("click", pick);
+    g.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        pick();
+      }
+    });
+  });
 }
 
 function renderMarathons() {
   const q = (document.getElementById("marathon-search")?.value || "").trim().toLowerCase();
   const filter = document.getElementById("marathon-filter-status")?.value || "all";
   let list = sortMarathons(state.marathons);
-  if (filter === "upcoming") list = list.filter((m) => !isPast(m.race_date));
-  if (filter === "past") list = list.filter((m) => isPast(m.race_date));
+  if (filter === "upcoming") list = list.filter((m) => !isPast(m));
+  if (filter === "past") list = list.filter((m) => isPast(m));
   if (q) {
     list = list.filter((m) =>
       [m.name, m.location, m.distance, m.notes].join(" ").toLowerCase().includes(q)
@@ -870,7 +1413,7 @@ function renderMarathons() {
           <span class="badge badge-distance">${escapeHtml(m.distance)}</span>
         </div>
         <div class="card-meta">
-          <span>📅 ${formatDate(m.race_date)}${isPast(m.race_date) ? " · past" : ""}</span>
+          <span>📅 ${formatRaceDateTime(m)}${isPast(m) ? " · past" : ""}</span>
           <span>📍 ${escapeHtml(m.location || "TBD")}</span>
           ${best ? `<span>🏆 <span class="time-mono">${best}</span></span>` : ""}
         </div>
@@ -920,7 +1463,9 @@ function renderRunners() {
     const delBtn = canDelete()
       ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${m.id}">Delete</button>`
       : "";
-    const photo = (m.image_url || "").trim();
+    const linked = m.user_id ? team.find((t) => t.user_id === m.user_id) : null;
+    const photo = (m.image_url || profileImageUrl(linked?.profile) || "").trim();
+    const avatarSrc = { image_url: photo };
     return `
       <article class="card">
         ${photo ? `
@@ -928,7 +1473,7 @@ function renderRunners() {
           <img class="runner-image" src="${escapeHtml(photo)}" alt="${escapeHtml(m.name)}" />
         </div>` : ""}
         <div class="member-head"${photo ? ' style="margin-top:0.75rem"' : ""}>
-          ${renderProfileAvatar(m, m.name, m.id)}
+          ${renderProfileAvatar(avatarSrc, m.name, m.id)}
           <div>
             <h3 class="card-title">${escapeHtml(m.name)}</h3>
             <p class="member-contact">${escapeHtml(m.email || m.phone || "No contact")}</p>
@@ -987,14 +1532,12 @@ function renderRegistrations() {
 
   const tbody = document.getElementById("reg-tbody");
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty" style="border:none;margin:0.5rem"><strong>No registrations</strong></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty" style="border:none;margin:0.5rem"><strong>No registrations</strong></div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map((r) => {
     const runner = getRunner(r.runner_id);
     const marathon = getMarathon(r.marathon_id);
-    const time = displayFinishTime(r);
-    const pace = paceForRegistration(r, marathon);
     const delBtn = canDelete()
       ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${r.id}">Delete</button>`
       : "";
@@ -1004,9 +1547,8 @@ function renderRegistrations() {
         <td>${escapeHtml(marathon?.name || "Unknown")}</td>
         <td>${marathon ? formatDate(marathon.race_date) : "—"}</td>
         <td>${statusBadge(r.status)}</td>
-        <td class="time-mono">${time ? escapeHtml(time) : "—"}${r.is_pr ? ' <span class="badge badge-pr">PR</span>' : ""}</td>
-        <td>${pace ? escapeHtml(pace.perKm) + "/km" : "—"}</td>
-        <td>${r.bib ? `<strong>#${escapeHtml(r.bib)}</strong>` : ""}${r.bib && r.notes ? " · " : ""}${escapeHtml(r.notes || (r.bib ? "" : "—"))}</td>
+        <td>${r.bib ? `<strong>#${escapeHtml(r.bib)}</strong>` : "—"}</td>
+        <td>${escapeHtml(r.notes || "—")}</td>
         <td><div class="actions">
           ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}
           ${delBtn}
@@ -1127,8 +1669,30 @@ function renderResults() {
   }).join("");
 
   tbody.querySelectorAll("[data-action=edit]").forEach((btn) => {
-    btn.addEventListener("click", () => openRegistrationForm(btn.dataset.id));
+    btn.addEventListener("click", () => openResultForm(btn.dataset.id));
   });
+}
+
+function renderProfile() {
+  if (!profile && !session) return;
+  const name = profile?.display_name || session.user.user_metadata?.display_name || "";
+  const email = profile?.email || session.user.email || "";
+  const image = profileImageUrl(profile);
+  document.getElementById("profile-name").value = name;
+  document.getElementById("profile-email").value = email;
+  document.getElementById("profile-image-url").value = image;
+  document.getElementById("profile-password").value = "";
+  document.getElementById("profile-password-confirm").value = "";
+  document.getElementById("profile-error").hidden = true;
+  const preview = document.getElementById("profile-preview");
+  if (preview) {
+    preview.innerHTML = `
+      ${renderProfileAvatar({ image_url: image }, name || "You", session.user.id)}
+      <div>
+        <p class="list-item-title" style="margin:0">${escapeHtml(name || "You")}</p>
+        <p class="panel-hint" style="margin:0.15rem 0 0">${escapeHtml(email)}</p>
+      </div>`;
+  }
 }
 
 function renderTeam() {
@@ -1158,6 +1722,19 @@ function renderTeam() {
   const createPanel = document.getElementById("create-user-panel");
   if (createPanel) {
     createPanel.hidden = !canCreateUsers();
+  }
+
+  const logoPanel = document.getElementById("logo-panel");
+  if (logoPanel) {
+    logoPanel.hidden = !canManageRoles();
+    if (canManageRoles()) {
+      const logoInput = document.getElementById("group-logo-url");
+      if (logoInput && document.activeElement !== logoInput) {
+        logoInput.value = group?.logo_url || "";
+      }
+      const preview = document.querySelector("[data-brand-logo-preview]");
+      if (preview) preview.innerHTML = brandLogoHtml(logoInput?.value || group?.logo_url || "");
+    }
   }
 
   const tbody = document.getElementById("team-tbody");
@@ -1252,9 +1829,14 @@ function openMarathonForm(id) {
             <input class="input" type="date" id="m-date" required value="${escapeHtml(existing?.race_date || "")}" />
           </div>
           <div class="field">
-            <label for="m-distance">Distance</label>
-            <select class="select full" id="m-distance">${distanceOptions}</select>
+            <label for="m-time">Start time *</label>
+            <input class="input" type="time" id="m-time" required value="${escapeHtml(formatRaceTime(existing?.race_time || "09:00"))}" />
+            <p class="panel-hint" style="margin:0.35rem 0 0">Countdown on the dashboard targets this time.</p>
           </div>
+        </div>
+        <div class="field">
+          <label for="m-distance">Distance</label>
+          <select class="select full" id="m-distance">${distanceOptions}</select>
         </div>
         <div class="field">
           <label for="m-location">Location</label>
@@ -1275,10 +1857,12 @@ function openMarathonForm(id) {
     onMount() {
       document.getElementById("mf-cancel").onclick = closeModal;
       document.getElementById("mf-save").onclick = async () => {
+        const raceTimeRaw = document.getElementById("m-time").value.trim();
         const payload = {
           group_id: group.id,
           name: document.getElementById("m-name").value.trim(),
           race_date: document.getElementById("m-date").value,
+          race_time: formatRaceTime(raceTimeRaw || "09:00"),
           location: document.getElementById("m-location").value.trim(),
           image_url: document.getElementById("m-image-url").value.trim(),
           distance: document.getElementById("m-distance").value,
@@ -1286,13 +1870,24 @@ function openMarathonForm(id) {
           created_by: session.user.id,
         };
         if (!payload.name || !payload.race_date) return toast("Name and date required", "error");
+        if (!raceTimeRaw) return toast("Start time required", "error");
         try {
           if (existing) {
             const { error } = await sb.from("marathons").update(payload).eq("id", existing.id);
-            if (error) throw error;
+            if (error) {
+              if (/race_time|column/i.test(error.message || "")) {
+                throw new Error("Run SQL to add marathons.race_time (see add-image-url-columns.sql), then try again.");
+              }
+              throw error;
+            }
           } else {
             const { error } = await sb.from("marathons").insert(payload);
-            if (error) throw error;
+            if (error) {
+              if (/race_time|column/i.test(error.message || "")) {
+                throw new Error("Run SQL to add marathons.race_time (see add-image-url-columns.sql), then try again.");
+              }
+              throw error;
+            }
           }
           closeModal();
           toast("Marathon saved");
@@ -1432,7 +2027,12 @@ function openRegistrationForm(id, defaults = {}) {
   if (!state.marathons.length) return toast("Add a marathon first", "error");
 
   const existing = id ? state.registrations.find((r) => r.id === id) : null;
-  const defaultStatus = defaults.preferResult ? "completed" : existing?.status || "registered";
+  // Registration form: entry statuses only (results use openResultForm)
+  const regStatuses = STATUSES.filter((s) =>
+    ["interested", "registered", "waitlisted"].includes(s.value)
+    || (existing && existing.status === s.value)
+  );
+  const defaultStatus = existing?.status || defaults.status || "registered";
 
   const runnerOpts = sortRunners(state.runners)
     .map((m) => `<option value="${m.id}" ${(existing?.runner_id || defaults.runnerId) === m.id ? "selected" : ""}>${escapeHtml(m.name)}</option>`)
@@ -1440,16 +2040,15 @@ function openRegistrationForm(id, defaults = {}) {
   const marathonOpts = sortMarathons(state.marathons)
     .map((m) => `<option value="${m.id}" ${(existing?.marathon_id || defaults.marathonId) === m.id ? "selected" : ""}>${escapeHtml(m.name)} (${escapeHtml(m.race_date)})</option>`)
     .join("");
-  const statusOpts = STATUSES.map(
+  const statusOpts = regStatuses.map(
     (s) => `<option value="${s.value}" ${defaultStatus === s.value ? "selected" : ""}>${s.label}</option>`
   ).join("");
 
   openModal({
-    title: existing ? "Edit registration / result" : defaults.preferResult ? "Enter result" : "Add registration",
-    wide: true,
+    title: existing ? "Edit registration" : "Add registration",
     bodyHtml: `
       <form class="form-grid">
-        <p class="form-section-title">Entry</p>
+        <p class="panel-hint" style="margin:0">Sign someone up for a race. Finish times are entered under <strong>Results &amp; times</strong> after they are registered.</p>
         <div class="field">
           <label for="r-runner">Runner *</label>
           <select class="select full" id="r-runner">${runnerOpts}</select>
@@ -1468,46 +2067,8 @@ function openRegistrationForm(id, defaults = {}) {
             <input class="input" id="r-bib" value="${escapeHtml(existing?.bib || "")}" />
           </div>
         </div>
-        <p class="form-section-title">Results &amp; times</p>
-        <div class="form-row">
-          <div class="field">
-            <label for="r-gun">Gun time</label>
-            <input class="input" id="r-gun" value="${escapeHtml(existing?.gun_time || "")}" placeholder="3:45:12 or 1:42:18" />
-          </div>
-          <div class="field">
-            <label for="r-chip">Chip / net time</label>
-            <input class="input" id="r-chip" value="${escapeHtml(existing?.chip_time || "")}" placeholder="3:44:50" />
-          </div>
-        </div>
-        <div class="pace-preview" id="r-pace-preview"></div>
-        <div class="form-row">
-          <div class="field">
-            <label for="r-place">Overall place</label>
-            <input class="input" id="r-place" value="${escapeHtml(existing?.place_overall || "")}" />
-          </div>
-          <div class="field">
-            <label for="r-place-g">Gender place</label>
-            <input class="input" id="r-place-g" value="${escapeHtml(existing?.place_gender || "")}" />
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="field">
-            <label for="r-place-ag">Age group place</label>
-            <input class="input" id="r-place-ag" value="${escapeHtml(existing?.place_age_group || "")}" />
-          </div>
-          <div class="field" style="display:flex;align-items:flex-end;padding-bottom:0.35rem">
-            <label class="check-inline">
-              <input type="checkbox" id="r-pr" ${existing?.is_pr ? "checked" : ""} />
-              Personal record (PR)
-            </label>
-          </div>
-        </div>
         <div class="field">
-          <label for="r-result-notes">Result notes</label>
-          <textarea class="textarea" id="r-result-notes">${escapeHtml(existing?.result_notes || "")}</textarea>
-        </div>
-        <div class="field">
-          <label for="r-notes">Registration notes</label>
+          <label for="r-notes">Notes</label>
           <textarea class="textarea" id="r-notes">${escapeHtml(existing?.notes || "")}</textarea>
         </div>
       </form>`,
@@ -1515,49 +2076,20 @@ function openRegistrationForm(id, defaults = {}) {
       <button class="btn btn-ghost" id="rf-cancel">Cancel</button>
       <button class="btn btn-primary" id="rf-save">Save</button>`,
     onMount() {
-      const updatePace = () => {
-        const marathon = getMarathon(document.getElementById("r-marathon").value);
-        const pace = paceForRegistration(
-          { chip_time: document.getElementById("r-chip").value, gun_time: document.getElementById("r-gun").value },
-          marathon
-        );
-        document.getElementById("r-pace-preview").textContent = pace ? `Pace: ${pace.label}` : "";
-      };
-      ["r-marathon", "r-chip", "r-gun"].forEach((id) => {
-        document.getElementById(id).addEventListener("input", updatePace);
-        document.getElementById(id).addEventListener("change", updatePace);
-      });
-      updatePace();
-
       document.getElementById("rf-cancel").onclick = closeModal;
       document.getElementById("rf-save").onclick = async () => {
-        let status = document.getElementById("r-status").value;
-        const gun_time = normalizeTimeInput(document.getElementById("r-gun").value);
-        const chip_time = normalizeTimeInput(document.getElementById("r-chip").value);
-        if (document.getElementById("r-gun").value.trim() && parseTimeToSeconds(document.getElementById("r-gun").value) == null) {
-          return toast("Gun time format not recognized", "error");
-        }
-        if (document.getElementById("r-chip").value.trim() && parseTimeToSeconds(document.getElementById("r-chip").value) == null) {
-          return toast("Chip time format not recognized", "error");
-        }
-        if ((gun_time || chip_time) && status !== "dnf" && status !== "dns") status = "completed";
-
         const payload = {
           group_id: group.id,
           runner_id: document.getElementById("r-runner").value,
           marathon_id: document.getElementById("r-marathon").value,
-          status,
+          status: document.getElementById("r-status").value,
           bib: document.getElementById("r-bib").value.trim(),
           notes: document.getElementById("r-notes").value.trim(),
-          gun_time,
-          chip_time,
-          place_overall: document.getElementById("r-place").value.trim(),
-          place_gender: document.getElementById("r-place-g").value.trim(),
-          place_age_group: document.getElementById("r-place-ag").value.trim(),
-          is_pr: document.getElementById("r-pr").checked,
-          result_notes: document.getElementById("r-result-notes").value.trim(),
           created_by: session.user.id,
         };
+        if (!payload.runner_id || !payload.marathon_id) {
+          return toast("Runner and marathon are required", "error");
+        }
 
         try {
           if (existing) {
@@ -1568,7 +2100,7 @@ function openRegistrationForm(id, defaults = {}) {
             if (error) throw error;
           }
           closeModal();
-          toast("Saved");
+          toast("Registration saved");
           await loadGroupData();
           render();
         } catch (e) {
@@ -1577,6 +2109,272 @@ function openRegistrationForm(id, defaults = {}) {
       };
     },
   });
+}
+
+/**
+ * Enter / edit race results. Only works for runners already registered for the race.
+ */
+function openResultForm(registrationId, defaults = {}) {
+  if (!canWrite()) return toast("No permission", "error");
+  if (!state.marathons.length) return toast("Add a marathon first", "error");
+
+  const existing = registrationId
+    ? state.registrations.find((r) => r.id === registrationId)
+    : null;
+
+  const registeredEntries = state.registrations.filter((r) =>
+    ["interested", "registered", "waitlisted", "completed", "dns", "dnf"].includes(r.status)
+  );
+  if (!existing && !registeredEntries.length) {
+    return toast("Register runners for a race first, then enter results", "error");
+  }
+
+  const resultStatuses = STATUSES.filter((s) =>
+    ["completed", "dns", "dnf", "registered"].includes(s.value)
+  );
+  const defaultStatus = existing?.status === "interested" || existing?.status === "waitlisted"
+    ? "completed"
+    : existing?.status || "completed";
+
+  const marathonOpts = sortMarathons(state.marathons)
+    .map((m) => {
+      const selected = (existing?.marathon_id || defaults.marathonId) === m.id;
+      return `<option value="${m.id}" ${selected ? "selected" : ""}>${escapeHtml(m.name)} (${escapeHtml(m.race_date)})</option>`;
+    })
+    .join("");
+
+  openModal({
+    title: existing ? "Edit result" : "Enter result",
+    wide: true,
+    bodyHtml: `
+      <form class="form-grid">
+        <p class="panel-hint" style="margin:0">Results can only be added for runners who are already registered for the race.</p>
+        <div class="field">
+          <label for="res-marathon">Marathon *</label>
+          <select class="select full" id="res-marathon" ${existing ? "disabled" : ""}>${marathonOpts}</select>
+        </div>
+        <div class="field">
+          <label for="res-reg">Registered runner *</label>
+          <select class="select full" id="res-reg" ${existing ? "disabled" : ""}></select>
+        </div>
+        <div class="field">
+          <label for="res-status">Status</label>
+          <select class="select full" id="res-status">
+            ${resultStatuses.map((s) => `<option value="${s.value}" ${defaultStatus === s.value ? "selected" : ""}>${s.label}</option>`).join("")}
+          </select>
+        </div>
+        <p class="form-section-title">Times &amp; places</p>
+        <div class="form-row">
+          <div class="field">
+            <label for="res-gun">Gun time</label>
+            <input class="input" id="res-gun" value="${escapeHtml(existing?.gun_time || "")}" placeholder="3:45:12" />
+          </div>
+          <div class="field">
+            <label for="res-chip">Chip / net time</label>
+            <input class="input" id="res-chip" value="${escapeHtml(existing?.chip_time || "")}" placeholder="3:44:50" />
+          </div>
+        </div>
+        <div class="pace-preview" id="res-pace-preview"></div>
+        <div class="form-row">
+          <div class="field">
+            <label for="res-place">Overall place</label>
+            <input class="input" id="res-place" value="${escapeHtml(existing?.place_overall || "")}" />
+          </div>
+          <div class="field">
+            <label for="res-place-g">Gender place</label>
+            <input class="input" id="res-place-g" value="${escapeHtml(existing?.place_gender || "")}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="res-place-ag">Age group place</label>
+            <input class="input" id="res-place-ag" value="${escapeHtml(existing?.place_age_group || "")}" />
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end;padding-bottom:0.35rem">
+            <label class="check-inline">
+              <input type="checkbox" id="res-pr" ${existing?.is_pr ? "checked" : ""} />
+              Personal record (PR)
+            </label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="res-notes">Result notes</label>
+          <textarea class="textarea" id="res-notes">${escapeHtml(existing?.result_notes || "")}</textarea>
+        </div>
+      </form>`,
+    footerHtml: `
+      <button class="btn btn-ghost" id="res-cancel">Cancel</button>
+      <button class="btn btn-primary" id="res-save">Save result</button>`,
+    onMount() {
+      const marathonSel = document.getElementById("res-marathon");
+      const regSel = document.getElementById("res-reg");
+
+      const fillRunners = () => {
+        const mid = marathonSel.value;
+        const regs = state.registrations
+          .filter((r) => r.marathon_id === mid)
+          .sort((a, b) =>
+            (getRunner(a.runner_id)?.name || "").localeCompare(getRunner(b.runner_id)?.name || "")
+          );
+        if (!regs.length) {
+          regSel.innerHTML = `<option value="">No registered runners for this race</option>`;
+          return;
+        }
+        const prefer = existing?.id || defaults.registrationId || "";
+        regSel.innerHTML = regs.map((r) => {
+          const runner = getRunner(r.runner_id);
+          const hasTime = displayFinishTime(r) ? " · has time" : "";
+          return `<option value="${r.id}" ${r.id === prefer ? "selected" : ""}>${escapeHtml(runner?.name || "Runner")}${hasTime}</option>`;
+        }).join("");
+      };
+
+      fillRunners();
+      if (!existing) marathonSel.addEventListener("change", fillRunners);
+
+      const updatePace = () => {
+        const reg = state.registrations.find((r) => r.id === regSel.value) || existing;
+        const marathon = getMarathon(marathonSel.value || reg?.marathon_id);
+        const pace = paceForRegistration(
+          { chip_time: document.getElementById("res-chip").value, gun_time: document.getElementById("res-gun").value },
+          marathon
+        );
+        document.getElementById("res-pace-preview").textContent = pace ? `Pace: ${pace.label}` : "";
+      };
+      ["res-chip", "res-gun", "res-marathon", "res-reg"].forEach((id) => {
+        const el = document.getElementById(id);
+        el?.addEventListener("input", updatePace);
+        el?.addEventListener("change", updatePace);
+      });
+      updatePace();
+
+      document.getElementById("res-cancel").onclick = closeModal;
+      document.getElementById("res-save").onclick = async () => {
+        const regId = existing?.id || regSel.value;
+        if (!regId) return toast("Pick a registered runner", "error");
+        const reg = state.registrations.find((r) => r.id === regId);
+        if (!reg) return toast("Registration not found — register the runner first", "error");
+
+        const gunRaw = document.getElementById("res-gun").value;
+        const chipRaw = document.getElementById("res-chip").value;
+        if (gunRaw.trim() && parseTimeToSeconds(gunRaw) == null) {
+          return toast("Gun time format not recognized", "error");
+        }
+        if (chipRaw.trim() && parseTimeToSeconds(chipRaw) == null) {
+          return toast("Chip time format not recognized", "error");
+        }
+
+        let status = document.getElementById("res-status").value;
+        const gun_time = normalizeTimeInput(gunRaw);
+        const chip_time = normalizeTimeInput(chipRaw);
+        if ((gun_time || chip_time) && status !== "dnf" && status !== "dns") status = "completed";
+
+        const payload = {
+          status,
+          gun_time,
+          chip_time,
+          place_overall: document.getElementById("res-place").value.trim(),
+          place_gender: document.getElementById("res-place-g").value.trim(),
+          place_age_group: document.getElementById("res-place-ag").value.trim(),
+          is_pr: document.getElementById("res-pr").checked,
+          result_notes: document.getElementById("res-notes").value.trim(),
+        };
+
+        try {
+          const { error } = await sb.from("registrations").update(payload).eq("id", regId);
+          if (error) throw error;
+          closeModal();
+          toast("Result saved");
+          await loadGroupData();
+          render();
+        } catch (e) {
+          toast(errMsg(e), "error");
+        }
+      };
+    },
+  });
+}
+
+async function saveProfile() {
+  const name = document.getElementById("profile-name").value.trim();
+  const imageUrl = document.getElementById("profile-image-url").value.trim();
+  const newPass = document.getElementById("profile-password").value;
+  const confirmPass = document.getElementById("profile-password-confirm").value;
+  const errEl = document.getElementById("profile-error");
+  errEl.hidden = true;
+
+  if (!name) throw new Error("Display name is required");
+  if (newPass || confirmPass) {
+    if (newPass.length < 6) throw new Error("Password must be at least 6 characters");
+    if (newPass !== confirmPass) throw new Error("Passwords do not match");
+  }
+
+  const { error: pErr } = await sb
+    .from("profiles")
+    .update({
+      display_name: name,
+      profile_picture_url: imageUrl,
+      email: session.user.email,
+    })
+    .eq("id", session.user.id);
+  if (pErr) throw pErr;
+
+  const authPayload = {
+    data: {
+      display_name: name,
+      profile_picture_url: imageUrl,
+    },
+  };
+  if (newPass) {
+    authPayload.password = newPass;
+    authPayload.data.must_change_password = false;
+  }
+  const { error: aErr } = await sb.auth.updateUser(authPayload);
+  if (aErr) throw aErr;
+
+  if (newPass) {
+    try {
+      await sb.from("profiles").update({ must_change_password: false }).eq("id", session.user.id);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  profile = {
+    ...(profile || {}),
+    id: session.user.id,
+    display_name: name,
+    profile_picture_url: imageUrl,
+    email: session.user.email,
+    must_change_password: newPass ? false : profile?.must_change_password,
+  };
+
+  // Keep linked runner in sync (member = runner)
+  const linked = getRunnerForUser(session.user.id);
+  if (linked) {
+    await sb
+      .from("runners")
+      .update({
+        name,
+        image_url: imageUrl,
+        email: session.user.email || linked.email || "",
+      })
+      .eq("id", linked.id);
+  } else if (group?.id) {
+    try {
+      await createRunnerForMember({
+        userId: session.user.id,
+        name,
+        email: session.user.email,
+        imageUrl,
+      });
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  updateUserChrome();
+  await loadGroupData();
+  render();
 }
 
 function confirmDeleteRegistration(id) {
@@ -1662,7 +2460,7 @@ function wireAuthUi() {
         });
         createUserForm.reset();
         document.getElementById("new-user-role").value = "member";
-        toast(`User created — they can sign in as ${email}`);
+        toast(`User created — ${email} must set a new password on first sign-in`);
         await loadGroupData();
         renderTeam();
       } catch (err) {
@@ -1679,9 +2477,112 @@ function wireAuthUi() {
 
   const onboardSignoutButton = document.getElementById("btn-signout-onboard");
   if (onboardSignoutButton) onboardSignoutButton.onclick = () => signOut();
+
+  const profileBtn = document.getElementById("btn-profile");
+  if (profileBtn) profileBtn.onclick = () => setView("profile");
+
+  const passwordGateForm = document.getElementById("form-password-gate");
+  if (passwordGateForm) {
+    passwordGateForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("password-gate-error");
+      const btn = document.getElementById("btn-password-gate");
+      errEl.hidden = true;
+      btn.disabled = true;
+      try {
+        const pass = document.getElementById("gate-password").value;
+        const confirm = document.getElementById("gate-password-confirm").value;
+        if (pass.length < 6) throw new Error("Password must be at least 6 characters");
+        if (pass !== confirm) throw new Error("Passwords do not match");
+        await completePasswordGate(pass);
+        toast("Password updated");
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+  const gateSignout = document.getElementById("btn-signout-password-gate");
+  if (gateSignout) gateSignout.onclick = () => signOut();
+
+  const logoForm = document.getElementById("form-group-logo");
+  if (logoForm) {
+    logoForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("logo-error");
+      errEl.hidden = true;
+      try {
+        await saveGroupLogo(document.getElementById("group-logo-url").value);
+        toast("Logo saved");
+        renderTeam();
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      }
+    });
+    document.getElementById("btn-clear-logo")?.addEventListener("click", async () => {
+      const errEl = document.getElementById("logo-error");
+      errEl.hidden = true;
+      try {
+        document.getElementById("group-logo-url").value = "";
+        await saveGroupLogo("");
+        toast("Default logo restored");
+        renderTeam();
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      }
+    });
+    document.getElementById("group-logo-url")?.addEventListener("input", (e) => {
+      const preview = document.querySelector("[data-brand-logo-preview]");
+      if (preview) preview.innerHTML = brandLogoHtml(e.target.value);
+    });
+  }
+
+  const profileForm = document.getElementById("form-profile");
+  if (profileForm) {
+    profileForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("profile-error");
+      const btn = document.getElementById("btn-save-profile");
+      errEl.hidden = true;
+      btn.disabled = true;
+      try {
+        await saveProfile();
+        toast("Profile saved");
+        document.getElementById("profile-password").value = "";
+        document.getElementById("profile-password-confirm").value = "";
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("profile-image-url")?.addEventListener("input", () => {
+      const name = document.getElementById("profile-name")?.value || "You";
+      const image = document.getElementById("profile-image-url")?.value || "";
+      const preview = document.getElementById("profile-preview");
+      if (preview) {
+        preview.innerHTML = `
+          ${renderProfileAvatar({ image_url: image }, name, session?.user?.id)}
+          <div>
+            <p class="list-item-title" style="margin:0">${escapeHtml(name)}</p>
+            <p class="panel-hint" style="margin:0.15rem 0 0">${escapeHtml(document.getElementById("profile-email")?.value || "")}</p>
+          </div>`;
+      }
+    });
+  }
 }
 
 function wireAppUi() {
+  setSidebarCollapsed(isSidebarCollapsed());
+  document.getElementById("btn-sidebar-toggle")?.addEventListener("click", toggleSidebar);
+  document.getElementById("btn-sidebar-toggle-mobile")?.addEventListener("click", toggleSidebar);
+
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => setView(btn.dataset.view));
   });

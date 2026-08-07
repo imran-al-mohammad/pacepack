@@ -19,8 +19,11 @@ create table if not exists public.groups (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   invite_code text not null unique,
+  logo_url text default '',
   created_at timestamptz not null default now()
 );
+
+alter table public.groups add column if not exists logo_url text default '';
 
 create index if not exists groups_invite_code_idx on public.groups (invite_code);
 
@@ -34,8 +37,12 @@ create table if not exists public.profiles (
   group_id uuid references public.groups (id) on delete set null,
   profile_picture_url text default '',
   password text default '',
+  must_change_password boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists must_change_password boolean not null default false;
+alter table public.profiles add column if not exists profile_picture_url text default '';
 
 -- Auto-create profile on signup
 create or replace function public.handle_new_user()
@@ -99,6 +106,7 @@ create table if not exists public.runners (
   email text default '',
   phone text default '',
   image_url text default '',
+  user_id uuid references auth.users (id) on delete set null,
   notes text default '',
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
@@ -106,8 +114,12 @@ create table if not exists public.runners (
 );
 
 alter table public.runners add column if not exists image_url text default '';
+alter table public.runners add column if not exists user_id uuid references auth.users (id) on delete set null;
 
 create index if not exists runners_group_idx on public.runners (group_id);
+create unique index if not exists runners_group_user_uidx
+  on public.runners (group_id, user_id)
+  where user_id is not null;
 
 -- ─── Marathons / races ───────────────────────────────────────────────────────
 
@@ -116,6 +128,7 @@ create table if not exists public.marathons (
   group_id uuid not null references public.groups (id) on delete cascade,
   name text not null,
   race_date date not null,
+  race_time text default '09:00',
   location text default '',
   image_url text default '',
   distance text default 'Marathon',
@@ -126,6 +139,7 @@ create table if not exists public.marathons (
 );
 
 alter table public.marathons add column if not exists image_url text default '';
+alter table public.marathons add column if not exists race_time text default '09:00';
 
 create index if not exists marathons_group_idx on public.marathons (group_id);
 create index if not exists marathons_date_idx on public.marathons (race_date);
