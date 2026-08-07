@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="insights.js"></script>
 </head>
 <body>
   <!-- Loading -->
@@ -117,7 +118,6 @@
           </div>
           <div class="brand-text">
             <h1 id="brand-title">Impulsive Runners</h1>
-            <p class="brand-sub" id="group-name-label">Group</p>
           </div>
         </div>
         <button type="button" class="sidebar-toggle" id="btn-sidebar-toggle" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true">
@@ -179,6 +179,14 @@
           </div>
         </div>
         <div class="stats-grid" id="stats-grid"></div>
+        <div class="panel insights-panel">
+          <div class="panel-header">
+            <h3>Analytics &amp; insights</h3>
+            <p class="panel-hint">Generated from live group data (Python analytics engine)</p>
+          </div>
+          <div id="insights-metrics" class="insights-metrics"></div>
+          <ul id="insights-list" class="insights-list"></ul>
+        </div>
         <div class="panel leaderboard-panel">
           <div class="panel-header">
             <h3>Runner leaderboard</h3>

@@ -402,7 +402,7 @@ function applyBrandLogo() {
   const preview = document.querySelector("[data-brand-logo-preview]");
   if (preview) preview.innerHTML = brandLogoHtml(url);
   const title = document.getElementById("brand-title");
-  if (title) title.textContent = group?.name || "Impulsive Runners";
+  if (title) title.textContent = "Impulsive Runners";
 }
 
 function setBoot(msg) {
@@ -923,7 +923,6 @@ async function enterApp() {
   await loadGroupData();
   subscribeRealtime();
   showScreen("app");
-  document.getElementById("group-name-label").textContent = group.name;
   applyBrandLogo();
   updateUserChrome();
   updateRolePill();
@@ -1076,7 +1075,6 @@ function renderTopbarActions() {
 
 function render() {
   if (document.getElementById("app-shell").hidden) return;
-  document.getElementById("group-name-label").textContent = group?.name || "Group";
   applyBrandLogo();
   updateRolePill();
   if (currentView === "dashboard") renderDashboard();
@@ -1169,6 +1167,56 @@ function renderLeaderboardChart(entries) {
     </ol>`;
 }
 
+function renderInsights() {
+  const metricsEl = document.getElementById("insights-metrics");
+  const listEl = document.getElementById("insights-list");
+  if (!metricsEl || !listEl) return;
+
+  if (typeof window.PacePackAnalytics?.analyze !== "function") {
+    metricsEl.innerHTML = "";
+    listEl.innerHTML = `<li class="insight-item">Analytics engine not loaded. Ensure <code>insights.js</code> is present (generated from Python).</li>`;
+    return;
+  }
+
+  const report = window.PacePackAnalytics.analyze({
+    runners: state.runners,
+    marathons: state.marathons,
+    registrations: state.registrations,
+  });
+
+  const m = report.metrics || {};
+  metricsEl.innerHTML = `
+    <div class="insight-metric">
+      <p class="insight-metric-label">Participation</p>
+      <p class="insight-metric-value">${m.participation_rate_pct != null ? m.participation_rate_pct + "%" : "—"}</p>
+      <p class="insight-metric-hint">${m.active_runners ?? 0}/${m.total_runners ?? 0} runners with entries</p>
+    </div>
+    <div class="insight-metric">
+      <p class="insight-metric-label">Avg signups / race</p>
+      <p class="insight-metric-value">${m.avg_signups_per_race != null ? m.avg_signups_per_race : "—"}</p>
+      <p class="insight-metric-hint">${m.total_registrations ?? 0} total registrations</p>
+    </div>
+    <div class="insight-metric">
+      <p class="insight-metric-label">PR rate</p>
+      <p class="insight-metric-value">${m.pr_rate_pct != null ? m.pr_rate_pct + "%" : "—"}</p>
+      <p class="insight-metric-hint">${m.total_prs ?? 0} PRs · ${m.results_with_time ?? 0} timed results</p>
+    </div>
+    <div class="insight-metric">
+      <p class="insight-metric-label">Group median finish</p>
+      <p class="insight-metric-value time-mono">${escapeHtml(m.median_finish_display || "—")}</p>
+      <p class="insight-metric-hint">${m.avg_finish_display ? "Avg " + escapeHtml(m.avg_finish_display) : "Need chip/gun times"}</p>
+    </div>`;
+
+  const insights = report.insights || [];
+  if (!insights.length) {
+    listEl.innerHTML = `<li class="insight-item">Add races, registrations, and results to unlock deeper insights.</li>`;
+    return;
+  }
+  listEl.innerHTML = insights
+    .map((text) => `<li class="insight-item">${escapeHtml(text)}</li>`)
+    .join("");
+}
+
 function renderDashboard() {
   const upcoming = sortMarathons(state.marathons.filter((m) => !isPast(m)));
   const past = state.marathons.filter((m) => isPast(m));
@@ -1176,6 +1224,7 @@ function renderDashboard() {
   const completed = state.registrations.filter((r) => r.status === "completed").length;
   const withTimes = state.registrations.filter((r) => displayFinishTime(r)).length;
 
+  renderInsights();
   renderLeaderboardChart(computeLeaderboard());
 
   document.getElementById("stats-grid").innerHTML = `
