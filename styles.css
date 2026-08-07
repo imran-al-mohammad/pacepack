@@ -1,28 +1,28 @@
 :root {
-  --bg: #EEE8E8;
-  --bg-elevated: #EEE8E8;
-  --bg-panel: #D9D0D1;
-  --bg-hover: #E8E0E1;
-  --border: rgba(48, 48, 50, 0.16);
-  --border-strong: rgba(48, 48, 50, 0.25);
-  --text: #151515;
-  --text-muted: #303032;
-  --text-dim: #5c5c5f;
-  --accent: #BDAFAE;
-  --accent-soft: rgba(189, 175, 174, 0.22);
-  --accent-hover: #A79A99;
-  --teal: #BDAFAE;
-  --teal-soft: rgba(189, 175, 174, 0.16);
-  --blue: #D9D0D1;
-  --blue-soft: rgba(217, 208, 209, 0.18);
-  --amber: #BDAFAE;
-  --amber-soft: rgba(189, 175, 174, 0.16);
-  --green: #D9D0D1;
-  --green-soft: rgba(217, 208, 209, 0.16);
-  --purple: #BDAFAE;
-  --purple-soft: rgba(189, 175, 174, 0.16);
-  --danger: #303032;
-  --danger-soft: rgba(48, 48, 50, 0.14);
+  --bg: #151515;
+  --bg-elevated: #303032;
+  --bg-panel: #303032;
+  --bg-hover: #3d3d40;
+  --border: rgba(238, 232, 232, 0.16);
+  --border-strong: rgba(238, 232, 232, 0.25);
+  --text: #EEE8E8;
+  --text-muted: #D9D0D1;
+  --text-dim: #BDAFAE;
+  --accent: #D9D0D1;
+  --accent-soft: rgba(217, 208, 209, 0.18);
+  --accent-hover: #EEE8E8;
+  --teal: #D9D0D1;
+  --teal-soft: rgba(217, 208, 209, 0.16);
+  --blue: #BDAFAE;
+  --blue-soft: rgba(189, 175, 174, 0.16);
+  --amber: #D9D0D1;
+  --amber-soft: rgba(217, 208, 209, 0.16);
+  --green: #BDAFAE;
+  --green-soft: rgba(189, 175, 174, 0.16);
+  --purple: #D9D0D1;
+  --purple-soft: rgba(217, 208, 209, 0.16);
+  --danger: #EEE8E8;
+  --danger-soft: rgba(238, 232, 232, 0.14);
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 18px 50px rgba(21, 21, 21, 0.12);
@@ -48,9 +48,9 @@ html, body {
 
 body {
   background-image:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(189, 175, 174, 0.18), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(217, 208, 209, 0.25), transparent 45%),
-    radial-gradient(ellipse 50% 30% at 50% 100%, rgba(48, 48, 50, 0.07), transparent 50%);
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(217, 208, 209, 0.16), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(189, 175, 174, 0.14), transparent 45%),
+    radial-gradient(ellipse 50% 30% at 50% 100%, rgba(238, 232, 232, 0.08), transparent 50%);
   background-attachment: fixed;
 }
 
@@ -78,7 +78,7 @@ button {
   height: 100vh;
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border);
-  background: rgba(238, 232, 232, 0.9);
+  background: rgba(21, 21, 21, 0.92);
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
