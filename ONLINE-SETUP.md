@@ -58,23 +58,26 @@ Commit and push to GitHub so Pages updates.
 2. **Create account** (your email + password)  
 3. **Create a new group** → you become **Admin**  
 4. Open **Team & access**  
-5. Copy the **invite code** or **invite link**  
+5. Either **Create user** (email + password + role) or copy the **invite code** / **invite link**  
 
 ---
 
-## 4. Invite the group
+## 4. Add people to the group
+
+### Option A — Admin creates accounts (recommended)
+
+1. Sign in as **Admin** → **Team & access**  
+2. Under **Create user**, enter name, email, password, and role  
+3. Tell them the email + password — they sign in on the auth screen  
+
+### Option B — Invite link / code
 
 Share either:
 
 - Invite link: `https://yoursite/pacepack/?invite=YOURCODE`  
 - Or the 8-character code  
 
-They:
-
-1. Open the link (or the site)  
-2. Create their own account / sign in  
-3. Auto-join via link, or enter the code  
-4. Join as **Member**  
+They need an account first (created by an admin). Then they can join with the code if they are not already in the group.
 
 You (Admin) can promote people to **Moderator** or **Admin** under **Team & access**.
 
@@ -87,6 +90,7 @@ You (Admin) can promote people to **Moderator** or **Admin** under **Team & acce
 | View everything | ✓ | ✓ | ✓ |
 | Add/edit runners, races, results | ✓ | ✓ | ✓ |
 | Delete runners, races, registrations | ✓ | ✓ | — |
+| **Create users** (email + password) | ✓ | — | — |
 | Change roles / remove users | ✓ | — | — |
 | Invite code | ✓ (share) | share | share |
 

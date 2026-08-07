@@ -24,6 +24,10 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Optional columns used by admin user-creation / full schema
+alter table public.profiles add column if not exists group_id uuid;
+alter table public.profiles add column if not exists user_type text default 'member';
+
 create table if not exists public.group_memberships (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null,
@@ -302,6 +306,49 @@ begin
 end;
 $$;
 
+-- Admin: add an existing auth user to the group (used after admin creates a login)
+create or replace function public.add_group_member(p_group_id uuid, p_user_id uuid, p_role text default 'member')
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  u_email text;
+  u_name text;
+begin
+  if not public.has_min_role(p_group_id, 'admin') then
+    raise exception 'Only admins can add members';
+  end if;
+  if p_role not in ('admin', 'moderator', 'member') then
+    raise exception 'Invalid role';
+  end if;
+  if not exists (select 1 from auth.users where id = p_user_id) then
+    raise exception 'User does not exist';
+  end if;
+
+  select email, coalesce(raw_user_meta_data->>'display_name', split_part(email, '@', 1), 'Runner')
+    into u_email, u_name
+  from auth.users
+  where id = p_user_id;
+
+  insert into public.profiles (id, display_name, email, group_id)
+  values (p_user_id, u_name, u_email, p_group_id)
+  on conflict (id) do update
+    set email = coalesce(excluded.email, public.profiles.email),
+        display_name = case
+          when coalesce(public.profiles.display_name, '') in ('', 'Runner', 'User')
+            then excluded.display_name
+          else public.profiles.display_name
+        end,
+        group_id = coalesce(public.profiles.group_id, excluded.group_id);
+
+  insert into public.group_memberships (group_id, user_id, role)
+  values (p_group_id, p_user_id, p_role)
+  on conflict (group_id, user_id) do update set role = excluded.role;
+end;
+$$;
+
 create or replace function public.set_member_role(p_group_id uuid, p_user_id uuid, p_role text)
 returns void
 language plpgsql
@@ -374,6 +421,7 @@ $$;
 
 grant execute on function public.create_group(text) to authenticated;
 grant execute on function public.join_group(text) to authenticated;
+grant execute on function public.add_group_member(uuid, uuid, text) to authenticated;
 grant execute on function public.set_member_role(uuid, uuid, text) to authenticated;
 grant execute on function public.remove_group_member(uuid, uuid) to authenticated;
 grant execute on function public.is_group_member(uuid) to authenticated, anon;

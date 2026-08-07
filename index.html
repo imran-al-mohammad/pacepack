@@ -253,11 +253,45 @@
             <div id="invite-panel"></div>
           </div>
 
+          <div class="panel" id="create-user-panel" hidden>
+            <div class="panel-header">
+              <h3>Create user</h3>
+              <p class="panel-hint">Admins can create login accounts and add them to this group.</p>
+            </div>
+            <form id="form-create-user" class="form-grid">
+              <div class="field">
+                <label for="new-user-name">Display name *</label>
+                <input class="input" id="new-user-name" required autocomplete="off" placeholder="e.g. Alex Runner" />
+              </div>
+              <div class="field">
+                <label for="new-user-email">Email *</label>
+                <input class="input" id="new-user-email" type="email" required autocomplete="off" placeholder="name@example.com" />
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label for="new-user-password">Password *</label>
+                  <input class="input" id="new-user-password" type="password" required minlength="6" autocomplete="new-password" placeholder="Min. 6 characters" />
+                </div>
+                <div class="field">
+                  <label for="new-user-role">Role</label>
+                  <select class="select" id="new-user-role">
+                    <option value="member" selected>Member</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+              <p class="panel-hint" id="create-user-hint" style="margin:0">They can sign in immediately with this email and password.</p>
+              <p class="auth-error" id="create-user-error" hidden></p>
+              <button class="btn btn-primary" type="submit" id="btn-create-user">Create user</button>
+            </form>
+          </div>
+
           <div class="panel">
             <div class="panel-header">
               <h3>Team roles</h3>
               <p class="panel-hint">
-                <strong>Admin</strong> — full control &amp; roles ·
+                <strong>Admin</strong> — full control, create users &amp; roles ·
                 <strong>Moderator</strong> — manage races &amp; delete ·
                 <strong>Member</strong> — add/update runners, races, results
               </p>
@@ -293,6 +327,7 @@
                   <tr><td>View all data</td><td>✓</td><td>✓</td><td>✓</td></tr>
                   <tr><td>Add / edit runners, races, results</td><td>✓</td><td>✓</td><td>✓</td></tr>
                   <tr><td>Delete runners, races, registrations</td><td>✓</td><td>✓</td><td>—</td></tr>
+                  <tr><td>Create users</td><td>✓</td><td>—</td><td>—</td></tr>
                   <tr><td>Change roles / remove users</td><td>✓</td><td>—</td><td>—</td></tr>
                   <tr><td>Manage invite code</td><td>✓</td><td>—</td><td>—</td></tr>
                 </tbody>

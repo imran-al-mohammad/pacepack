@@ -36,7 +36,7 @@ const VIEW_META = {
   members: { title: "Runners", desc: "People in the running roster" },
   registrations: { title: "Registrations", desc: "Who signed up for which race" },
   results: { title: "Results & times", desc: "Finish times, pace, places, and PRs" },
-  team: { title: "Team & access", desc: "Invite codes, roles, and permissions" },
+  team: { title: "Team & access", desc: "Create users, invite codes, roles, and permissions" },
 };
 
 const ROLE_RANK = { member: 1, moderator: 2, admin: 3 };
@@ -97,6 +97,10 @@ function canDelete() {
 }
 
 function canManageRoles() {
+  return hasMinRole("admin");
+}
+
+function canCreateUsers() {
   return hasMinRole("admin");
 }
 
@@ -537,6 +541,82 @@ async function joinGroup(code) {
     } else {
       throw new Error("Joined but group could not be loaded. Run fix-relationships.sql in Supabase.");
     }
+  }
+}
+
+/**
+ * Admin creates a login for someone else and adds them to the current group.
+ * Uses a throwaway Supabase client so the admin session is not replaced.
+ */
+async function adminCreateUser({ email, password, displayName, role }) {
+  if (!canCreateUsers()) throw new Error("Only admins can create users");
+  if (!group?.id) throw new Error("No group loaded");
+
+  const name = (displayName || "").trim();
+  const mail = (email || "").trim().toLowerCase();
+  const pass = password || "";
+  const memberRole = role || "member";
+
+  if (!name) throw new Error("Display name is required");
+  if (!mail) throw new Error("Email is required");
+  if (pass.length < 6) throw new Error("Password must be at least 6 characters");
+  if (!["admin", "moderator", "member"].includes(memberRole)) {
+    throw new Error("Invalid role");
+  }
+
+  const { url, key } = getConfig();
+  const temp = window.supabase.createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  const { data, error } = await temp.auth.signUp({
+    email: mail,
+    password: pass,
+    options: { data: { display_name: name } },
+  });
+  if (error) throw error;
+  if (!data.user?.id) {
+    throw new Error(
+      "User was not created. If email confirmation is required, disable it in Supabase Auth settings."
+    );
+  }
+
+  // Prefer security-definer RPC; fall back to direct insert if SQL not re-run yet
+  let addError = null;
+  const { error: rpcErr } = await sb.rpc("add_group_member", {
+    p_group_id: group.id,
+    p_user_id: data.user.id,
+    p_role: memberRole,
+  });
+  addError = rpcErr;
+
+  if (addError) {
+    const { error: insertErr } = await sb.from("group_memberships").insert({
+      group_id: group.id,
+      user_id: data.user.id,
+      role: memberRole,
+    });
+    if (insertErr) {
+      throw new Error(
+        `Account created (${mail}) but could not add to group: ${errMsg(addError)}. ` +
+          `Run the latest supabase-schema.sql (add_group_member) in Supabase, or add them via invite. ` +
+          `(fallback: ${errMsg(insertErr)})`
+      );
+    }
+  }
+
+  // Best-effort profile name sync (trigger usually already set it; RLS may block)
+  try {
+    await sb
+      .from("profiles")
+      .update({ display_name: name, email: mail })
+      .eq("id", data.user.id);
+  } catch (_) {
+    /* ignore */
   }
 }
 
@@ -1069,6 +1149,11 @@ function renderTeam() {
     toast("Link copied");
   };
 
+  const createPanel = document.getElementById("create-user-panel");
+  if (createPanel) {
+    createPanel.hidden = !canCreateUsers();
+  }
+
   const tbody = document.getElementById("team-tbody");
   const sorted = [...team].sort((a, b) => {
     const ra = ROLE_RANK[b.role] - ROLE_RANK[a.role];
@@ -1543,6 +1628,37 @@ function wireAuthUi() {
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
+      }
+    });
+  }
+
+  const createUserForm = document.getElementById("form-create-user");
+  if (createUserForm) {
+    createUserForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!canCreateUsers()) return toast("Only admins can create users", "error");
+      const errEl = document.getElementById("create-user-error");
+      const btn = document.getElementById("btn-create-user");
+      errEl.hidden = true;
+      btn.disabled = true;
+      try {
+        const email = document.getElementById("new-user-email").value.trim();
+        await adminCreateUser({
+          email,
+          password: document.getElementById("new-user-password").value,
+          displayName: document.getElementById("new-user-name").value.trim(),
+          role: document.getElementById("new-user-role").value,
+        });
+        createUserForm.reset();
+        document.getElementById("new-user-role").value = "member";
+        toast(`User created — they can sign in as ${email}`);
+        await loadGroupData();
+        renderTeam();
+      } catch (err) {
+        errEl.textContent = errMsg(err);
+        errEl.hidden = false;
+      } finally {
+        btn.disabled = false;
       }
     });
   }
