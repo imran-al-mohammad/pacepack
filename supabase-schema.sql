@@ -98,11 +98,14 @@ create table if not exists public.runners (
   name text not null,
   email text default '',
   phone text default '',
+  image_url text default '',
   notes text default '',
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.runners add column if not exists image_url text default '';
 
 create index if not exists runners_group_idx on public.runners (group_id);
 
@@ -121,6 +124,8 @@ create table if not exists public.marathons (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.marathons add column if not exists image_url text default '';
 
 create index if not exists marathons_group_idx on public.marathons (group_id);
 create index if not exists marathons_date_idx on public.marathons (race_date);

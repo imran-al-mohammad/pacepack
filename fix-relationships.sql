@@ -43,11 +43,14 @@ create table if not exists public.runners (
   name text not null,
   email text default '',
   phone text default '',
+  image_url text default '',
   notes text default '',
   created_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.runners add column if not exists image_url text default '';
 
 create table if not exists public.marathons (
   id uuid primary key default gen_random_uuid(),
@@ -55,12 +58,15 @@ create table if not exists public.marathons (
   name text not null,
   race_date date not null,
   location text default '',
+  image_url text default '',
   distance text default 'Marathon',
   notes text default '',
   created_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.marathons add column if not exists image_url text default '';
 
 create table if not exists public.registrations (
   id uuid primary key default gen_random_uuid(),

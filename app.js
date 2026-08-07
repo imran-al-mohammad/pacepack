@@ -160,8 +160,9 @@ function avatarColor(id) {
 }
 
 function renderProfileAvatar(profile, fallbackName, fallbackId) {
-  if (profile?.profile_picture_url) {
-    return `<img class="avatar avatar-image" src="${escapeHtml(profile.profile_picture_url)}" alt="${escapeHtml(fallbackName || "Profile")}" />`;
+  const src = profile?.image_url || profile?.profile_picture_url || "";
+  if (src) {
+    return `<img class="avatar avatar-image" src="${escapeHtml(src)}" alt="${escapeHtml(fallbackName || "Profile")}" />`;
   }
   const color = avatarColor(fallbackId || fallbackName || "");
   return `<div class="avatar" style="background:${color}22;color:${color}">${escapeHtml(initials(fallbackName))}</div>`;
@@ -919,10 +920,15 @@ function renderRunners() {
     const delBtn = canDelete()
       ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${m.id}">Delete</button>`
       : "";
+    const photo = (m.image_url || "").trim();
     return `
       <article class="card">
-        <div class="member-head">
-          ${renderProfileAvatar({ profile_picture_url: m.profile_picture_url || "" }, m.name, m.id)}
+        ${photo ? `
+        <div class="runner-media">
+          <img class="runner-image" src="${escapeHtml(photo)}" alt="${escapeHtml(m.name)}" />
+        </div>` : ""}
+        <div class="member-head"${photo ? ' style="margin-top:0.75rem"' : ""}>
+          ${renderProfileAvatar(m, m.name, m.id)}
           <div>
             <h3 class="card-title">${escapeHtml(m.name)}</h3>
             <p class="member-contact">${escapeHtml(m.email || m.phone || "No contact")}</p>
@@ -1349,6 +1355,10 @@ function openRunnerForm(id) {
           </div>
         </div>
         <div class="field">
+          <label for="p-image-url">Image URL</label>
+          <input class="input" id="p-image-url" type="url" placeholder="https://… (optional)" value="${escapeHtml(existing?.image_url || "")}" />
+        </div>
+        <div class="field">
           <label for="p-notes">Notes</label>
           <textarea class="textarea" id="p-notes">${escapeHtml(existing?.notes || "")}</textarea>
         </div>
@@ -1364,6 +1374,7 @@ function openRunnerForm(id) {
           name: document.getElementById("p-name").value.trim(),
           email: document.getElementById("p-email").value.trim(),
           phone: document.getElementById("p-phone").value.trim(),
+          image_url: document.getElementById("p-image-url").value.trim(),
           notes: document.getElementById("p-notes").value.trim(),
           created_by: session.user.id,
         };
