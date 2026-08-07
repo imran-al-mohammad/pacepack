@@ -1194,7 +1194,10 @@ button {
 .avatar-image {
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
 }
 
@@ -1223,26 +1226,16 @@ button {
   display: block;
 }
 
-.runner-media {
-  width: 100%;
-  height: 160px;
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--bg-soft);
-  border: 1px solid var(--border-strong);
-}
-
-.runner-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .member-head {
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  min-width: 0;
+}
+
+.member-head-text {
+  min-width: 0;
+  flex: 1;
 }
 
 .member-head .card-title {
@@ -1253,6 +1246,91 @@ button {
   margin: 0.1rem 0 0;
   font-size: 0.8rem;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Runner photo: contained like profile avatar (no overflow) */
+.runner-avatar-wrap {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.runner-avatar-wrap .avatar,
+.runner-avatar-wrap .avatar-image {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 16px;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Who's running hover tooltip */
+.whos-running-chart-area {
+  position: relative;
+}
+
+.wr-hover-tip {
+  position: absolute;
+  z-index: 20;
+  min-width: 180px;
+  max-width: min(280px, 80vw);
+  max-height: 220px;
+  overflow: auto;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: rgba(30, 30, 32, 0.97);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
+.wr-tip-title {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.wr-tip-meta {
+  margin: 0.15rem 0 0.45rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.wr-tip-empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.wr-tip-list {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.wr-tip-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-tip-status {
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 /* Responsive */

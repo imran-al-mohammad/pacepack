@@ -36,7 +36,7 @@ const VIEW_META = {
   members: { title: "Runners", desc: "People in the running roster (one per app member)" },
   registrations: { title: "Registrations", desc: "Who is signed up for which race" },
   results: { title: "Results & times", desc: "Finish times for registered runners only" },
-  team: { title: "Team & access", desc: "Create users, invite codes, roles, and permissions" },
+  team: { title: "Team & access", desc: "Create users, logo, roles, and permissions" },
   profile: { title: "My profile", desc: "Photo, display name, and password" },
 };
 
@@ -1255,9 +1255,38 @@ function renderDashboard() {
   renderWhosRunningChart();
 }
 
+function regsSortedForMarathon(marathonId) {
+  return regsForMarathon(marathonId)
+    .slice()
+    .sort((a, b) =>
+      (getRunner(a.runner_id)?.name || "").localeCompare(getRunner(b.runner_id)?.name || "")
+    );
+}
+
+function whosRunningTooltipHtml(marathonId) {
+  const marathon = getMarathon(marathonId);
+  const regs = regsSortedForMarathon(marathonId);
+  if (!marathon) return "";
+  if (!regs.length) {
+    return `
+      <p class="wr-tip-title">${escapeHtml(marathon.name)}</p>
+      <p class="wr-tip-empty">No one registered yet</p>`;
+  }
+  const names = regs
+    .map((r) => {
+      const runner = getRunner(r.runner_id);
+      return `<li>${escapeHtml(runner?.name || "Unknown")} <span class="wr-tip-status">${escapeHtml(statusLabel(r.status))}</span></li>`;
+    })
+    .join("");
+  return `
+    <p class="wr-tip-title">${escapeHtml(marathon.name)}</p>
+    <p class="wr-tip-meta">${regs.length} registered</p>
+    <ul class="wr-tip-list">${names}</ul>`;
+}
+
 /**
  * Interactive bar chart: registration counts per race.
- * Click a bar to list who is signed up for that race.
+ * Hover a bar to see who is signed up; click to pin the list below.
  */
 function renderWhosRunningChart() {
   const wrap = document.getElementById("matrix-wrap");
@@ -1316,9 +1345,7 @@ function renderWhosRunningChart() {
       <g class="wr-bar-group${selected ? " is-selected" : ""}" data-marathon-id="${s.marathon.id}" role="button" tabindex="0" style="cursor:pointer">
         <rect class="wr-bar-hit" x="${x - 6}" y="${padT}" width="${barW + 12}" height="${chartH + padB - 8}" fill="transparent"></rect>
         <rect class="wr-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="9"
-          fill="${s.color}" opacity="${selected ? "1" : "0.72"}">
-          <title>${escapeHtml(s.marathon.name)} — ${s.count} signed up</title>
-        </rect>
+          fill="${s.color}" opacity="${selected ? "1" : "0.72"}"></rect>
         <text class="wr-value" x="${x + barW / 2}" y="${y - 8}" text-anchor="middle">${s.count}</text>
         <text class="wr-label" x="${x + barW / 2}" y="${padT + chartH + 18}" text-anchor="middle">${escapeHtml(label)}</text>
         <text class="wr-date" x="${x + barW / 2}" y="${padT + chartH + 34}" text-anchor="middle">${escapeHtml(dateShort)}</text>
@@ -1326,11 +1353,7 @@ function renderWhosRunningChart() {
   }).join("");
 
   const selected = series.find((s) => s.marathon.id === selectedWhosRunningMarathonId);
-  const selectedRegs = selected
-    ? regsForMarathon(selected.marathon.id).slice().sort((a, b) =>
-        (getRunner(a.runner_id)?.name || "").localeCompare(getRunner(b.runner_id)?.name || "")
-      )
-    : [];
+  const selectedRegs = selected ? regsSortedForMarathon(selected.marathon.id) : [];
 
   const detail = selected
     ? `
@@ -1358,17 +1381,44 @@ function renderWhosRunningChart() {
     : "";
 
   wrap.innerHTML = `
-    <div class="leaderboard-chart-scroll">
-      <svg class="whos-running-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Registrations by race bar chart">
-        <line class="lb-axis" x1="${padL - 10}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" />
-        ${bars}
-      </svg>
+    <div class="whos-running-chart-area">
+      <div class="leaderboard-chart-scroll">
+        <svg class="whos-running-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Registrations by race bar chart">
+          <line class="lb-axis" x1="${padL - 10}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" />
+          ${bars}
+        </svg>
+      </div>
+      <div class="wr-hover-tip" id="wr-hover-tip" hidden></div>
     </div>
     ${detail}`;
 
+  const tip = wrap.querySelector("#wr-hover-tip");
+  const chartArea = wrap.querySelector(".whos-running-chart-area");
+
+  const showTip = (marathonId, clientX, clientY) => {
+    if (!tip || !chartArea) return;
+    tip.innerHTML = whosRunningTooltipHtml(marathonId);
+    tip.hidden = false;
+    const areaRect = chartArea.getBoundingClientRect();
+    const tipW = tip.offsetWidth || 220;
+    const tipH = tip.offsetHeight || 120;
+    let left = clientX - areaRect.left + 14;
+    let top = clientY - areaRect.top + 14;
+    if (left + tipW > areaRect.width - 8) left = Math.max(8, clientX - areaRect.left - tipW - 12);
+    if (top + tipH > areaRect.height - 8) top = Math.max(8, clientY - areaRect.top - tipH - 8);
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  };
+
+  const hideTip = () => {
+    if (tip) tip.hidden = true;
+  };
+
   wrap.querySelectorAll("[data-marathon-id]").forEach((g) => {
+    const mid = g.getAttribute("data-marathon-id");
     const pick = () => {
-      selectedWhosRunningMarathonId = g.getAttribute("data-marathon-id");
+      selectedWhosRunningMarathonId = mid;
+      hideTip();
       renderWhosRunningChart();
     };
     g.addEventListener("click", pick);
@@ -1378,6 +1428,14 @@ function renderWhosRunningChart() {
         pick();
       }
     });
+    g.addEventListener("mouseenter", (e) => showTip(mid, e.clientX, e.clientY));
+    g.addEventListener("mousemove", (e) => showTip(mid, e.clientX, e.clientY));
+    g.addEventListener("mouseleave", hideTip);
+    g.addEventListener("focus", () => {
+      const rect = g.getBoundingClientRect();
+      showTip(mid, rect.left + rect.width / 2, rect.top);
+    });
+    g.addEventListener("blur", hideTip);
   });
 }
 
@@ -1468,13 +1526,11 @@ function renderRunners() {
     const avatarSrc = { image_url: photo };
     return `
       <article class="card">
-        ${photo ? `
-        <div class="runner-media">
-          <img class="runner-image" src="${escapeHtml(photo)}" alt="${escapeHtml(m.name)}" />
-        </div>` : ""}
-        <div class="member-head"${photo ? ' style="margin-top:0.75rem"' : ""}>
-          ${renderProfileAvatar(avatarSrc, m.name, m.id)}
-          <div>
+        <div class="member-head">
+          <div class="runner-avatar-wrap">
+            ${renderProfileAvatar(avatarSrc, m.name, m.id)}
+          </div>
+          <div class="member-head-text">
             <h3 class="card-title">${escapeHtml(m.name)}</h3>
             <p class="member-contact">${escapeHtml(m.email || m.phone || "No contact")}</p>
           </div>
@@ -1696,29 +1752,6 @@ function renderProfile() {
 }
 
 function renderTeam() {
-  const invitePanel = document.getElementById("invite-panel");
-  const shareUrl = `${location.origin}${location.pathname}?invite=${group.invite_code}`;
-  invitePanel.innerHTML = `
-    <p class="panel-hint" style="margin:0">Invite code</p>
-    <div class="invite-code-big">${escapeHtml(group.invite_code)}</div>
-    <div class="field" style="margin-bottom:0.85rem">
-      <label>Invite link</label>
-      <input class="input" id="invite-link" readonly value="${escapeHtml(shareUrl)}" />
-    </div>
-    <div class="room-actions">
-      <button class="btn btn-primary" type="button" id="btn-copy-code">Copy code</button>
-      <button class="btn btn-secondary" type="button" id="btn-copy-link">Copy link</button>
-    </div>
-  `;
-  document.getElementById("btn-copy-code").onclick = async () => {
-    await navigator.clipboard.writeText(group.invite_code);
-    toast("Code copied");
-  };
-  document.getElementById("btn-copy-link").onclick = async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    toast("Link copied");
-  };
-
   const createPanel = document.getElementById("create-user-panel");
   if (createPanel) {
     createPanel.hidden = !canCreateUsers();
