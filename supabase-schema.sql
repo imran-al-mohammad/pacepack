@@ -30,6 +30,10 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null default '',
   email text,
+  user_type text not null default 'member' check (user_type in ('admin', 'moderator', 'member')),
+  group_id uuid references public.groups (id) on delete set null,
+  profile_picture_url text default '',
+  password text default '',
   created_at timestamptz not null default now()
 );
 
@@ -41,14 +45,28 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, display_name, email)
+  insert into public.profiles (
+    id,
+    display_name,
+    email,
+    user_type,
+    group_id,
+    profile_picture_url,
+    password
+  )
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1), 'Runner'),
-    new.email
+    new.email,
+    case when not exists (select 1 from public.profiles where user_type = 'admin') then 'admin' else 'member' end,
+    nullif(new.raw_user_meta_data->>'group_id', '')::uuid,
+    coalesce(new.raw_user_meta_data->>'profile_picture_url', ''),
+    coalesce(new.raw_user_meta_data->>'password', '')
   )
   on conflict (id) do update
-    set email = excluded.email;
+    set email = excluded.email,
+        profile_picture_url = coalesce(excluded.profile_picture_url, public.profiles.profile_picture_url),
+        password = coalesce(excluded.password, public.profiles.password);
   return new;
 end;
 $$;
@@ -96,6 +114,7 @@ create table if not exists public.marathons (
   name text not null,
   race_date date not null,
   location text default '',
+  image_url text default '',
   distance text default 'Marathon',
   notes text default '',
   created_by uuid references auth.users (id) on delete set null,
@@ -251,6 +270,9 @@ begin
   if coalesce(trim(p_name), '') = '' then
     raise exception 'Group name required';
   end if;
+  if not exists (select 1 from public.profiles where id = auth.uid() and user_type = 'admin') then
+    raise exception 'Only admins can create groups';
+  end if;
 
   loop
     code := public.generate_invite_code();
@@ -263,6 +285,10 @@ begin
 
   insert into public.group_memberships (group_id, user_id, role)
   values (g.id, auth.uid(), 'admin');
+
+  update public.profiles
+  set group_id = g.id
+  where id = auth.uid();
 
   return g;
 end;

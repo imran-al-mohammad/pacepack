@@ -768,6 +768,41 @@ button {
   font-size: 0.85rem;
   font-family: var(--display);
   flex-shrink: 0;
+  overflow: hidden;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.marathon-media {
+  width: 100%;
+  height: 160px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-strong);
+}
+
+.marathon-media-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.marathon-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .member-head {

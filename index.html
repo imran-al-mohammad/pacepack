@@ -59,36 +59,22 @@
     </div>
   </div>
 
-  <!-- Onboarding: create or join group -->
+  <!-- Onboarding: create group -->
   <div id="onboard-screen" class="auth-screen" hidden>
     <div class="auth-card">
-      <h2 class="auth-title">Join your running group</h2>
+      <h2 class="auth-title">Create your running group</h2>
       <p class="auth-sub" id="onboard-user-label"></p>
 
-      <div class="onboard-grid">
-        <div class="panel onboard-panel">
-          <h3>Create a new group</h3>
-          <p class="panel-hint">You become <strong>Admin</strong> and get an invite code to share.</p>
-          <form id="form-create-group" class="form-grid">
-            <div class="field">
-              <label for="group-name">Group name</label>
-              <input class="input" id="group-name" required placeholder="e.g. Downtown Run Club" />
-            </div>
-            <button class="btn btn-primary" type="submit">Create group</button>
-          </form>
-        </div>
-
-        <div class="panel onboard-panel">
-          <h3>Join with invite code</h3>
-          <p class="panel-hint">You join as a <strong>Member</strong>. An Admin can promote you later.</p>
-          <form id="form-join-group" class="form-grid">
-            <div class="field">
-              <label for="invite-code">Invite code</label>
-              <input class="input" id="invite-code" required placeholder="e.g. AB12CD34" style="text-transform:uppercase;letter-spacing:0.12em" maxlength="12" />
-            </div>
-            <button class="btn btn-secondary" type="submit">Join group</button>
-          </form>
-        </div>
+      <div class="panel onboard-panel">
+        <h3>Create a new group</h3>
+        <p class="panel-hint">Only admins can create a group. Once created, the admin manages the team.</p>
+        <form id="form-create-group" class="form-grid">
+          <div class="field">
+            <label for="group-name">Group name</label>
+            <input class="input" id="group-name" required placeholder="e.g. Downtown Run Club" />
+          </div>
+          <button class="btn btn-primary" type="submit">Create group</button>
+        </form>
       </div>
 
       <p class="auth-error" id="onboard-error" hidden></p>

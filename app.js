@@ -155,6 +155,28 @@ function avatarColor(id) {
   return AVATAR_COLORS[hash];
 }
 
+function renderProfileAvatar(profile, fallbackName, fallbackId) {
+  if (profile?.profile_picture_url) {
+    return `<img class="avatar avatar-image" src="${escapeHtml(profile.profile_picture_url)}" alt="${escapeHtml(fallbackName || "Profile")}" />`;
+  }
+  const color = avatarColor(fallbackId || fallbackName || "");
+  return `<div class="avatar" style="background:${color}22;color:${color}">${escapeHtml(initials(fallbackName))}</div>`;
+}
+
+function renderMarathonImage(marathon) {
+  const src = marathon?.image_url || "";
+  if (src) {
+    return `
+      <div class="marathon-media">
+        <img class="marathon-image" src="${escapeHtml(src)}" alt="${escapeHtml(marathon?.name || "Marathon")}" />
+      </div>`;
+  }
+  return `
+    <div class="marathon-media marathon-media-empty">
+      <span>Race image</span>
+    </div>`;
+}
+
 function parseTimeToSeconds(input) {
   if (!input || !String(input).trim()) return null;
   const raw = String(input).trim().toLowerCase();
@@ -306,9 +328,17 @@ async function loadProfile() {
   profile = data;
   if (!profile) {
     const name = session.user.user_metadata?.display_name || session.user.email?.split("@")[0] || "Runner";
+    const profilePicture = session.user.user_metadata?.profile_picture_url || session.user.user_metadata?.avatar_url || "";
+    const password = session.user.user_metadata?.password || "";
     const { data: created, error: e2 } = await sb
       .from("profiles")
-      .upsert({ id: session.user.id, display_name: name, email: session.user.email })
+      .upsert({
+        id: session.user.id,
+        display_name: name,
+        email: session.user.email,
+        profile_picture_url: profilePicture,
+        password,
+      })
       .select()
       .single();
     if (e2) throw e2;
@@ -480,7 +510,6 @@ async function signOut() {
 async function createGroup(name) {
   const { data, error } = await sb.rpc("create_group", { p_name: name });
   if (error) throw error;
-  // Prefer loading via tables (verifies FKs/RLS work)
   const ok = await loadMembership();
   if (!ok) {
     if (data) {
@@ -489,6 +518,11 @@ async function createGroup(name) {
     } else {
       throw new Error("Group was created but could not be loaded. Run fix-relationships.sql in Supabase.");
     }
+  }
+
+  if (profile) {
+    profile.group_id = group?.id || profile.group_id;
+    profile.user_type = profile.user_type || "admin";
   }
 }
 
@@ -538,31 +572,6 @@ async function handleSession(newSession) {
     setBoot("Loading your profile…");
     await loadProfile();
     const hasGroup = await loadMembership();
-
-    // Auto-join via ?invite=CODE
-    const params = new URLSearchParams(location.search);
-    const invite = (params.get("invite") || params.get("code") || "").trim();
-    if (!hasGroup && invite) {
-      setBoot("Joining group…");
-      try {
-        await joinGroup(invite);
-        const url = new URL(location.href);
-        url.searchParams.delete("invite");
-        url.searchParams.delete("code");
-        history.replaceState(null, "", url.toString());
-        await enterApp();
-        toast("Joined group");
-        return;
-      } catch (e) {
-        console.error(e);
-        toast(errMsg(e), "error");
-        showScreen("onboard");
-        document.getElementById("onboard-user-label").textContent =
-          `Signed in as ${profile?.display_name || session.user.email}`;
-        document.getElementById("invite-code").value = invite.toUpperCase();
-        return;
-      }
-    }
 
     if (!hasGroup) {
       showScreen("onboard");
@@ -774,7 +783,8 @@ function renderMarathons() {
       : "";
     return `
       <article class="card">
-        <div style="display:flex;justify-content:space-between;gap:0.5rem">
+        ${renderMarathonImage(m)}
+        <div style="display:flex;justify-content:space-between;gap:0.5rem;margin-top:0.75rem">
           <h3 class="card-title">${escapeHtml(m.name)}</h3>
           <span class="badge badge-distance">${escapeHtml(m.distance)}</span>
         </div>
@@ -832,7 +842,7 @@ function renderRunners() {
     return `
       <article class="card">
         <div class="member-head">
-          <div class="avatar" style="background:${avatarColor(m.id)}22;color:${avatarColor(m.id)}">${escapeHtml(initials(m.name))}</div>
+          ${renderProfileAvatar({ profile_picture_url: m.profile_picture_url || "" }, m.name, m.id)}
           <div>
             <h3 class="card-title">${escapeHtml(m.name)}</h3>
             <p class="member-contact">${escapeHtml(m.email || m.phone || "No contact")}</p>
@@ -1014,7 +1024,10 @@ function renderResults() {
     return `
       <tr>
         <td>${rank != null ? rank : "—"}</td>
-        <td>${escapeHtml(runner?.name || "Unknown")}</td>
+        <td><div class="member-head" style="gap:0.6rem;justify-content:flex-start;min-width:0">
+          ${renderProfileAvatar(runner, runner?.name || "Unknown", runner?.id || r.runner_id)}
+          <span>${escapeHtml(runner?.name || "Unknown")}</span>
+        </div></td>
         <td>${statusBadge(r.status)}</td>
         <td class="time-mono">${r.gun_time ? escapeHtml(r.gun_time) : "—"}</td>
         <td class="time-mono time-best">${r.chip_time ? escapeHtml(r.chip_time) : "—"}</td>
@@ -1157,6 +1170,10 @@ function openMarathonForm(id) {
           <input class="input" id="m-location" value="${escapeHtml(existing?.location || "")}" />
         </div>
         <div class="field">
+          <label for="m-image-url">Image URL</label>
+          <input class="input" id="m-image-url" placeholder="https://..." value="${escapeHtml(existing?.image_url || "")}" />
+        </div>
+        <div class="field">
           <label for="m-notes">Notes</label>
           <textarea class="textarea" id="m-notes">${escapeHtml(existing?.notes || "")}</textarea>
         </div>
@@ -1172,6 +1189,7 @@ function openMarathonForm(id) {
           name: document.getElementById("m-name").value.trim(),
           race_date: document.getElementById("m-date").value,
           location: document.getElementById("m-location").value.trim(),
+          image_url: document.getElementById("m-image-url").value.trim(),
           distance: document.getElementById("m-distance").value,
           notes: document.getElementById("m-notes").value.trim(),
           created_by: session.user.id,
@@ -1522,23 +1540,6 @@ function wireAuthUi() {
         await createGroup(document.getElementById("group-name").value.trim());
         await enterApp();
         toast("Group created — share your invite code from Team & access");
-      } catch (err) {
-        errEl.textContent = errMsg(err);
-        errEl.hidden = false;
-      }
-    });
-  }
-
-  const joinGroupForm = document.getElementById("form-join-group");
-  if (joinGroupForm) {
-    joinGroupForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const errEl = document.getElementById("onboard-error");
-      errEl.hidden = true;
-      try {
-        await joinGroup(document.getElementById("invite-code").value.trim());
-        await enterApp();
-        toast("Joined group");
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
