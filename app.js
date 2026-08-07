@@ -317,20 +317,37 @@ async function loadProfile() {
 }
 
 async function loadMembership() {
-  const { data, error } = await sb
+  // No nested embeds — avoids "relationship not found" when FKs/schema cache differ
+  const { data: membership, error } = await sb
     .from("group_memberships")
-    .select("*, groups(*)")
+    .select("id, role, group_id, user_id, created_at")
     .eq("user_id", session.user.id)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  if (!data) {
+  if (!membership) {
     group = null;
     myRole = null;
     return false;
   }
-  group = data.groups;
-  myRole = data.role;
+
+  const { data: g, error: gErr } = await sb
+    .from("groups")
+    .select("id, name, invite_code, created_at")
+    .eq("id", membership.group_id)
+    .maybeSingle();
+  if (gErr) throw gErr;
+  if (!g) {
+    // Membership row exists but group missing / blocked by RLS
+    group = null;
+    myRole = null;
+    throw new Error(
+      "Group not found for your membership. Re-run supabase-schema.sql (or fix-relationships.sql) in Supabase SQL Editor."
+    );
+  }
+
+  group = g;
+  myRole = membership.role;
   return true;
 }
 
@@ -344,7 +361,7 @@ async function loadGroupData() {
     sb.from("registrations").select("*").eq("group_id", gid),
     sb
       .from("group_memberships")
-      .select("id, role, user_id, created_at, profiles(id, display_name, email)")
+      .select("id, role, user_id, created_at")
       .eq("group_id", gid),
   ]);
 
@@ -356,12 +373,35 @@ async function loadGroupData() {
   state.marathons = m.data || [];
   state.runners = r.data || [];
   state.registrations = reg.data || [];
-  team = (mem.data || []).map((row) => ({
+
+  const memberships = mem.data || [];
+  const userIds = [...new Set(memberships.map((row) => row.user_id).filter(Boolean))];
+
+  let profileMap = {};
+  if (userIds.length) {
+    const { data: profiles, error: pErr } = await sb
+      .from("profiles")
+      .select("id, display_name, email")
+      .in("id", userIds);
+    if (pErr) {
+      // Non-fatal: still show team without names
+      console.warn("profiles load:", pErr);
+    } else {
+      (profiles || []).forEach((p) => {
+        profileMap[p.id] = p;
+      });
+    }
+  }
+
+  team = memberships.map((row) => ({
     id: row.id,
     role: row.role,
     user_id: row.user_id,
     created_at: row.created_at,
-    profile: row.profiles || { display_name: "User", email: "" },
+    profile: profileMap[row.user_id] || {
+      display_name: row.user_id === session.user.id ? (profile?.display_name || "You") : "User",
+      email: row.user_id === session.user.id ? (session.user.email || "") : "",
+    },
   }));
 }
 
@@ -452,15 +492,30 @@ async function signOut() {
 async function createGroup(name) {
   const { data, error } = await sb.rpc("create_group", { p_name: name });
   if (error) throw error;
-  group = data;
-  myRole = "admin";
+  // Prefer loading via tables (verifies FKs/RLS work)
+  const ok = await loadMembership();
+  if (!ok) {
+    if (data) {
+      group = data;
+      myRole = "admin";
+    } else {
+      throw new Error("Group was created but could not be loaded. Run fix-relationships.sql in Supabase.");
+    }
+  }
 }
 
 async function joinGroup(code) {
   const { data, error } = await sb.rpc("join_group", { p_code: code });
   if (error) throw error;
-  group = data;
-  myRole = "member";
+  const ok = await loadMembership();
+  if (!ok) {
+    if (data) {
+      group = data;
+      myRole = "member";
+    } else {
+      throw new Error("Joined but group could not be loaded. Run fix-relationships.sql in Supabase.");
+    }
+  }
 }
 
 async function enterApp() {
