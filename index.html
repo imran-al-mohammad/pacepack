@@ -40,7 +40,6 @@
         </div>
         <div>
           <h1>Impulsive Runners</h1>
-          <p>Shared online race tracker for your group</p>
         </div>
       </div>
 
@@ -174,6 +173,7 @@
           </div>
         </div>
         <div class="stats-grid" id="stats-grid"></div>
+        <section class="analytics-visuals" id="analytics-visuals" aria-label="Visual analytics"></section>
         <div class="panel insights-panel">
           <div class="panel-header">
             <h3>Analytics &amp; insights</h3>
@@ -216,6 +216,13 @@
             <option value="all">All races</option>
             <option value="upcoming">Upcoming</option>
             <option value="past">Past</option>
+          </select>
+          <select id="marathon-sort" class="select" aria-label="Sort marathons">
+            <option value="date-asc">Date: soonest first</option>
+            <option value="date-desc">Date: latest first</option>
+            <option value="name">Name: A to Z</option>
+            <option value="entries">Most entries</option>
+            <option value="results">Most results</option>
           </select>
         </div>
         <div class="card-grid" id="marathon-list"></div>

@@ -1240,6 +1240,43 @@ function renderInsights() {
     .join("");
 }
 
+function renderVisualAnalytics() {
+  const container = document.getElementById("analytics-visuals");
+  if (!container) return;
+
+  const total = state.registrations.length;
+  const finished = state.registrations.filter((r) => r.status === "completed" || displayFinishTime(r)).length;
+  const finishRate = total ? Math.round((finished / total) * 100) : 0;
+  const statusOrder = ["registered", "interested", "waitlisted", "completed", "dnf", "dns"];
+  const statusColors = { registered: "var(--teal)", interested: "var(--blue)", waitlisted: "var(--amber)", completed: "var(--green)", dnf: "var(--purple)", dns: "var(--danger)" };
+  const statusCounts = Object.fromEntries(statusOrder.map((status) => [status, state.registrations.filter((r) => r.status === status).length]));
+  const activeStatuses = statusOrder.filter((status) => statusCounts[status]);
+  const raceSeries = sortMarathons(state.marathons).map((marathon) => ({ name: marathon.name, count: regsForMarathon(marathon.id).length })).sort((a, b) => b.count - a.count).slice(0, 5);
+  const maxRaceCount = Math.max(...raceSeries.map((race) => race.count), 1);
+
+  let accumulated = 0;
+  const segments = activeStatuses.map((status) => {
+    const start = total ? (accumulated / total) * 100 : 0;
+    accumulated += statusCounts[status];
+    return `${statusColors[status]} ${start}% ${total ? (accumulated / total) * 100 : 0}%`;
+  });
+  const mixStyle = segments.length ? `background:conic-gradient(${segments.join(",")})` : "background:var(--bg-hover)";
+
+  container.innerHTML = `
+    <div class="analytics-card analytics-completion-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Race outcomes</span><span class="analytics-trend">Live</span></div>
+      <div class="completion-content"><div class="completion-ring" style="--completion:${finishRate}%" role="img" aria-label="${finishRate}% of registrations have a logged result"><div><strong>${finishRate}%</strong><span>logged</span></div></div><div><p class="analytics-value">${finished}<span> / ${total}</span></p><p class="analytics-copy">Results recorded across the group</p></div></div>
+    </div>
+    <div class="analytics-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Entry mix</span><span class="analytics-mini-total">${total} entries</span></div>
+      <div class="status-donut-row"><div class="status-donut" style="${mixStyle}" role="img" aria-label="Registration status breakdown"><span>${total}</span></div><div class="status-legend">${activeStatuses.length ? activeStatuses.map((status) => `<div class="status-legend-item"><i style="background:${statusColors[status]}"></i><span>${escapeHtml(statusLabel(status))}</span><strong>${statusCounts[status]}</strong></div>`).join("") : `<p class="analytics-copy">Add registrations to see the mix.</p>`}</div></div>
+    </div>
+    <div class="analytics-card analytics-race-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Most popular races</span><span class="analytics-mini-total">Top ${raceSeries.length || 0}</span></div>
+      <div class="race-bars">${raceSeries.length ? raceSeries.map((race, index) => `<div class="race-bar-row"><span title="${escapeHtml(race.name)}">${escapeHtml(race.name)}</span><div class="race-bar-track"><div class="race-bar-fill" style="width:${(race.count / maxRaceCount) * 100}%;--bar-index:${index}"></div></div><strong>${race.count}</strong></div>`).join("") : `<p class="analytics-copy">Add races to compare signups.</p>`}</div>
+    </div>`;
+}
+
 function renderDashboard() {
   const upcoming = sortMarathons(state.marathons.filter((m) => !isPast(m)));
   const past = state.marathons.filter((m) => isPast(m));
@@ -1248,6 +1285,7 @@ function renderDashboard() {
   const withTimes = state.registrations.filter((r) => displayFinishTime(r)).length;
 
   renderInsights();
+  renderVisualAnalytics();
   renderLeaderboardChart(computeLeaderboard());
 
   document.getElementById("stats-grid").innerHTML = `
@@ -1514,6 +1552,7 @@ function renderWhosRunningChart() {
 function renderMarathons() {
   const q = (document.getElementById("marathon-search")?.value || "").trim().toLowerCase();
   const filter = document.getElementById("marathon-filter-status")?.value || "all";
+  const sort = document.getElementById("marathon-sort")?.value || "date-asc";
   let list = sortMarathons(state.marathons);
   if (filter === "upcoming") list = list.filter((m) => !isPast(m));
   if (filter === "past") list = list.filter((m) => isPast(m));
@@ -1522,12 +1561,25 @@ function renderMarathons() {
       [m.name, m.location, m.distance, m.notes].join(" ").toLowerCase().includes(q)
     );
   }
+  list.sort((a, b) => {
+    const dateA = nextRaceTargetDate(a)?.getTime() ?? 0;
+    const dateB = nextRaceTargetDate(b)?.getTime() ?? 0;
+    if (sort === "date-desc") return dateB - dateA || (a.name || "").localeCompare(b.name || "");
+    if (sort === "name") return (a.name || "").localeCompare(b.name || "");
+    if (sort === "entries") return regsForMarathon(b.id).length - regsForMarathon(a.id).length || dateA - dateB;
+    if (sort === "results") {
+      const resultCount = (m) => regsForMarathon(m.id).filter((r) => r.status === "completed" || displayFinishTime(r)).length;
+      return resultCount(b) - resultCount(a) || dateA - dateB;
+    }
+    return dateA - dateB || (a.name || "").localeCompare(b.name || "");
+  });
   const el = document.getElementById("marathon-list");
   if (!list.length) {
     el.innerHTML = `<div class="empty" style="grid-column:1/-1"><strong>No marathons found</strong></div>`;
     return;
   }
   el.innerHTML = list.map((m) => {
+    const past = isPast(m);
     const regs = regsForMarathon(m.id);
     const finished = regs.filter((r) => r.status === "completed" || displayFinishTime(r));
     const times = finished.map(bestFinishSeconds).filter((s) => s != null).sort((a, b) => a - b);
@@ -1536,9 +1588,12 @@ function renderMarathons() {
       ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${m.id}">Delete</button>`
       : "";
     return `
-      <article class="card">
-        ${renderMarathonImage(m)}
-        <div style="display:flex;justify-content:space-between;gap:0.5rem;margin-top:0.75rem">
+      <article class="card marathon-card${past ? " marathon-card-past" : ""}">
+        <div class="marathon-media-wrap">
+          ${renderMarathonImage(m)}
+          <span class="marathon-state ${past ? "marathon-state-past" : "marathon-state-upcoming"}">${past ? "Past race" : "Upcoming"}</span>
+        </div>
+        <div class="marathon-card-title-row">
           <h3 class="card-title">${escapeHtml(m.name)}</h3>
           <span class="badge badge-distance">${escapeHtml(m.distance)}</span>
         </div>
@@ -2711,7 +2766,7 @@ function wireAppUi() {
     if (e.key === "Escape" && !document.getElementById("modal-backdrop").hidden) closeModal();
   });
 
-  ["marathon-search", "marathon-filter-status"].forEach((id) => {
+  ["marathon-search", "marathon-filter-status", "marathon-sort"].forEach((id) => {
     const el = document.getElementById(id);
     el?.addEventListener("input", () => renderMarathons());
     el?.addEventListener("change", () => renderMarathons());
