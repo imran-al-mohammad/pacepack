@@ -675,14 +675,33 @@ function updateRaceTimerDisplay(marathon) {
   const panel = document.getElementById("next-race-panel");
   if (!meta || !panel) return;
 
+  const thumb = document.getElementById("next-race-thumb");
+
   if (!marathon) {
     meta.textContent = "No upcoming races scheduled";
     panel.classList.add("next-race-empty");
+    if (thumb) {
+      thumb.hidden = true;
+      thumb.src = "";
+      thumb.alt = "";
+    }
     ["days", "hours", "mins", "secs"].forEach((u) => {
       const el = panel.querySelector(`[data-unit="${u}"]`);
       if (el) el.textContent = "0";
     });
     return;
+  }
+
+  if (thumb) {
+    if (marathon.image_url) {
+      thumb.src = marathon.image_url;
+      thumb.alt = `${marathon.name} race thumbnail`;
+      thumb.hidden = false;
+    } else {
+      thumb.hidden = true;
+      thumb.src = "";
+      thumb.alt = "";
+    }
   }
 
   panel.classList.remove("next-race-empty");
