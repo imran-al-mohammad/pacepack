@@ -90,7 +90,8 @@ button {
   position: sticky;
   top: 0;
   align-self: start;
-  max-height: 100vh;
+  height: fit-content;
+  max-height: none;
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border);
   background: rgba(21, 21, 21, 0.92);
@@ -99,8 +100,9 @@ button {
   flex-direction: column;
   gap: 1.5rem;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: visible;
   transition: padding 0.22s ease;
+  z-index: 1;
 }
 
 .sidebar-top {
@@ -929,12 +931,19 @@ button {
 .next-race-panel {
   margin-bottom: 1.25rem;
   display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(260px, 1fr);
   gap: 1rem;
+  align-items: start;
+}
+
+.next-race-panel .panel-header {
+  grid-column: 1 / -1;
 }
 
 .next-race-thumb-wrap {
   width: 100%;
-  max-height: 200px;
+  min-height: 200px;
+  max-height: 260px;
   overflow: hidden;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -951,6 +960,12 @@ button {
 }
 
 .next-race-timer {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+  grid-column: 2;
+}
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.65rem;
@@ -1573,13 +1588,16 @@ button {
   }
 
   .sidebar {
-    position: relative;
+    position: sticky;
+    top: 0;
     height: auto;
+    max-height: none;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding: 1rem;
     max-width: 100%;
     overflow: hidden;
+    z-index: 2;
   }
 
   .app.sidebar-collapsed .sidebar {
@@ -1634,6 +1652,19 @@ button {
 
   .share-layout {
     grid-template-columns: 1fr;
+  }
+
+  .next-race-panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
+  .next-race-thumb-wrap {
+    max-height: 220px;
+  }
+
+  .next-race-timer {
+    margin-top: 0;
   }
 
   .team-layout > .panel {
