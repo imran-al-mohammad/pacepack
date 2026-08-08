@@ -321,7 +321,7 @@ begin
 end;
 $$;
 
--- Admin: add an existing auth user to the group (used after admin creates a login)
+-- Moderator+: add an existing auth user to the group (used after creating a login)
 create or replace function public.add_group_member(p_group_id uuid, p_user_id uuid, p_role text default 'member')
 returns void
 language plpgsql
@@ -332,11 +332,14 @@ declare
   u_email text;
   u_name text;
 begin
-  if not public.has_min_role(p_group_id, 'admin') then
-    raise exception 'Only admins can add members';
+  if not public.has_min_role(p_group_id, 'moderator') then
+    raise exception 'Only moderators and admins can add members';
   end if;
   if p_role not in ('admin', 'moderator', 'member') then
     raise exception 'Invalid role';
+  end if;
+  if p_role <> 'member' and not public.has_min_role(p_group_id, 'admin') then
+    raise exception 'Moderators can only add member users';
   end if;
   if not exists (select 1 from auth.users where id = p_user_id) then
     raise exception 'User does not exist';
@@ -498,7 +501,7 @@ drop policy if exists runners_delete on public.runners;
 create policy runners_select on public.runners for select to authenticated
   using (public.is_group_member(group_id));
 create policy runners_insert on public.runners for insert to authenticated
-  with check (public.has_min_role(group_id, 'member'));
+  with check (public.has_min_role(group_id, 'moderator'));
 create policy runners_update on public.runners for update to authenticated
   using (public.has_min_role(group_id, 'member'))
   with check (public.has_min_role(group_id, 'member'));

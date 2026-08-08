@@ -112,7 +112,11 @@ function canManageRoles() {
 }
 
 function canCreateUsers() {
-  return hasMinRole("admin");
+  return hasMinRole("moderator");
+}
+
+function canAddRunners() {
+  return hasMinRole("moderator");
 }
 
 function canWrite() {
@@ -744,11 +748,11 @@ async function joinGroup(code) {
 }
 
 /**
- * Admin creates a login for someone else and adds them to the current group.
+ * A moderator or admin creates a login for someone else and adds them to the current group.
  * Uses a throwaway Supabase client so the admin session is not replaced.
  */
 async function adminCreateUser({ email, password, displayName, role }) {
-  if (!canCreateUsers()) throw new Error("Only admins can create users");
+  if (!canCreateUsers()) throw new Error("Only moderators and admins can create users");
   if (!group?.id) throw new Error("No group loaded");
 
   const name = (displayName || "").trim();
@@ -761,6 +765,9 @@ async function adminCreateUser({ email, password, displayName, role }) {
   if (pass.length < 6) throw new Error("Password must be at least 6 characters");
   if (!["admin", "moderator", "member"].includes(memberRole)) {
     throw new Error("Invalid role");
+  }
+  if (memberRole !== "member" && !canManageRoles()) {
+    throw new Error("Moderators can only create member users");
   }
 
   const { url, key } = getConfig();
@@ -1043,7 +1050,7 @@ function setView(view) {
 
 function openRunnerCreateFlow() {
   if (!canCreateUsers()) {
-    toast("Create a user account first to add a runner", "error");
+    toast("Only moderators and admins can add runners", "error");
     return;
   }
   setView("team");
@@ -1058,6 +1065,14 @@ function openRunnerCreateFlow() {
 
 function renderTopbarActions() {
   const el = document.getElementById("topbar-actions");
+  if (currentView === "members") {
+    el.innerHTML = canAddRunners()
+      ? `<button class="btn btn-primary" id="btn-add-member">+ Create user / runner</button>`
+      : "";
+    const addMember = document.getElementById("btn-add-member");
+    if (addMember) addMember.onclick = () => openRunnerCreateFlow();
+    return;
+  }
   if (!canWrite()) {
     el.innerHTML = "";
     return;
@@ -1065,9 +1080,6 @@ function renderTopbarActions() {
   if (currentView === "marathons") {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-marathon">+ Add marathon</button>`;
     document.getElementById("btn-add-marathon").onclick = () => openMarathonForm();
-  } else if (currentView === "members") {
-    el.innerHTML = `<button class="btn btn-primary" id="btn-add-member">+ Create user / runner</button>`;
-    document.getElementById("btn-add-member").onclick = () => openRunnerCreateFlow();
   } else if (currentView === "registrations") {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-reg">+ Add registration</button>`;
     document.getElementById("btn-add-reg").onclick = () => openRegistrationForm();
@@ -1820,6 +1832,13 @@ function renderTeam() {
   if (createPanel) {
     createPanel.hidden = !canCreateUsers();
   }
+  const newUserRole = document.getElementById("new-user-role");
+  if (newUserRole) {
+    newUserRole.querySelectorAll('option:not([value="member"])').forEach((option) => {
+      option.hidden = !canManageRoles();
+    });
+    if (!canManageRoles()) newUserRole.value = "member";
+  }
 
   const logoPanel = document.getElementById("logo-panel");
   if (logoPanel) {
@@ -2028,6 +2047,9 @@ function confirmDeleteMarathon(id) {
 function openRunnerForm(id) {
   if (!canWrite()) return toast("No permission", "error");
   const existing = id ? getRunner(id) : null;
+  if (!existing && !canAddRunners()) {
+    return toast("Only moderators and admins can add runners", "error");
+  }
   openModal({
     title: existing ? "Edit runner" : "Add runner",
     bodyHtml: `
@@ -2543,7 +2565,7 @@ function wireAuthUi() {
   if (createUserForm) {
     createUserForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!canCreateUsers()) return toast("Only admins can create users", "error");
+      if (!canCreateUsers()) return toast("Only moderators and admins can create users", "error");
       const errEl = document.getElementById("create-user-error");
       const btn = document.getElementById("btn-create-user");
       errEl.hidden = true;

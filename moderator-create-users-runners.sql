@@ -1,10 +1,5 @@
--- =============================================================================
--- PacePack — allow Admin to create users (add_group_member RPC)
--- Run once in Supabase → SQL Editor if you already applied an older schema.
--- =============================================================================
-
-alter table public.profiles add column if not exists group_id uuid;
-alter table public.profiles add column if not exists user_type text default 'member';
+-- PacePack — allow moderators and admins to add users and runners.
+-- Run once in the Supabase SQL Editor for an existing project.
 
 create or replace function public.add_group_member(p_group_id uuid, p_user_id uuid, p_role text default 'member')
 returns void
@@ -50,5 +45,9 @@ begin
   on conflict (group_id, user_id) do update set role = excluded.role;
 end;
 $$;
+
+drop policy if exists runners_insert on public.runners;
+create policy runners_insert on public.runners for insert to authenticated
+  with check (public.has_min_role(group_id, 'moderator'));
 
 grant execute on function public.add_group_member(uuid, uuid, text) to authenticated;
