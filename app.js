@@ -996,11 +996,7 @@ function updateUserChrome() {
 }
 
 function updateRolePill() {
-  const pill = document.getElementById("role-pill");
-  const label = document.getElementById("role-label");
-  pill.classList.remove("admin", "moderator", "member");
-  pill.classList.add(myRole || "member");
-  label.textContent = myRole || "member";
+  // Sidebar role badge removed; keep the navigation menus only.
 }
 
 async function handleSession(newSession) {
