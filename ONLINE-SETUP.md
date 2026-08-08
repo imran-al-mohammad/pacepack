@@ -67,8 +67,9 @@ Commit and push to GitHub so Pages updates.
 ### Option A — Admin creates accounts (recommended)
 
 1. Sign in as **Admin** → **Team & access**  
-2. Under **Create user**, enter name, email, password, and role  
+2. Under **Create user / runner**, enter name, email, password, and role  
 3. Tell them the email + password — they sign in on the auth screen  
+4. The roster runner is created automatically from that user account  
 
 ### Option B — Invite link / code
 
@@ -98,8 +99,8 @@ You (Admin) can promote people to **Moderator** or **Admin** under **Team & acce
 
 ## Notes
 
-- **Runners** = people on the race roster (may not have logins)  
-- **Team & access** = people who can log into the app  
+- **Runners** = people on the race roster, and they are synced with app users  
+- **Team & access** = people who can log into the app; creating a user here also adds them to the roster  
 - Data syncs live for everyone in the group  
 - Old local-only / room JSON mode is replaced by this schema  
 

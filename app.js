@@ -1041,6 +1041,21 @@ function setView(view) {
   render();
 }
 
+function openRunnerCreateFlow() {
+  if (!canCreateUsers()) {
+    toast("Create a user account first to add a runner", "error");
+    return;
+  }
+  setView("team");
+  setTimeout(() => {
+    const input = document.getElementById("new-user-name");
+    if (input) {
+      input.focus();
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, 80);
+}
+
 function renderTopbarActions() {
   const el = document.getElementById("topbar-actions");
   if (!canWrite()) {
@@ -1051,8 +1066,8 @@ function renderTopbarActions() {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-marathon">+ Add marathon</button>`;
     document.getElementById("btn-add-marathon").onclick = () => openMarathonForm();
   } else if (currentView === "members") {
-    el.innerHTML = `<button class="btn btn-primary" id="btn-add-member">+ Add runner</button>`;
-    document.getElementById("btn-add-member").onclick = () => openRunnerForm();
+    el.innerHTML = `<button class="btn btn-primary" id="btn-add-member">+ Create user / runner</button>`;
+    document.getElementById("btn-add-member").onclick = () => openRunnerCreateFlow();
   } else if (currentView === "registrations") {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-reg">+ Add registration</button>`;
     document.getElementById("btn-add-reg").onclick = () => openRegistrationForm();
@@ -2017,6 +2032,7 @@ function openRunnerForm(id) {
     title: existing ? "Edit runner" : "Add runner",
     bodyHtml: `
       <form class="form-grid">
+        ${!existing ? `<p class="panel-hint" style="margin:0 0 1rem">Runners are synced with app users. Create a user first from Team &amp; access, then they appear here automatically.</p>` : ""}
         <div class="field">
           <label for="p-name">Name *</label>
           <input class="input" id="p-name" required value="${escapeHtml(existing?.name || "")}" />
@@ -2542,7 +2558,7 @@ function wireAuthUi() {
         });
         createUserForm.reset();
         document.getElementById("new-user-role").value = "member";
-        toast(`User created — ${email} must set a new password on first sign-in`);
+        toast(`User created and added to the roster — ${email} must set a new password on first sign-in`);
         await loadGroupData();
         renderTeam();
       } catch (err) {

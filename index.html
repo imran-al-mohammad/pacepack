@@ -366,8 +366,8 @@
 
           <div class="panel" id="create-user-panel" hidden>
             <div class="panel-header">
-              <h3>Create user</h3>
-              <p class="panel-hint">Admins can create login accounts and add them to this group.</p>
+              <h3>Create user / runner</h3>
+              <p class="panel-hint">Admins can create login accounts and add them to this group. Creating a user also adds them to the roster automatically.</p>
             </div>
             <form id="form-create-user" class="form-grid">
               <div class="field">
@@ -392,7 +392,7 @@
                   </select>
                 </div>
               </div>
-              <p class="panel-hint" id="create-user-hint" style="margin:0">They sign in with this temporary password, then must set a new one.</p>
+              <p class="panel-hint" id="create-user-hint" style="margin:0">They sign in with this temporary password, then must set a new one. A roster runner is created automatically.</p>
               <p class="auth-error" id="create-user-error" hidden></p>
               <button class="btn btn-primary" type="submit" id="btn-create-user">Create user</button>
             </form>
