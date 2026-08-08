@@ -680,6 +680,7 @@ function updateRaceTimerDisplay(marathon) {
   if (!marathon) {
     meta.textContent = "No upcoming races scheduled";
     panel.classList.add("next-race-empty");
+    panel.classList.remove("next-race-has-thumbnail");
     if (thumb) {
       thumb.hidden = true;
       thumb.src = "";
@@ -697,10 +698,12 @@ function updateRaceTimerDisplay(marathon) {
       thumb.src = marathon.image_url;
       thumb.alt = `${marathon.name} race thumbnail`;
       thumb.hidden = false;
+      panel.classList.add("next-race-has-thumbnail");
     } else {
       thumb.hidden = true;
       thumb.src = "";
       thumb.alt = "";
+      panel.classList.remove("next-race-has-thumbnail");
     }
   }
 
