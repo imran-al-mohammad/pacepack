@@ -1113,10 +1113,12 @@ function computeLeaderboard() {
   const byRunner = new Map();
   for (const r of state.registrations) {
     const finished = r.status === "completed" || !!displayFinishTime(r);
-    if (!finished && !r.is_pr) continue;
-    const cur = byRunner.get(r.runner_id) || { runnerId: r.runner_id, finishes: 0, prs: 0, score: 0 };
+    const cur = byRunner.get(r.runner_id) || { runnerId: r.runner_id, entries: 0, finishes: 0, prs: 0, times: [], score: 0 };
+    cur.entries += 1;
     if (finished) cur.finishes += 1;
     if (r.is_pr) cur.prs += 1;
+    const seconds = bestFinishSeconds(r);
+    if (seconds != null) cur.times.push(seconds);
     cur.score = cur.finishes + cur.prs * 2;
     byRunner.set(r.runner_id, cur);
   }
@@ -1125,9 +1127,11 @@ function computeLeaderboard() {
       ...row,
       runner: getRunner(row.runnerId),
       name: getRunner(row.runnerId)?.name || "Unknown",
+      bestTime: row.times.length ? Math.min(...row.times) : null,
+      averageTime: row.times.length ? Math.round(row.times.reduce((sum, time) => sum + time, 0) / row.times.length) : null,
     }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || b.finishes - a.finishes || a.name.localeCompare(b.name));
+    .filter((row) => row.entries > 0)
+    .sort((a, b) => b.score - a.score || b.finishes - a.finishes || b.entries - a.entries || a.name.localeCompare(b.name));
 }
 
 function renderLeaderboardChart(entries) {
@@ -1157,12 +1161,12 @@ function renderLeaderboardChart(entries) {
     const h = Math.max(6, Math.round((e.score / max) * chartH));
     const x = padL + i * (barW + gap);
     const y = padT + chartH - h;
-    const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const color = i === 0 ? "var(--accent-hover)" : "var(--accent)";
     const label = e.name.length > 10 ? `${e.name.slice(0, 9)}…` : e.name;
     return `
       <g class="lb-bar-group">
         <rect class="lb-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="8" fill="${color}" opacity="0.9">
-          <title>${escapeHtml(e.name)}: ${e.score} pts (${e.finishes} finishes, ${e.prs} PRs)</title>
+          <title>${escapeHtml(e.name)}: ${e.score} points, ${e.entries} participations, ${e.bestTime != null ? formatSeconds(e.bestTime) : "no recorded time"}</title>
         </rect>
         <text class="lb-value" x="${x + barW / 2}" y="${y - 8}" text-anchor="middle">${e.score}</text>
         <text class="lb-label" x="${x + barW / 2}" y="${padT + chartH + 18}" text-anchor="middle">${escapeHtml(label)}</text>
@@ -1180,10 +1184,11 @@ function renderLeaderboardChart(entries) {
   listEl.innerHTML = `
     <ol class="leaderboard-ranks">
       ${top.map((e, i) => `
-        <li class="leaderboard-rank-item">
-          <span class="lb-rank">#${i + 1}</span>
+        <li class="leaderboard-rank-item lb-rank-${i + 1}">
+          <span class="lb-rank"><small>Rank</small>#${i + 1}</span>
           <span class="lb-avatar">${renderProfileAvatar(e.runner, e.name, e.runnerId)}</span>
           <span class="lb-name" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>
+          <span class="lb-time"><small>Best</small><strong class="time-mono">${e.bestTime != null ? formatSeconds(e.bestTime) : "—"}</strong></span>
           <span class="lb-meta">${e.finishes} finish${e.finishes === 1 ? "" : "es"} · ${e.prs} PR${e.prs === 1 ? "" : "s"}</span>
           <span class="lb-score">${e.score}</span>
         </li>`).join("")}
@@ -1401,6 +1406,8 @@ function whosRunningTooltipHtml(marathonId) {
 function renderWhosRunningChart() {
   const wrap = document.getElementById("matrix-wrap");
   if (!wrap) return;
+  const chartStatuses = ["registered", "interested", "waitlisted", "completed", "dnf", "dns"];
+  const statusChartColors = { registered: "var(--teal)", interested: "var(--blue)", waitlisted: "var(--amber)", completed: "var(--green)", dnf: "var(--purple)", dns: "var(--danger)" };
 
   const marathons = sortMarathons(state.marathons);
   if (!marathons.length) {
@@ -1418,7 +1425,7 @@ function renderWhosRunningChart() {
       marathon: m,
       count: regs.length,
       byStatus,
-      color: AVATAR_COLORS[i % AVATAR_COLORS.length],
+      color: "var(--accent)",
     };
   });
 
@@ -1451,11 +1458,19 @@ function renderWhosRunningChart() {
     const selected = s.marathon.id === selectedWhosRunningMarathonId;
     const label = s.marathon.name.length > 11 ? `${s.marathon.name.slice(0, 10)}…` : s.marathon.name;
     const dateShort = String(s.marathon.race_date).slice(5);
+    let stackY = y + h;
+    const stacks = chartStatuses.map((status) => {
+      const count = s.byStatus[status] || 0;
+      if (!count) return "";
+      const segmentH = Math.max(3, (count / s.count) * h);
+      stackY -= segmentH;
+      return `<rect class="wr-bar wr-bar-${status}" x="${x}" y="${stackY}" width="${barW}" height="${segmentH + 0.5}" fill="${statusChartColors[status]}"></rect>`;
+    }).join("");
     return `
       <g class="wr-bar-group${selected ? " is-selected" : ""}" data-marathon-id="${s.marathon.id}" role="button" tabindex="0" style="cursor:pointer">
         <rect class="wr-bar-hit" x="${x - 6}" y="${padT}" width="${barW + 12}" height="${chartH + padB - 8}" fill="transparent"></rect>
-        <rect class="wr-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="9"
-          fill="${s.color}" opacity="${selected ? "1" : "0.72"}"></rect>
+        <rect class="wr-bar-base" x="${x}" y="${y}" width="${barW}" height="${h}" rx="9" fill="${s.color}" opacity="${selected ? "0.28" : "0.16"}"></rect>
+        <g opacity="${selected ? "1" : "0.72"}">${stacks}</g>
         <text class="wr-value" x="${x + barW / 2}" y="${y - 8}" text-anchor="middle">${s.count}</text>
         <text class="wr-label" x="${x + barW / 2}" y="${padT + chartH + 18}" text-anchor="middle">${escapeHtml(label)}</text>
         <text class="wr-date" x="${x + barW / 2}" y="${padT + chartH + 34}" text-anchor="middle">${escapeHtml(dateShort)}</text>
@@ -1492,6 +1507,7 @@ function renderWhosRunningChart() {
 
   wrap.innerHTML = `
     <div class="whos-running-chart-area">
+      <div class="wr-chart-legend">${chartStatuses.map((status) => `<span><i style="background:${statusChartColors[status]}"></i>${escapeHtml(statusLabel(status))}</span>`).join("")}</div>
       <div class="leaderboard-chart-scroll">
         <svg class="whos-running-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Registrations by race bar chart">
           <line class="lb-axis" x1="${padL - 10}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" />

@@ -973,6 +973,11 @@ button {
   filter: brightness(1.1);
 }
 
+.wr-chart-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; margin: 0 0 0.8rem; color: var(--text-dim); font-size: 0.73rem; }
+.wr-chart-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.wr-chart-legend i { width: 8px; height: 8px; display: block; border-radius: 50%; }
+.wr-bar-base { stroke: var(--border); stroke-width: 1; }
+
 .wr-detail {
   margin-top: 1rem;
   padding-top: 0.85rem;
@@ -1090,7 +1095,7 @@ button {
 
 .leaderboard-rank-item {
   display: grid;
-  grid-template-columns: 2.2rem 2rem minmax(0, 1fr) auto auto;
+  grid-template-columns: 2.7rem 2rem minmax(7rem, 1fr) auto auto auto;
   align-items: center;
   gap: 0.55rem 0.65rem;
   padding: 0.55rem 0.7rem;
@@ -1100,11 +1105,21 @@ button {
   min-width: 0;
 }
 
+.leaderboard-rank-item:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.leaderboard-rank-item.lb-rank-1 { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.leaderboard-rank-item.lb-rank-2 { box-shadow: inset 3px 0 0 var(--text-muted); }
+.leaderboard-rank-item.lb-rank-3 { box-shadow: inset 3px 0 0 var(--text-dim); }
+
 .lb-rank {
   font-weight: 700;
   color: var(--text-muted);
   font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
 }
+
+.lb-rank small, .lb-time small, .lb-score small { color: var(--text-dim); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
 
 .lb-avatar .avatar {
   width: 28px;
@@ -1121,6 +1136,9 @@ button {
   min-width: 0;
 }
 
+.lb-time { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; white-space: nowrap; }
+.lb-time strong { font-size: 0.82rem; color: var(--text); }
+
 .lb-meta {
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -1133,6 +1151,10 @@ button {
   font-size: 1.05rem;
   min-width: 1.75rem;
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  color: var(--accent-hover);
 }
 
 .card-title,
@@ -1566,12 +1588,13 @@ button {
     grid-template-columns: 2rem 1.75rem minmax(0, 1fr) auto;
     grid-template-areas:
       "rank avatar name score"
-      "rank avatar meta score";
+      "rank avatar meta time";
   }
 
   .lb-rank { grid-area: rank; }
   .lb-avatar { grid-area: avatar; }
   .lb-name { grid-area: name; }
+  .lb-time { grid-area: time; }
   .lb-meta {
     grid-area: meta;
     white-space: normal;
