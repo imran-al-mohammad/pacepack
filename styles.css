@@ -41,7 +41,6 @@
 html, body {
   margin: 0;
   min-height: 100%;
-  overflow-x: hidden;
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
@@ -81,11 +80,10 @@ button {
 
 /* Sidebar */
 .sidebar {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  width: var(--sidebar-w);
   height: 100dvh;
+  align-self: start;
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border);
   background: rgba(21, 21, 21, 0.92);
@@ -95,7 +93,7 @@ button {
   gap: 1.5rem;
   overflow-x: hidden;
   overflow-y: auto;
-  transition: width 0.22s ease, padding 0.22s ease;
+  transition: padding 0.22s ease;
 }
 
 .sidebar-top {
@@ -135,7 +133,6 @@ button {
 }
 
 .app.sidebar-collapsed .sidebar {
-  width: var(--sidebar-collapsed-w);
   padding: 1.15rem 0.55rem;
   align-items: center;
 }
@@ -1454,18 +1451,12 @@ button {
 
   .sidebar {
     position: relative;
-    left: auto;
-    width: auto;
     height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding: 1rem;
     max-width: 100%;
     overflow: hidden;
-  }
-
-  .app.mobile-sidebar-hidden .sidebar {
-    display: none;
   }
 
   .app.sidebar-collapsed .sidebar {

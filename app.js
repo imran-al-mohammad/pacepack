@@ -642,13 +642,6 @@ function toggleSidebar() {
   setSidebarCollapsed(!document.getElementById("app-shell")?.classList.contains("sidebar-collapsed"));
 }
 
-function updateMobileSidebarVisibility() {
-  const shell = document.getElementById("app-shell");
-  if (!shell) return;
-  const isMobile = window.matchMedia("(max-width: 800px)").matches;
-  shell.classList.toggle("mobile-sidebar-hidden", isMobile && window.scrollY > 32);
-}
-
 function stopRaceTimer() {
   if (raceTimerId) {
     clearInterval(raceTimerId);
@@ -2708,23 +2701,10 @@ function wireAuthUi() {
 function wireAppUi() {
   setSidebarCollapsed(isSidebarCollapsed());
   document.getElementById("btn-sidebar-toggle")?.addEventListener("click", toggleSidebar);
-  document.getElementById("btn-sidebar-toggle-mobile")?.addEventListener("click", () => {
-    const shell = document.getElementById("app-shell");
-    if (shell?.classList.contains("mobile-sidebar-hidden")) {
-      shell.classList.remove("mobile-sidebar-hidden");
-      return;
-    }
-    toggleSidebar();
-  });
-  window.addEventListener("scroll", updateMobileSidebarVisibility, { passive: true });
-  window.addEventListener("resize", updateMobileSidebarVisibility);
-  updateMobileSidebarVisibility();
+  document.getElementById("btn-sidebar-toggle-mobile")?.addEventListener("click", toggleSidebar);
 
   document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setView(btn.dataset.view);
-      updateMobileSidebarVisibility();
-    });
+    btn.addEventListener("click", () => setView(btn.dataset.view));
   });
   document.getElementById("modal-close").onclick = closeModal;
   const modalBackdrop = document.getElementById("modal-backdrop");
