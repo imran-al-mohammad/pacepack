@@ -45,7 +45,6 @@ html, body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
-  overflow-x: hidden;
 }
 
 body {
@@ -61,11 +60,6 @@ button, input, select, textarea {
   color: inherit;
 }
 
-img, svg, video {
-  max-width: 100%;
-  height: auto;
-}
-
 button {
   cursor: pointer;
   border: none;
@@ -77,7 +71,6 @@ button {
   grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100vh;
   width: 100%;
-  overflow-x: hidden;
   transition: grid-template-columns 0.22s ease;
 }
 
@@ -89,9 +82,8 @@ button {
 .sidebar {
   position: sticky;
   top: 0;
+  height: 100dvh;
   align-self: start;
-  height: fit-content;
-  max-height: none;
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border);
   background: rgba(21, 21, 21, 0.92);
@@ -100,9 +92,8 @@ button {
   flex-direction: column;
   gap: 1.5rem;
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: auto;
   transition: padding 0.22s ease;
-  z-index: 1;
 }
 
 .sidebar-top {
@@ -144,12 +135,6 @@ button {
 .app.sidebar-collapsed .sidebar {
   padding: 1.15rem 0.55rem;
   align-items: center;
-}
-
-.app, .sidebar, .main, .topbar, .topbar-left, .topbar-titles, .topbar-actions,
-.nav, .panel, .dashboard-grid, .stats-grid, .analytics-visuals, .card-grid,
-.toolbar, .table-wrap, .list, .leaderboard-list, .whos-running-wrap {
-  min-width: 0;
 }
 
 .app.sidebar-collapsed .brand-text,
@@ -278,14 +263,12 @@ button {
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  min-width: 0;
   padding: 0.75rem 0.9rem;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-weight: 500;
   text-align: left;
   transition: background 0.15s, color 0.15s;
-  word-break: break-word;
 }
 
 .nav-item:hover {
@@ -316,8 +299,6 @@ button {
   padding: 1.75rem 2rem 3rem;
   min-width: 0;
   width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
 }
 
 .topbar {
@@ -349,9 +330,7 @@ button {
   letter-spacing: -0.03em;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: normal;
-  word-wrap: break-word;
-  hyphens: auto;
+  white-space: nowrap;
 }
 
 .view-desc {
@@ -468,10 +447,9 @@ button {
 /* Stats */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-bottom: 1.25rem;
-  min-width: 0;
 }
 
 .stat-card {
@@ -514,21 +492,8 @@ button {
 }
 
 /* Visual analytics */
-.analytics-visuals {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-  min-width: 0;
-}
-.analytics-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 1.1rem;
-  min-width: 0;
-  overflow: hidden;
-}
+.analytics-visuals { display: grid; grid-template-columns: 0.9fr 1.1fr 1.35fr; gap: 1rem; margin-bottom: 1.25rem; }
+.analytics-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; min-width: 0; overflow: hidden; }
 .analytics-card-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; margin-bottom: 0.85rem; }
 .analytics-eyebrow { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .analytics-trend, .analytics-mini-total { color: var(--text-dim); font-size: 0.75rem; }
@@ -560,7 +525,7 @@ button {
 /* Panels & cards */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1rem;
 }
@@ -571,7 +536,6 @@ button {
   border-radius: var(--radius);
   padding: 1.15rem 1.25rem;
   margin-bottom: 1rem;
-  min-width: 0;
 }
 
 .panel-header {
@@ -687,7 +651,6 @@ button {
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 0.65rem;
   margin-bottom: 1.15rem;
 }
@@ -700,7 +663,6 @@ button {
   color: var(--text);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
-  min-width: 0;
 }
 
 .search:focus, .select:focus, .input:focus, .textarea:focus {
@@ -818,7 +780,7 @@ button {
 
 .data-table {
   width: 100%;
-  min-width: min(520px, 100%);
+  min-width: 520px;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -847,7 +809,7 @@ button {
 
 .insights-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   margin-bottom: 0.85rem;
 }
@@ -930,42 +892,9 @@ button {
 /* Next race countdown */
 .next-race-panel {
   margin-bottom: 1.25rem;
-  display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(260px, 1fr);
-  gap: 1rem;
-  align-items: start;
-}
-
-.next-race-panel .panel-header {
-  grid-column: 1 / -1;
-}
-
-.next-race-thumb-wrap {
-  width: 100%;
-  min-height: 200px;
-  max-height: 260px;
-  overflow: hidden;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  display: grid;
-  place-items: center;
-}
-
-.next-race-thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .next-race-timer {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin-top: 0.35rem;
-  grid-column: 2;
-}
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.65rem;
@@ -1588,16 +1517,13 @@ button {
   }
 
   .sidebar {
-    position: sticky;
-    top: 0;
+    position: relative;
     height: auto;
-    max-height: none;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding: 1rem;
     max-width: 100%;
     overflow: hidden;
-    z-index: 2;
   }
 
   .app.sidebar-collapsed .sidebar {
@@ -1652,19 +1578,6 @@ button {
 
   .share-layout {
     grid-template-columns: 1fr;
-  }
-
-  .next-race-panel {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-  }
-
-  .next-race-thumb-wrap {
-    max-height: 220px;
-  }
-
-  .next-race-timer {
-    margin-top: 0;
   }
 
   .team-layout > .panel {
@@ -1730,10 +1643,6 @@ button {
   .btn {
     white-space: normal;
     text-align: center;
-  }
-
-  .search, .select {
-    min-width: 0;
   }
 
   .data-table th,
