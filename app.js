@@ -1679,8 +1679,6 @@ function renderRegistrations() {
         <td>${escapeHtml(marathon?.name || "Unknown")}</td>
         <td>${marathon ? formatDate(marathon.race_date) : "—"}</td>
         <td>${statusBadge(r.status)}</td>
-        <td>${r.bib ? `<strong>#${escapeHtml(r.bib)}</strong>` : "—"}</td>
-        <td>${escapeHtml(r.notes || "—")}</td>
         <td><div class="actions">
           ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}
           ${delBtn}
