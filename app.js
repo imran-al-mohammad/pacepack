@@ -406,7 +406,7 @@ function applyBrandLogo() {
   const preview = document.querySelector("[data-brand-logo-preview]");
   if (preview) preview.innerHTML = brandLogoHtml(url);
   const title = document.getElementById("brand-title");
-  if (title) title.textContent = "Impulsive Runners";
+  if (title) title.textContent = group?.name || "Impulsive Runners";
 }
 
 function setBoot(msg) {

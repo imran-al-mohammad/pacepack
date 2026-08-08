@@ -219,9 +219,10 @@ button {
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
   max-width: 100%;
 }
 
