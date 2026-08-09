@@ -332,7 +332,7 @@
       );
     }
 
-    // Fastest runners by average pace (seconds per km)
+    // Fastest runners by best race pace (seconds per km)
     const DISTANCE_KM = {
       "5K": 5,
       "7.5K": 7.5,

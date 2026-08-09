@@ -35,9 +35,9 @@ const VIEW_META = {
   marathons: { title: "Marathons", desc: "Races the group is tracking" },
   members: { title: "Runners", desc: "People in the running roster (one per app member)" },
   registrations: { title: "Registrations", desc: "Who is signed up for which race" },
-  results: { title: "Results & times", desc: "Finish times for registered runners only" },
-  team: { title: "Team & access", desc: "Create users, logo, roles, and permissions" },
-  profile: { title: "My profile", desc: "Photo, display name, and password" },
+  results: { title: "Results & Times", desc: "Finish times for registered runners only" },
+  team: { title: "Team & Access", desc: "Create users, logo, roles, and permissions" },
+  profile: { title: "My Profile", desc: "Photo, display name, and password" },
 };
 
 const ROLE_RANK = { member: 1, moderator: 2, admin: 3 };
