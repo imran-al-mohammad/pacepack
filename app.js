@@ -269,6 +269,24 @@ function bestFinishSeconds(reg) {
   return parseTimeToSeconds(reg.gun_time || reg.gunTime);
 }
 
+function computePersonalRecord(reg, marathon) {
+  const seconds = bestFinishSeconds(reg);
+  if (seconds == null || !marathon) return false;
+  const distance = marathon.distance;
+  const previousTimes = state.registrations
+    .filter((r) => r.id !== reg.id && r.runner_id === reg.runner_id)
+    .map((r) => {
+      const m = getMarathon(r.marathon_id);
+      if (!m || m.distance !== distance) return null;
+      return bestFinishSeconds(r);
+    })
+    .filter((s) => s != null);
+
+  if (!previousTimes.length) return true;
+  const bestPrevious = Math.min(...previousTimes);
+  return seconds < bestPrevious;
+}
+
 function displayFinishTime(reg) {
   return reg.chip_time || reg.gun_time || "";
 }
