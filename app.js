@@ -1298,7 +1298,7 @@ function renderInsights() {
           <div class="fastest-runner-item">
             <span class="fastest-runner-rank">${index + 1}</span>
             <span class="fastest-runner-name">${escapeHtml(runner.name)}</span>
-            <span class="fastest-runner-pace">${escapeHtml(runner.avg_pace_display)}/km</span>
+   <span class="fastest-runner-pace">${escapeHtml(runner.best_pace_display)}/km</span>
             <span class="fastest-runner-races">${runner.races} race${runner.races !== 1 ? "s" : ""}</span>
           </div>
         `
