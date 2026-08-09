@@ -1,4 +1,4 @@
-/**
+/
  * PacePack analytics — generated from analytics/insights.py
  * Do not hand-edit formulas here; change the Python source and re-run:
  *   python analytics/export_js.py
@@ -349,7 +349,8 @@
       const stats = byRunner[rid];
       if (stats.times.length < 1) return;
 
-      const paces = [];
+      let bestPace = null;
+      let raceCount = 0;
       registrations.forEach((reg) => {
         if (!reg || reg.runner_id !== rid) return;
         const marathon = marathonById[reg.marathon_id];
@@ -359,37 +360,39 @@
         if (!distanceKm) return;
         const t = bestFinishSeconds(reg);
         if (t != null && t > 0) {
+          raceCount++;
           const paceSecondsPerKm = t / distanceKm;
-          paces.push(paceSecondsPerKm);
+          if (bestPace === null || paceSecondsPerKm < bestPace) {
+            bestPace = paceSecondsPerKm;
+          }
         }
       });
 
-      if (!paces.length) return;
+      if (bestPace === null) return;
 
-      const avgPace = paces.reduce((a, b) => a + b, 0) / paces.length;
       const runner = runnerById[rid];
       if (runner) {
         runnerPaces.push({
           runner_id: rid,
           name: runner.name,
-          avg_pace_seconds: avgPace,
-          avg_pace_display: formatSeconds(avgPace),
-          races: paces.length,
+          best_pace_seconds: bestPace,
+          best_pace_display: formatSeconds(bestPace),
+          races: raceCount,
         });
       }
     });
 
-    runnerPaces.sort((a, b) => a.avg_pace_seconds - b.avg_pace_seconds);
+    runnerPaces.sort((a, b) => a.best_pace_seconds - b.best_pace_seconds);
     const fastestRunners = runnerPaces.slice(0, 10);
 
     metrics.fastest_runners = fastestRunners;
 
     if (fastestRunners.length) {
       insights.push(
-        "Fastest average pace: " +
+        "Fastest single-race pace: " +
           fastestRunners[0].name +
           " at " +
-          fastestRunners[0].avg_pace_display +
+          fastestRunners[0].best_pace_display +
           "/km " +
           "(across " +
           fastestRunners[0].races +
