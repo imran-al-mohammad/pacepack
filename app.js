@@ -1860,7 +1860,7 @@ function renderResults() {
   timed.forEach((x, i) => rankById.set(x.r.id, i + 1));
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty" style="border:none;margin:0.5rem"><strong>No results for this race</strong></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty" style="border:none;margin:0.5rem"><strong>No results for this race</strong></div></td></tr>`;
     return;
   }
 
@@ -1881,8 +1881,6 @@ function renderResults() {
         <td>${pace ? escapeHtml(pace.perKm) + "/km" : "—"}</td>
         <td>${r.place_overall ? escapeHtml(r.place_overall) : "—"}</td>
         <td>${r.place_gender ? escapeHtml(r.place_gender) : "—"}</td>
-        <td>${r.is_pr ? `<span class="badge badge-pr">PR</span>` : "—"}</td>
-        <td>${escapeHtml(r.result_notes || "—")}</td>
         <td>${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}</td>
       </tr>`;
   }).join("");
