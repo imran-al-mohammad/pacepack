@@ -1283,6 +1283,30 @@ function renderInsights() {
   listEl.innerHTML = insights
     .map((text) => `<li class="insight-item">${escapeHtml(text)}</li>`)
     .join("");
+
+  // Display fastest runners section
+  const fastestRunners = report.metrics?.fastest_runners;
+  if (fastestRunners && fastestRunners.length > 0) {
+    const fastestSection = document.getElementById("fastest-runners-section");
+    if (fastestSection) {
+      fastestSection.hidden = false;
+      const list = fastestSection.querySelector(".fastest-runners-list");
+      if (list) {
+        list.innerHTML = fastestRunners
+          .map(
+            (runner, index) => `
+          <div class="fastest-runner-item">
+            <span class="fastest-runner-rank">${index + 1}</span>
+            <span class="fastest-runner-name">${escapeHtml(runner.name)}</span>
+            <span class="fastest-runner-pace">${escapeHtml(runner.avg_pace_display)}/km</span>
+            <span class="fastest-runner-races">${runner.races} race${runner.races !== 1 ? "s" : ""}</span>
+          </div>
+        `
+          )
+          .join("");
+      }
+    }
+  }
 }
 
 function renderVisualAnalytics() {

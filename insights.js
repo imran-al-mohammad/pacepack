@@ -332,6 +332,73 @@
       );
     }
 
+    // Fastest runners by average pace (seconds per km)
+    const DISTANCE_KM = {
+      "5K": 5,
+      "7.5K": 7.5,
+      "10K": 10,
+      "15K": 15,
+      "Half Marathon": 21.0975,
+      "Marathon": 42.195,
+      "Ultra": null,
+      "Other": null,
+    };
+
+    const runnerPaces = [];
+    Object.keys(byRunner).forEach((rid) => {
+      const stats = byRunner[rid];
+      if (stats.times.length < 1) return;
+
+      const paces = [];
+      registrations.forEach((reg) => {
+        if (!reg || reg.runner_id !== rid) return;
+        const marathon = marathonById[reg.marathon_id];
+        if (!marathon) return;
+        const distanceStr = (marathon.distance || "Other");
+        const distanceKm = DISTANCE_KM[distanceStr];
+        if (!distanceKm) return;
+        const t = bestFinishSeconds(reg);
+        if (t != null && t > 0) {
+          const paceSecondsPerKm = t / distanceKm;
+          paces.push(paceSecondsPerKm);
+        }
+      });
+
+      if (!paces.length) return;
+
+      const avgPace = paces.reduce((a, b) => a + b, 0) / paces.length;
+      const runner = runnerById[rid];
+      if (runner) {
+        runnerPaces.push({
+          runner_id: rid,
+          name: runner.name,
+          avg_pace_seconds: avgPace,
+          avg_pace_display: formatSeconds(avgPace),
+          races: paces.length,
+        });
+      }
+    });
+
+    runnerPaces.sort((a, b) => a.avg_pace_seconds - b.avg_pace_seconds);
+    const fastestRunners = runnerPaces.slice(0, 10);
+
+    metrics.fastest_runners = fastestRunners;
+
+    if (fastestRunners.length) {
+      insights.push(
+        "Fastest average pace: " +
+          fastestRunners[0].name +
+          " at " +
+          fastestRunners[0].avg_pace_display +
+          "/km " +
+          "(across " +
+          fastestRunners[0].races +
+          " race" +
+          (fastestRunners[0].races === 1 ? "" : "s") +
+          ")."
+      );
+    }
+
     return { metrics: metrics, insights: insights.slice(0, 10) };
   }
 

@@ -269,6 +269,66 @@ def analyze(
             "result versus their earliest logged time."
         )
 
+    # Fastest runners by average pace (seconds per km)
+    DISTANCE_KM = {
+        "5K": 5,
+        "7.5K": 7.5,
+        "10K": 10,
+        "15K": 15,
+        "Half Marathon": 21.0975,
+        "Marathon": 42.195,
+        "Ultra": None,
+        "Other": None,
+    }
+    
+    runner_paces = []
+    for rid, stats in by_runner.items():
+        if len(stats["times"]) < 1:
+            continue
+        
+        # Get all marathons for this runner with valid distances and times
+        paces = []
+        for reg in registrations:
+            if reg.get("runner_id") != rid:
+                continue
+            marathon = marathon_by_id.get(reg.get("marathon_id"))
+            if not marathon:
+                continue
+            distance_str = marathon.get("distance") or "Other"
+            distance_km = DISTANCE_KM.get(distance_str)
+            if not distance_km:
+                continue
+            t = best_finish_seconds(reg)
+            if t is not None and t > 0:
+                pace_seconds_per_km = t / distance_km
+                paces.append(pace_seconds_per_km)
+        
+        if not paces:
+            continue
+        
+        avg_pace = sum(paces) / len(paces)
+        runner = runner_by_id.get(rid)
+        if runner:
+            runner_paces.append({
+                "runner_id": rid,
+                "name": runner.get("name"),
+                "avg_pace_seconds": avg_pace,
+                "avg_pace_display": format_seconds(avg_pace),
+                "races": len(paces),
+            })
+    
+    # Sort by average pace (fastest first) and take top 10
+    runner_paces.sort(key=lambda x: x["avg_pace_seconds"])
+    fastest_runners = runner_paces[:10]
+    
+    metrics["fastest_runners"] = fastest_runners
+
+    if fastest_runners:
+        insights.append(
+            f"Fastest average pace: {fastest_runners[0]['name']} at {fastest_runners[0]['avg_pace_display']}/km "
+            f"(across {fastest_runners[0]['races']} race{'s' if fastest_runners[0]['races'] != 1 else ''})."
+        )
+
     return {
         "metrics": metrics,
         "insights": insights[:10],

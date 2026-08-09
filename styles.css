@@ -900,6 +900,99 @@ button {
   }
 }
 
+/* Fastest runners section */
+.fastest-runners-panel {
+  margin-bottom: 1.25rem;
+}
+
+.fastest-runners-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.fastest-runner-item {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: background 0.15s ease;
+}
+
+.fastest-runner-item:hover {
+  background: var(--bg-hover);
+}
+
+.fastest-runner-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.fastest-runner-item:nth-child(1) .fastest-runner-rank {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a1a1a;
+}
+
+.fastest-runner-item:nth-child(2) .fastest-runner-rank {
+  background: linear-gradient(135deg, #C0C0C0, #A8A8A8);
+  color: #1a1a1a;
+}
+
+.fastest-runner-item:nth-child(3) .fastest-runner-rank {
+  background: linear-gradient(135deg, #CD7F32, #B87333);
+  color: #1a1a1a;
+}
+
+.fastest-runner-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fastest-runner-pace {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.fastest-runner-races {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .fastest-runner-item {
+    grid-template-columns: 2rem 1fr;
+    gap: 0.5rem;
+  }
+
+  .fastest-runner-pace {
+    grid-column: 2;
+  }
+
+  .fastest-runner-races {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+
 /* Next race countdown */
 .next-race-panel {
   margin-bottom: 1.25rem;
