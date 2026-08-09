@@ -2395,12 +2395,6 @@ function openResultForm(registrationId, defaults = {}) {
             <label for="res-place-ag">Age group place</label>
             <input class="input" id="res-place-ag" value="${escapeHtml(existing?.place_age_group || "")}" />
           </div>
-          <div class="field" style="display:flex;align-items:flex-end;padding-bottom:0.35rem">
-            <label class="check-inline">
-              <input type="checkbox" id="res-pr" ${existing?.is_pr ? "checked" : ""} />
-              Personal record (PR)
-            </label>
-          </div>
         </div>
         <div class="field">
           <label for="res-notes">Result notes</label>
@@ -2480,7 +2474,11 @@ function openResultForm(registrationId, defaults = {}) {
           place_overall: document.getElementById("res-place").value.trim(),
           place_gender: document.getElementById("res-place-g").value.trim(),
           place_age_group: document.getElementById("res-place-ag").value.trim(),
-          is_pr: document.getElementById("res-pr").checked,
+          is_pr: computePersonalRecord({
+            ...reg,
+            gun_time,
+            chip_time,
+          }, marathon),
           result_notes: document.getElementById("res-notes").value.trim(),
         };
 
