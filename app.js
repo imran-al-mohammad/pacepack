@@ -316,6 +316,47 @@ function profileImageUrl(p) {
   return (p?.profile_picture_url || p?.image_url || "").trim();
 }
 
+async function syncRunnerProfileImage(runner, { imageUrl, name, email } = {}) {
+  if (!runner?.id) return;
+
+  const nextImage = (imageUrl ?? runner?.image_url ?? "").trim();
+  const runnerPatch = {};
+  if (runner.image_url !== nextImage) runnerPatch.image_url = nextImage;
+  if (name != null && runner.name !== name) runnerPatch.name = name;
+  if (email != null && runner.email !== email) runnerPatch.email = email;
+
+  if (Object.keys(runnerPatch).length) {
+    const { error } = await sb.from("runners").update(runnerPatch).eq("id", runner.id);
+    if (error) throw error;
+    Object.assign(runner, runnerPatch);
+  }
+
+  if (!runner.user_id) return;
+
+  const profilePayload = { id: runner.user_id, profile_picture_url: nextImage };
+  if (name != null) profilePayload.display_name = name;
+  if (email != null) profilePayload.email = email;
+
+  try {
+    await sb.from("profiles").upsert(profilePayload).select().single();
+  } catch (e) {
+    console.warn("profile sync:", e);
+  }
+
+  if (runner.user_id === session?.user?.id) {
+    const authPayload = { data: {} };
+    if (name != null) authPayload.data.display_name = name;
+    if (nextImage !== undefined) authPayload.data.profile_picture_url = nextImage;
+    if (Object.keys(authPayload.data).length) {
+      try {
+        await sb.auth.updateUser(authPayload);
+      } catch (e) {
+        console.warn("auth profile sync:", e);
+      }
+    }
+  }
+}
+
 function getMarathon(id) {
   return state.marathons.find((m) => m.id === id);
 }
@@ -2225,13 +2266,25 @@ function openRunnerForm(id) {
         };
         if (!payload.name) return toast("Name required", "error");
         try {
+          let savedRunner = existing;
           if (existing) {
             const { error } = await sb.from("runners").update(payload).eq("id", existing.id);
             if (error) throw error;
           } else {
-            const { error } = await sb.from("runners").insert(payload);
+            const { data, error } = await sb.from("runners").insert(payload).select().single();
             if (error) throw error;
+            savedRunner = data;
+            if (savedRunner) state.runners.push(savedRunner);
           }
+
+          if (savedRunner) {
+            await syncRunnerProfileImage(savedRunner, {
+              imageUrl: payload.image_url,
+              name: payload.name,
+              email: payload.email,
+            });
+          }
+
           closeModal();
           toast("Runner saved");
           await loadGroupData();
@@ -2599,14 +2652,11 @@ async function saveProfile() {
   // Keep linked runner in sync (member = runner)
   const linked = getRunnerForUser(session.user.id);
   if (linked) {
-    await sb
-      .from("runners")
-      .update({
-        name,
-        image_url: imageUrl,
-        email: session.user.email || linked.email || "",
-      })
-      .eq("id", linked.id);
+    await syncRunnerProfileImage(linked, {
+      imageUrl,
+      name,
+      email: session.user.email || linked.email || "",
+    });
   } else if (group?.id) {
     try {
       await createRunnerForMember({
