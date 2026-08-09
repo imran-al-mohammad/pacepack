@@ -500,6 +500,34 @@ function applyBrandLogo() {
   });
 }
 
+function cacheBrandFromGroup(g) {
+  setBrandCache({ logo_url: g?.logo_url || "", group_name: g?.name || "" });
+}
+
+/**
+ * Fetch group branding (name + logo) without requiring auth.
+ * Used by the boot/loading screen and sign-in page so the group logo shows
+ * before a user logs in and stays fresh on every load.
+ */
+async function fetchGroupBranding() {
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.rpc("get_group_branding");
+    if (error) {
+      if (group) cacheBrandFromGroup(group);
+      console.warn("fetch group branding:", error);
+      applyBrandLogo();
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) cacheBrandFromGroup(row);
+    applyBrandLogo();
+  } catch (e) {
+    console.warn("fetch group branding:", e);
+    applyBrandLogo();
+  }
+}
+
 function setBoot(msg) {
   showScreen("boot");
   document.getElementById("boot-msg").textContent = msg || "Connecting…";
@@ -675,6 +703,7 @@ function subscribeRealtime() {
         const { data } = await sb.from("groups").select("*").eq("id", gid).single();
         if (data) {
           group = data;
+          cacheBrandFromGroup(group);
           render();
         }
       }
@@ -703,6 +732,7 @@ async function signOut() {
   selectedWhosRunningMarathonId = null;
   applyBrandLogo();
   showScreen("auth");
+  fetchGroupBranding();
 }
 
 function isSidebarCollapsed() {
@@ -1044,7 +1074,7 @@ async function enterApp() {
   await loadGroupData();
   subscribeRealtime();
   showScreen("app");
-  setBrandCache({ logo_url: group?.logo_url || "", group_name: group?.name || "" });
+  cacheBrandFromGroup(group);
   applyBrandLogo();
   updateUserChrome();
   updateRolePill();
@@ -1093,7 +1123,7 @@ async function saveGroupLogo(url) {
     throw error;
   }
   group = data || { ...group, logo_url };
-  setBrandCache({ logo_url: group?.logo_url || "", group_name: group?.name || "" });
+  cacheBrandFromGroup(group);
   applyBrandLogo();
 }
 
@@ -1121,6 +1151,7 @@ async function handleSession(newSession) {
     unsubscribeAll();
     applyBrandLogo();
     showScreen("auth");
+    fetchGroupBranding();
     return;
   }
   try {
@@ -2971,6 +3002,7 @@ async function init() {
   sb = createClient();
   wireAuthUi();
   wireAppUi();
+  fetchGroupBranding();
 
   sb.auth.onAuthStateChange(async (_event, newSession) => {
     await handleSession(newSession);

@@ -2130,6 +2130,12 @@ button {
   height: 52px;
 }
 
+.boot-logo .brand-logo-img,
+.auth-brand .brand-logo-img {
+  object-fit: contain;
+  padding: 6px;
+}
+
 .auth-card {
   width: min(520px, 100%);
   background: var(--bg-panel);
