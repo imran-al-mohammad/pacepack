@@ -70,6 +70,7 @@ let suppressToast = false;
 let raceTimerId = null;
 let selectedWhosRunningMarathonId = null;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
+const BRAND_CACHE_KEY = "pacepack_brand_cache";
 
 // ─── Config / client ─────────────────────────────────────────────────────────
 
@@ -449,6 +450,34 @@ function mustChangePassword() {
   return meta === true || meta === "true" || prof === true;
 }
 
+function getBrandCache() {
+  try {
+    const raw = localStorage.getItem(BRAND_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setBrandCache(data) {
+  try {
+    localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(data || {}));
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function clearBrandCache() {
+  try {
+    localStorage.removeItem(BRAND_CACHE_KEY);
+  } catch (_) {
+    /* ignore */
+  }
+}
+
 function brandLogoHtml(url) {
   const src = (url || "").trim();
   if (src) {
@@ -458,14 +487,17 @@ function brandLogoHtml(url) {
 }
 
 function applyBrandLogo() {
-  const url = group?.logo_url || "";
+  const cached = getBrandCache();
+  const url = group?.logo_url || cached?.logo_url || "";
+  const name = group?.name || cached?.group_name || "Impulsive Runners";
   document.querySelectorAll("[data-brand-logo]").forEach((el) => {
     el.innerHTML = brandLogoHtml(url);
   });
   const preview = document.querySelector("[data-brand-logo-preview]");
   if (preview) preview.innerHTML = brandLogoHtml(url);
-  const title = document.getElementById("brand-title");
-  if (title) title.textContent = group?.name || "Impulsive Runners";
+  document.querySelectorAll("[data-brand-title]").forEach((el) => {
+    el.textContent = name;
+  });
 }
 
 function setBoot(msg) {
@@ -669,6 +701,7 @@ async function signOut() {
   state = { marathons: [], runners: [], registrations: [] };
   team = [];
   selectedWhosRunningMarathonId = null;
+  applyBrandLogo();
   showScreen("auth");
 }
 
@@ -1011,6 +1044,7 @@ async function enterApp() {
   await loadGroupData();
   subscribeRealtime();
   showScreen("app");
+  setBrandCache({ logo_url: group?.logo_url || "", group_name: group?.name || "" });
   applyBrandLogo();
   updateUserChrome();
   updateRolePill();
@@ -1059,6 +1093,7 @@ async function saveGroupLogo(url) {
     throw error;
   }
   group = data || { ...group, logo_url };
+  setBrandCache({ logo_url: group?.logo_url || "", group_name: group?.name || "" });
   applyBrandLogo();
 }
 
@@ -1084,6 +1119,7 @@ async function handleSession(newSession) {
   session = newSession;
   if (!session) {
     unsubscribeAll();
+    applyBrandLogo();
     showScreen("auth");
     return;
   }
@@ -1103,6 +1139,7 @@ async function handleSession(newSession) {
   } catch (e) {
     console.error(e);
     toast(errMsg(e), "error");
+    applyBrandLogo();
     showScreen("auth");
   }
 }
@@ -2941,6 +2978,7 @@ async function init() {
 
   const { data } = await sb.auth.getSession();
   if (!data.session) {
+    applyBrandLogo();
     showScreen("auth");
   }
   // else onAuthStateChange / getSession will handle
