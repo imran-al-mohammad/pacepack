@@ -1,4 +1,4 @@
-/**
+/
  * PacePack analytics — generated from analytics/insights.py
  * Do not hand-edit formulas here; change the Python source and re-run:
  *   python analytics/export_js.py
