@@ -2722,6 +2722,18 @@ function wireAuthUi() {
     });
   }
 
+  // Password visibility toggle
+  const toggleBtn = document.getElementById("toggle-signin-password");
+  if (toggleBtn) {
+    const passInput = document.getElementById("signin-password");
+    toggleBtn.addEventListener("click", () => {
+      const isVisible = passInput.type === "text";
+      passInput.type = isVisible ? "password" : "text";
+      toggleBtn.setAttribute("aria-pressed", String(!isVisible));
+      toggleBtn.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+    });
+  }
+
   const createGroupForm = document.getElementById("form-create-group");
   if (createGroupForm) {
     createGroupForm.addEventListener("submit", async (e) => {
