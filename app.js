@@ -1880,7 +1880,7 @@ function renderResults() {
         <td class="time-mono time-best">${r.chip_time ? escapeHtml(r.chip_time) : "—"}</td>
         <td>${pace ? escapeHtml(pace.perKm) + "/km" : "—"}</td>
         <td>${r.place_overall ? escapeHtml(r.place_overall) : "—"}</td>
-        <td>${r.place_age_group ? escapeHtml(r.place_age_group) : "—"}</td>
+        <td>${r.place_gender ? escapeHtml(r.place_gender) : "—"}</td>
         <td>${r.is_pr ? `<span class="badge badge-pr">PR</span>` : "—"}</td>
         <td>${escapeHtml(r.result_notes || "—")}</td>
         <td>${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}</td>
