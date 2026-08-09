@@ -804,6 +804,7 @@ button {
   max-width: 18rem;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .data-table td:last-child {
@@ -1381,6 +1382,14 @@ button {
   object-fit: cover;
   object-position: center;
   display: block;
+}
+
+.avatar.avatar-image,
+.member-head .avatar-image {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
 }
 
 .marathon-media {
