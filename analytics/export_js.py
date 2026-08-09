@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-JS_TEMPLATE = r"""/
+JS_TEMPLATE = r"""/**
  * PacePack analytics — generated from analytics/insights.py
  * Do not hand-edit formulas here; change the Python source and re-run:
  *   python analytics/export_js.py
