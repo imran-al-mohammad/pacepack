@@ -220,7 +220,8 @@ button {
 .brand-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 6px;
   display: block;
 }
 
@@ -2128,12 +2129,6 @@ button {
   margin: 0 auto 1rem;
   width: 52px;
   height: 52px;
-}
-
-.boot-logo .brand-logo-img,
-.auth-brand .brand-logo-img {
-  object-fit: contain;
-  padding: 6px;
 }
 
 .auth-card {
