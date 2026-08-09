@@ -1807,7 +1807,10 @@ function renderResults() {
   sel.innerHTML =
     `<option value="">Select a race…</option>` +
     sortMarathons(state.marathons).slice().reverse()
-      .map((m) => `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.race_date)})</option>`)
+      .map((m) => {
+        const count = regsForMarathon(m.id).length;
+        return `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.race_date)}) — ${count} registered</option>`;
+      })
       .join("");
   if (current && [...sel.options].some((o) => o.value === current)) sel.value = current;
   else {
