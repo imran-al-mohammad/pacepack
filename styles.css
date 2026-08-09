@@ -393,7 +393,7 @@ button {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent), #a99795);
-  color: #fff;
+  color: var(--bg);
   box-shadow: 0 6px 18px rgba(189, 175, 174, 0.28);
 }
 
