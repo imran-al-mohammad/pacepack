@@ -2993,7 +2993,60 @@ function wireAppUi() {
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
 
+function registerServiceWorker() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch((err) => {
+      console.warn("SW registration failed:", err);
+    });
+  }
+}
+
+// ─── PWA install prompt ──────────────────────────────────────────────────────
+
+let deferredPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install button in the topbar
+  renderInstallButton();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredPrompt = null;
+  renderInstallButton();
+});
+
+function renderInstallButton() {
+  const topbar = document.getElementById("topbar-actions");
+  if (!topbar) return;
+  // Remove existing install button
+  const existing = document.getElementById("btn-install");
+  if (existing) existing.remove();
+  // Add install button if prompt is available
+  if (deferredPrompt) {
+    const btn = document.createElement("button");
+    btn.id = "btn-install";
+    btn.className = "btn btn-secondary btn-sm";
+    btn.innerHTML = "📱 Install";
+    btn.onclick = async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") {
+          console.log("User installed the app");
+        }
+        deferredPrompt = null;
+        renderInstallButton();
+      }
+    };
+    topbar.insertBefore(btn, topbar.firstChild);
+  }
+}
+
 async function init() {
+  registerServiceWorker();
+
   if (!isConfigured()) {
     showScreen("config");
     return;

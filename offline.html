@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — PacePack</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", "Georgia", serif;
+      background: #151515;
+      color: #EEE8E8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .card {
+      background: #303032;
+      border: 1px solid rgba(238, 232, 232, 0.16);
+      border-radius: 14px;
+      padding: 2rem 2.5rem;
+      max-width: 420px;
+      margin: 1rem;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1rem;
+      background: linear-gradient(135deg, #D9D0D1, #a99795);
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      color: white;
+    }
+    .logo svg { width: 32px; height: 32px; }
+    h1 { margin: 0 0 0.5rem; font-size: 1.4rem; }
+    p { margin: 0; color: #D9D0D1; font-size: 0.95rem; line-height: 1.5; }
+    .hint { margin-top: 1rem; font-size: 0.8rem; color: #BDAFAE; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>PacePack needs an internet connection to sync race data. Check your connection and try again.</p>
+    <p class="hint">Cached data may still be available in the app.</p>
+  </div>
+</body>
+</html>
