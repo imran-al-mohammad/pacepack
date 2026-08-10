@@ -168,15 +168,6 @@
         <button class="nav-item" data-view="profile" title="My Profile"><span class="nav-icon">☺</span><span class="nav-label">My Profile</span></button>
       </nav>
 
-      <div class="sidebar-footer sidebar-user">
-        <div class="user-chip">
-          <button type="button" class="user-chip-btn" id="btn-profile" title="My Profile">
-            <span id="user-avatar-slot"></span>
-            <span id="user-display" class="user-display-label">User</span>
-          </button>
-          <button class="btn btn-ghost btn-sm sidebar-signout-label" id="btn-signout" type="button">Sign out</button>
-        </div>
-      </div>
     </aside>
 
     <main class="main">
@@ -191,6 +182,15 @@
           </div>
         </div>
         <div class="topbar-actions" id="topbar-actions"></div>
+        <div class="topbar-user">
+          <div class="user-chip">
+            <button type="button" class="user-chip-btn" id="btn-profile" title="My Profile">
+              <span id="user-avatar-slot"></span>
+              <span id="user-display" class="user-display-label">User</span>
+            </button>
+            <button class="btn btn-ghost btn-sm" id="btn-signout" type="button">Sign out</button>
+          </div>
+        </div>
       </header>
 
       <section class="view active" id="view-dashboard">

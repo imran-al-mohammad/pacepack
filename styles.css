@@ -148,9 +148,7 @@ button {
 
 .app.sidebar-collapsed .brand-text,
 .app.sidebar-collapsed .nav-label,
-.app.sidebar-collapsed .role-pill-label,
-.app.sidebar-collapsed .user-display-label,
-.app.sidebar-collapsed .sidebar-signout-label {
+.app.sidebar-collapsed .role-pill-label {
   display: none;
 }
 
@@ -174,16 +172,6 @@ button {
   justify-content: center;
   padding: 0.4rem;
   width: auto;
-}
-
-.app.sidebar-collapsed .user-chip {
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.app.sidebar-collapsed .user-chip-btn {
-  justify-content: center;
 }
 
 .brand {
@@ -356,6 +344,17 @@ button {
   flex-wrap: wrap;
   flex-shrink: 0;
   max-width: 100%;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.topbar-user .user-chip {
+  width: auto;
+  gap: 0.6rem;
 }
 
 /* Views */
@@ -2343,11 +2342,6 @@ button {
 
 .user-chip-btn:hover #user-display {
   text-decoration: underline;
-}
-
-.sidebar-user {
-  flex-direction: column;
-  align-items: stretch;
 }
 
 .user-chip {
