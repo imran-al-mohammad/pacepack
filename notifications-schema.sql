@@ -10,6 +10,9 @@
 --   Database → Extensions → enable pg_cron
 -- =============================================================================
 
+-- Create pg_cron extension if available. This is required for scheduled race reminders.
+create extension if not exists cron;
+
 -- ─── Notifications (in-app + push queue) ─────────────────────────────────────
 
 create table if not exists public.notifications (
@@ -104,11 +107,16 @@ declare
   v_marathon public.marathons;
   v_runner public.runners;
 begin
-  -- Only fire when a result/time was actually added
-  if coalesce(new.gun_time, '') = '' and coalesce(new.chip_time, '') = '' and new.status not in ('completed', 'dnf', 'dnf') then
-    return new;
+  -- Only fire when a result/time was actually added.
+  if TG_OP = 'UPDATE' then
+    if coalesce(new.gun_time, '') = coalesce(old.gun_time, '')
+       and coalesce(new.chip_time, '') = coalesce(old.chip_time, '')
+       and new.status = old.status then
+      return new;
+    end if;
   end if;
-  if coalesce(old.gun_time, '') = coalesce(new.gun_time, '') and coalesce(old.chip_time, '') = coalesce(new.chip_time, '') and old.status = new.status then
+
+  if coalesce(new.gun_time, '') = '' and coalesce(new.chip_time, '') = '' and new.status not in ('completed', 'dnf') then
     return new;
   end if;
 
@@ -195,15 +203,21 @@ begin
 end;
 $$;
 
--- Schedule it (idempotent)
-select cron.unschedule('pacepack-race-reminders') where exists (
-  select 1 from cron.job where jobname = 'pacepack-race-reminders'
-);
-select cron.schedule(
-  'pacepack-race-reminders',
-  '*/10 * * * *',
-  $$select public.generate_race_reminders()$$
-);
+-- Schedule it (idempotent) only when pg_cron is installed.
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.unschedule('pacepack-race-reminders') where exists (
+      select 1 from cron.job where jobname = 'pacepack-race-reminders'
+    );
+    perform cron.schedule(
+      'pacepack-race-reminders',
+      '*/10 * * * *',
+      $$select public.generate_race_reminders()$$
+    );
+  end if;
+end;
+$$;
 
 -- ─── VAPID public key (for client-side push subscription) ────────────────────
 -- Set this to your VAPID public key (generate with: npx web-push generate-vapid-keys)
