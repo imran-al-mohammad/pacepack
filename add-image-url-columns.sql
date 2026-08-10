@@ -6,6 +6,9 @@
 alter table public.runners add column if not exists image_url text default '';
 alter table public.marathons add column if not exists image_url text default '';
 alter table public.marathons add column if not exists race_time text default '09:00';
+alter table public.marathons add column if not exists reg_open_date date default null;
+alter table public.marathons add column if not exists reg_close_date date default null;
+alter table public.marathons add column if not exists reg_link text default '';
 alter table public.runners add column if not exists user_id uuid;
 alter table public.profiles add column if not exists profile_picture_url text default '';
 alter table public.profiles add column if not exists must_change_password boolean default false;

@@ -200,6 +200,19 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+/** Only allow http/https URLs to prevent javascript: or data: schemes in href. */
+function safeUrl(url) {
+  const u = String(url || "").trim();
+  if (!u) return "";
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+/** Only allow http/https URLs to prevent javascript: or data: schemes in href. */
+function safeUrl(url) {
+  const u = String(url || "").trim();
+  if (!u) return "";
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+
 function initials(name) {
   return (name || "?")
     .split(/\s+/)

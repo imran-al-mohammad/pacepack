@@ -133,6 +133,9 @@ create table if not exists public.marathons (
   image_url text default '',
   distance text default 'Marathon',
   notes text default '',
+  reg_open_date date default null,
+  reg_close_date date default null,
+  reg_link text default '',
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -140,6 +143,11 @@ create table if not exists public.marathons (
 
 alter table public.marathons add column if not exists image_url text default '';
 alter table public.marathons add column if not exists race_time text default '09:00';
+alter table public.marathons add column if not exists reg_open_date date default null;
+alter table public.marathons add column if not exists reg_close_date date default null;
+alter table public.marathons add column if not exists reg_link text default '';
+>>>>>>>
+
 
 create index if not exists marathons_group_idx on public.marathons (group_id);
 create index if not exists marathons_date_idx on public.marathons (race_date);
