@@ -11,7 +11,16 @@
 -- =============================================================================
 
 -- Create pg_cron extension if available. This is required for scheduled race reminders.
-create extension if not exists cron;
+-- If the extension is not installed on the server, this will be skipped.
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'cron') then
+    execute 'create extension if not exists cron';
+  else
+    raise notice 'pg_cron extension is not available on this server; scheduled race reminders will be skipped.';
+  end if;
+end;
+$$;
 
 -- ─── Notifications (in-app + push queue) ─────────────────────────────────────
 
@@ -207,13 +216,13 @@ $$;
 do $$
 begin
   if exists (select 1 from pg_namespace where nspname = 'cron') then
-    perform cron.unschedule('pacepack-race-reminders') where exists (
-      select 1 from cron.job where jobname = 'pacepack-race-reminders'
-    );
+    if exists (select 1 from cron.job where jobname = 'pacepack-race-reminders') then
+      perform cron.unschedule('pacepack-race-reminders');
+    end if;
     perform cron.schedule(
       'pacepack-race-reminders',
       '*/10 * * * *',
-      $$select public.generate_race_reminders()$$
+      $cron$select public.generate_race_reminders()$cron$
     );
   end if;
 end;
