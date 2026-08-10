@@ -146,8 +146,6 @@ alter table public.marathons add column if not exists race_time text default '09
 alter table public.marathons add column if not exists reg_open_date date default null;
 alter table public.marathons add column if not exists reg_close_date date default null;
 alter table public.marathons add column if not exists reg_link text default '';
->>>>>>>
-
 
 create index if not exists marathons_group_idx on public.marathons (group_id);
 create index if not exists marathons_date_idx on public.marathons (race_date);
@@ -640,6 +638,22 @@ begin
   end;
   begin
     alter publication supabase_realtime add table public.groups;
+  exception when duplicate_object then null;
+  end;
+end $$;
+
+-- ─── Notifications & Push Subscriptions Realtime ──────────────────────────────
+-- Note: notifications and push_subscriptions tables are created in notifications-schema.sql
+-- This block is idempotent and safe to run even if those tables don't exist yet
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.notifications;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.push_subscriptions;
   exception when duplicate_object then null;
   end;
 end $$;
