@@ -62,6 +62,10 @@ let state = {
   marathons: [],
   runners: [],
   registrations: [],
+  notifications: [],
+  unreadCount: 0,
+  personalRecords: [],
+  runnerBadges: [],
 };
 
 let currentView = "dashboard";
@@ -604,7 +608,7 @@ async function loadGroupData() {
   if (!group) return;
   const gid = group.id;
 
-  const [m, r, reg, mem] = await Promise.all([
+  const [m, r, reg, mem, pr, badges] = await Promise.all([
     sb.from("marathons").select("*").eq("group_id", gid).order("race_date"),
     sb.from("runners").select("*").eq("group_id", gid).order("name"),
     sb.from("registrations").select("*").eq("group_id", gid),
@@ -612,16 +616,22 @@ async function loadGroupData() {
       .from("group_memberships")
       .select("id, role, user_id, created_at")
       .eq("group_id", gid),
+    sb.from("personal_records").select("*").eq("group_id", gid),
+    sb.from("runner_badges").select("*").eq("group_id", gid),
   ]);
 
   if (m.error) throw m.error;
   if (r.error) throw r.error;
   if (reg.error) throw reg.error;
   if (mem.error) throw mem.error;
+  if (pr.error) throw pr.error;
+  if (badges.error) throw badges.error;
 
   state.marathons = m.data || [];
   state.runners = r.data || [];
   state.registrations = reg.data || [];
+  state.personalRecords = pr.data || [];
+  state.runnerBadges = badges.data || [];
 
   const memberships = mem.data || [];
   const userIds = [...new Set(memberships.map((row) => row.user_id).filter(Boolean))];
@@ -682,7 +692,7 @@ function subscribeRealtime() {
     }
   };
 
-  ["marathons", "runners", "registrations", "group_memberships"].forEach((table) => {
+  ["marathons", "runners", "registrations", "group_memberships", "personal_records", "runner_badges"].forEach((table) => {
     const ch = sb
       .channel(`pp-${table}-${gid}`)
       .on(
@@ -712,11 +722,293 @@ function subscribeRealtime() {
   channels.push(chGroup);
 }
 
+function subscribeNotificationsRealtime() {
+  if (!session?.user?.id) return;
+  const ch = sb
+    .channel(`pp-notifications-${session.user.id}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${session.user.id}` },
+      async (payload) => {
+        const newNotif = payload.new;
+        if (newNotif) {
+          state.notifications.unshift(newNotif);
+          if (state.notifications.length > 50) state.notifications.pop();
+          if (!newNotif.is_read) {
+            state.unreadCount += 1;
+            renderNotificationBadge();
+          }
+          // If panel is open, refresh it
+          if (!document.getElementById("notification-panel")?.hidden) {
+            renderNotificationPanel();
+          }
+        }
+      }
+    )
+    .subscribe();
+  channels.push(ch);
+}
+
 // ─── Auth actions ────────────────────────────────────────────────────────────
 
 async function signIn(email, password) {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw error;
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+async function loadNotifications() {
+  if (!session?.user?.id || !group?.id) return;
+  try {
+    const { data, error } = await sb
+      .from("notifications")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    state.notifications = data || [];
+    state.unreadCount = state.notifications.filter((n) => !n.is_read).length;
+    renderNotificationBadge();
+  } catch (e) {
+    // Table may not exist yet (notifications-schema.sql not run) — ignore silently
+    console.warn("load notifications:", e);
+  }
+}
+
+function renderNotificationBadge() {
+  const badge = document.getElementById("notification-count");
+  if (!badge) return;
+  if (state.unreadCount > 0) {
+    badge.textContent = state.unreadCount > 99 ? "99+" : String(state.unreadCount);
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
+function notificationIcon(type) {
+  const icons = {
+    new_marathon: "🏁",
+    result_added: "⏱",
+    race_reminder: "🔔",
+  };
+  return icons[type] || "📬";
+}
+
+function formatNotificationTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60000) return "Just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function renderNotificationPanel() {
+  const list = document.getElementById("notification-list");
+  if (!list) return;
+
+  if (!state.notifications.length) {
+    list.innerHTML = `<div class="notification-empty">No notifications yet</div>`;
+    return;
+  }
+
+  list.innerHTML = state.notifications
+    .map((n) => {
+      const timeAgo = formatNotificationTime(n.created_at);
+      return `
+        <div class="notification-item${n.is_read ? "" : " unread"}" data-notif-id="${n.id}" data-type="${n.type}" data-data='${escapeHtml(JSON.stringify(n.data || {}))}'>
+          <div class="notification-item-icon">${notificationIcon(n.type)}</div>
+          <div class="notification-item-content">
+            <p class="notification-item-title">${escapeHtml(n.title)}</p>
+            ${n.body ? `<p class="notification-item-body">${escapeHtml(n.body)}</p>` : ""}
+            <p class="notification-item-time">${escapeHtml(timeAgo)}</p>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  // Click handler for each notification
+  list.querySelectorAll(".notification-item").forEach((el) => {
+    el.addEventListener("click", async () => {
+      const id = el.dataset.notifId;
+      const type = el.dataset.type;
+      let data = {};
+      try { data = JSON.parse(el.dataset.data); } catch {}
+
+      // Mark as read
+      if (!el.classList.contains("unread")) {
+        hideNotificationPanel();
+        return;
+      }
+      try {
+        await sb.from("notifications").update({ is_read: true }).eq("id", id);
+        el.classList.remove("unread");
+        state.unreadCount = Math.max(0, state.unreadCount - 1);
+        renderNotificationBadge();
+      } catch (e) {
+        console.warn("mark read:", e);
+      }
+
+      hideNotificationPanel();
+
+      // Navigate based on notification type
+      if (type === "new_marathon" || type === "race_reminder") {
+        const marathonId = data?.marathon_id;
+        if (marathonId) {
+          setView("marathons");
+          // Highlight the marathon card
+          setTimeout(() => {
+            const card = document.querySelector(`[data-action="results"][data-id="${marathonId}"]`);
+            if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 100);
+        }
+      } else if (type === "result_added") {
+        const marathonId = data?.marathon_id;
+        if (marathonId) {
+          setView("results");
+          setTimeout(() => {
+            const sel = document.getElementById("results-marathon");
+            if (sel) { sel.value = marathonId; renderResults(); }
+          }, 100);
+        }
+      }
+    });
+  });
+}
+
+let notificationPanelOpen = false;
+
+function toggleNotificationPanel() {
+  const panel = document.getElementById("notification-panel");
+  if (!panel) return;
+  notificationPanelOpen = !panel.hidden;
+  if (panel.hidden) {
+    renderNotificationPanel();
+    panel.hidden = false;
+    document.getElementById("btn-notifications")?.setAttribute("aria-expanded", "true");
+  } else {
+    hideNotificationPanel();
+  }
+}
+
+function hideNotificationPanel() {
+  const panel = document.getElementById("notification-panel");
+  if (panel) panel.hidden = true;
+  document.getElementById("btn-notifications")?.setAttribute("aria-expanded", "false");
+  notificationPanelOpen = false;
+}
+
+async function markAllNotificationsRead() {
+  if (!session?.user?.id || !state.notifications.length) return;
+  try {
+    const unreadIds = state.notifications.filter((n) => !n.is_read).map((n) => n.id);
+    if (!unreadIds.length) return;
+    const { error } = await sb
+      .from("notifications")
+      .update({ is_read: true })
+      .in("id", unreadIds);
+    if (error) throw error;
+    state.notifications.forEach((n) => { n.is_read = true; });
+    state.unreadCount = 0;
+    renderNotificationBadge();
+    renderNotificationPanel();
+  } catch (e) {
+    console.warn("mark all read:", e);
+  }
+}
+
+// ─── Web Push subscription ────────────────────────────────────────────────────
+
+async function subscribeToPushNotifications() {
+  if (!session?.user?.id || !group?.id) return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+
+    if (existing) {
+      // Already subscribed — ensure it's stored in DB
+      const sub = existing;
+      const { data: stored } = await sb
+        .from("push_subscriptions")
+        .select("id")
+        .eq("endpoint", sub.endpoint)
+        .maybeSingle();
+
+      if (!stored) {
+        await sb.from("push_subscriptions").insert({
+          user_id: session.user.id,
+          group_id: group.id,
+          endpoint: sub.endpoint,
+          p256dh: arrayBufferToBase64(sub.getKey("p256dh")),
+          auth: arrayBufferToBase64(sub.getKey("auth")),
+        });
+      }
+      return;
+    }
+
+    // Try to subscribe using VAPID key from the server
+    // The VAPID public key must be available — we'll fetch it from config
+    const vapidPublicKey = await fetchVapidPublicKey();
+    if (!vapidPublicKey) return;
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+    });
+
+    await sb.from("push_subscriptions").insert({
+      user_id: session.user.id,
+      group_id: group.id,
+      endpoint: subscription.endpoint,
+      p256dh: arrayBufferToBase64(subscription.getKey("p256dh")),
+      auth: arrayBufferToBase64(subscription.getKey("auth")),
+    });
+
+    console.log("Push subscription saved");
+  } catch (e) {
+    console.warn("push subscribe:", e);
+  }
+}
+
+async function fetchVapidPublicKey() {
+  try {
+    // Try to get VAPID key from a config endpoint or environment
+    const { data, error } = await sb.rpc("get_vapid_public_key");
+    if (error) throw error;
+    return data;
+  } catch {
+    // Fallback: try to get from a well-known location or environment variable
+    // For now, return null (user can set this up later)
+    return null;
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 async function signOut() {
@@ -727,7 +1019,7 @@ async function signOut() {
   profile = null;
   group = null;
   myRole = null;
-  state = { marathons: [], runners: [], registrations: [] };
+  state = { marathons: [], runners: [], registrations: [], notifications: [], unreadCount: 0, personalRecords: [], runnerBadges: [] };
   team = [];
   selectedWhosRunningMarathonId = null;
   applyBrandLogo();
@@ -1073,6 +1365,8 @@ async function enterApp() {
   setBoot("Loading group data…");
   await loadGroupData();
   subscribeRealtime();
+  await loadNotifications();
+  subscribeNotificationsRealtime();
   showScreen("app");
   cacheBrandFromGroup(group);
   applyBrandLogo();
@@ -1080,6 +1374,8 @@ async function enterApp() {
   updateRolePill();
   setSidebarCollapsed(isSidebarCollapsed());
   setView("dashboard");
+  // Best-effort push subscription (requires VAPID key setup)
+  subscribeToPushNotifications();
 }
 
 async function completePasswordGate(newPassword) {
@@ -1840,6 +2136,7 @@ function renderRunners() {
     const linked = m.user_id ? team.find((t) => t.user_id === m.user_id) : null;
     const photo = (m.image_url || profileImageUrl(linked?.profile) || "").trim();
     const avatarSrc = { image_url: photo };
+    const isMe = m.user_id === session?.user?.id;
     return `
       <article class="card">
         <div class="member-head">
@@ -1847,7 +2144,7 @@ function renderRunners() {
             ${renderProfileAvatar(avatarSrc, m.name, m.id)}
           </div>
           <div class="member-head-text">
-            <h3 class="card-title">${escapeHtml(m.name)}</h3>
+            <h3 class="card-title">${escapeHtml(m.name)}${isMe ? ' <span class="badge badge-count">you</span>' : ""}</h3>
             <p class="member-contact">${escapeHtml(m.email || m.phone || "No contact")}</p>
           </div>
         </div>
@@ -1855,6 +2152,7 @@ function renderRunners() {
         <div class="card-footer">
           <span class="badge badge-count">${finishes.length} result${finishes.length === 1 ? "" : "s"}${prs ? ` · ${prs} PR` : ""}</span>
           <div class="card-actions">
+            <button class="btn btn-ghost btn-sm" data-action="profile" data-id="${m.id}">View Profile</button>
             ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
             ${delBtn}
           </div>
@@ -1864,6 +2162,7 @@ function renderRunners() {
 
   el.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.dataset.action === "profile") openRunnerProfileDetail(btn.dataset.id);
       if (btn.dataset.action === "edit") openRunnerForm(btn.dataset.id);
       if (btn.dataset.action === "delete") confirmDeleteRunner(btn.dataset.id);
     });
@@ -2044,11 +2343,242 @@ function renderResults() {
   });
 }
 
+// ─── Profile helpers ─────────────────────────────────────────────────────────
+
+function getMyRunner() {
+  return getRunnerForUser(session?.user?.id) || null;
+}
+
+function canEditRunnerProfile(runner) {
+  if (!runner || !session) return false;
+  if (runner.user_id === session.user.id) return true;
+  return hasMinRole("moderator");
+}
+
+function canViewRunnerProfile(runner) {
+  if (!runner) return false;
+  if (canEditRunnerProfile(runner)) return true;
+  return !!runner.public_profile_enabled;
+}
+
+/** PRs for a runner: from personal_records, plus derived from race results (is_pr). */
+function getRunnerPRs(runnerId) {
+  const stored = state.personalRecords.filter((pr) => pr.runner_id === runnerId) || [];
+  // Derive PRs from race results flagged as PRs
+  const derived = [];
+  const seenDistances = new Set(stored.map((pr) => pr.distance));
+  for (const r of state.registrations) {
+    if (r.runner_id !== runnerId || !r.is_pr) continue;
+    const marathon = getMarathon(r.marathon_id);
+    if (!marathon) continue;
+    const seconds = bestFinishSeconds(r);
+    if (seconds == null) continue;
+    const km = DISTANCE_KM[marathon.distance];
+    if (km == null) continue;
+    if (seenDistances.has(marathon.distance)) continue;
+    seenDistances.add(marathon.distance);
+    derived.push({
+      id: `derived-${r.id}`,
+      runner_id: runnerId,
+      distance: marathon.distance,
+      time_seconds: seconds,
+      pace_seconds_per_km: seconds / km,
+      race_date: marathon.race_date,
+      race_name: marathon.name,
+      location: marathon.location,
+      is_new_pr: true,
+      derived: true,
+    });
+  }
+  return [...derived, ...stored];
+}
+
+/** Compute performance stats for a runner from race results + PRs. */
+function computeRunnerStats(runnerId) {
+  const regs = regsForRunner(runnerId).filter((r) => displayFinishTime(r));
+  const timed = [];
+  const now = new Date();
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+
+  for (const r of regs) {
+    const marathon = getMarathon(r.marathon_id);
+    if (!marathon) continue;
+    const seconds = bestFinishSeconds(r);
+    if (seconds == null) continue;
+    const km = DISTANCE_KM[marathon.distance];
+    if (km == null) continue;
+    const date = new Date(String(marathon.race_date).slice(0, 10) + "T12:00:00");
+    timed.push({ reg: r, marathon, seconds, km, date });
+  }
+
+  const bestPace = timed.length
+    ? Math.min(...timed.map((t) => t.seconds / t.km))
+    : null;
+  const recent = timed.filter((t) => t.date >= threeMonthsAgo);
+  const avgPace3mo = recent.length
+    ? recent.reduce((sum, t) => sum + t.seconds / t.km, 0) / recent.length
+    : null;
+  const thisYear = timed.filter((t) => t.date >= yearStart);
+  const totalDistanceYear = thisYear.reduce((sum, t) => sum + t.km, 0);
+  const totalDistanceAll = timed.reduce((sum, t) => sum + t.km, 0);
+  const totalRunsYear = thisYear.length;
+  const longestRun = timed.length ? Math.max(...timed.map((t) => t.km)) : null;
+
+  // Highest weekly volume: group finishes by week
+  let highestWeekly = 0;
+  const weekMap = new Map();
+  for (const t of timed) {
+    const weekStart = new Date(t.date);
+    const day = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - day);
+    weekStart.setHours(0, 0, 0, 0);
+    const key = weekStart.toISOString().slice(0, 10);
+    weekMap.set(key, (weekMap.get(key) || 0) + t.km);
+  }
+  weekMap.forEach((v) => { if (v > highestWeekly) highestWeekly = v; });
+
+  return {
+    bestPace,
+    avgPace3mo,
+    totalDistanceYear,
+    totalDistanceAll,
+    totalRunsYear,
+    longestRun,
+    highestWeekly,
+  };
+}
+
+/** Consistency streak: consecutive months (ending now or last month) with a race result. */
+function computeStreak(runnerId) {
+  const months = new Set();
+  for (const r of regsForRunner(runnerId)) {
+    const marathon = getMarathon(r.marathon_id);
+    if (!marathon || !displayFinishTime(r)) continue;
+    const d = new Date(String(marathon.race_date).slice(0, 10) + "T12:00:00");
+    months.add(`${d.getFullYear()}-${d.getMonth()}`);
+  }
+  if (!months.size) return 0;
+  const keys = [...months].sort();
+  const now = new Date();
+  const thisKey = `${now.getFullYear()}-${now.getMonth()}`;
+  const lastKey = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastKeyStr = `${lastKey.getFullYear()}-${lastKey.getMonth()}`;
+  let idx = keys.length - 1;
+  if (keys[idx] !== thisKey && keys[idx] !== lastKeyStr) return 0;
+  let streak = 1;
+  for (let i = idx - 1; i >= 0; i--) {
+    const prev = new Date(keys[i].split("-")[0], +keys[i].split("-")[1], 1);
+    const cur = new Date(keys[i + 1].split("-")[0], +keys[i + 1].split("-")[1], 1);
+    const diff = Math.round((cur - prev) / 86400000);
+    if (diff <= 40) streak++;
+    else break;
+  }
+  return streak;
+}
+
+/** Auto-derive pace group from best PR pace. */
+function derivePaceGroup(prs) {
+  const timed = prs
+    .map((pr) => ({ dist: pr.distance, pace: pr.pace_seconds_per_km }))
+    .filter((x) => x.pace != null)
+    .sort((a, b) => a.pace - b.pace);
+  if (!timed.length) return "";
+  const best = timed[0].pace; // seconds per km
+  const pref = timed[0].dist;
+  if (best < 210) return "Sub-3:30";
+  if (best < 240) return "Sub-4:00";
+  if (best < 270) return "Sub-4:30";
+  if (best < 300) return "4:30–5:00";
+  if (best < 330) return "5:00–5:30";
+  if (best < 360) return "5:30–6:00";
+  return "6:00+";
+}
+
+/** Compute badges for a runner. */
+function computeBadges(runnerId) {
+  const badges = [];
+  const regs = regsForRunner(runnerId);
+  const timed = regs.filter((r) => displayFinishTime(r));
+  const prs = getRunnerPRs(runnerId);
+
+  const marathonFinish = timed.find((r) => {
+    const m = getMarathon(r.marathon_id);
+    return m?.distance === "Marathon";
+  });
+  if (marathonFinish) badges.push({ key: "first_marathon", label: "First Marathon", icon: "🎖" });
+
+  const marathonPR = prs.find((pr) => pr.distance === "Marathon" && pr.time_seconds != null);
+  if (marathonPR && marathonPR.time_seconds < 14400) {
+    badges.push({ key: "sub4", label: "Sub-4 Marathon", icon: "⚡" });
+  }
+
+  const totalKm = timed.reduce((sum, r) => {
+    const m = getMarathon(r.marathon_id);
+    const km = DISTANCE_KM[m?.distance];
+    return sum + (km || 0);
+  }, 0);
+  if (totalKm >= 1000) badges.push({ key: "1000km", label: "1000 km Club", icon: "🏅" });
+
+  const halfPR = prs.find((pr) => pr.distance === "Half Marathon" && pr.time_seconds != null);
+  if (halfPR && halfPR.time_seconds < 5400) {
+    badges.push({ key: "sub1h30", label: "Sub-1:30 Half", icon: "🚀" });
+  }
+  const tenKPR = prs.find((pr) => pr.distance === "10K" && pr.time_seconds != null);
+  if (tenKPR && tenKPR.time_seconds < 2700) {
+    badges.push({ key: "sub45_10k", label: "Sub-45 10K", icon: "🔥" });
+  }
+  if (badges.length) badges.push({ key: "first_race", label: "First Race", icon: "🏁", auto: true });
+  return badges;
+}
+
+function formatPace(paceSecondsPerKm) {
+  if (paceSecondsPerKm == null) return "—";
+  return formatSeconds(paceSecondsPerKm) + " /km";
+}
+
+function formatDistance(km) {
+  if (km == null) return "—";
+  if (km >= 42.195) return `${(km / 42.195).toFixed(2)} marathons`;
+  if (km >= 21.0975) return `${(km / 21.0975).toFixed(1)} HM`;
+  return `${km.toFixed(1)} km`;
+}
+
+function monthShortYear(iso) {
+  if (!iso) return "—";
+  const d = new Date(String(iso).slice(0, 10) + "T12:00:00");
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+function profileStatCard(label, value, hint) {
+  return `
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">${escapeHtml(label)}</p>
+      <p class="profile-stat-value">${value}</p>
+      ${hint ? `<p class="profile-stat-hint">${hint}</p>` : ""}
+    </div>`;
+}
+
+function getShareSlug(runner) {
+  if (runner?.share_slug) return runner.share_slug;
+  return runner?.id || "";
+}
+
+function shareLinkFor(runner) {
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?runner=${encodeURIComponent(getShareSlug(runner))}`;
+}
+
+// ─── Profile rendering ───────────────────────────────────────────────────────
+
 function renderProfile() {
   if (!profile && !session) return;
   const name = profile?.display_name || session.user.user_metadata?.display_name || "";
   const email = profile?.email || session.user.email || "";
   const image = profileImageUrl(profile);
+  const myRunner = getMyRunner();
+
+  // Edit form
   document.getElementById("profile-name").value = name;
   document.getElementById("profile-email").value = email;
   document.getElementById("profile-image-url").value = image;
@@ -2064,6 +2594,436 @@ function renderProfile() {
         <p class="panel-hint" style="margin:0.15rem 0 0">${escapeHtml(email)}</p>
       </div>`;
   }
+
+  // Join date + pace group
+  const joinDateInput = document.getElementById("profile-join-date");
+  if (joinDateInput) joinDateInput.value = myRunner?.join_date || "";
+  const paceGroupSelect = document.getElementById("profile-pace-group");
+  if (paceGroupSelect && myRunner) paceGroupSelect.value = myRunner.pace_group || "";
+
+  // Header
+  const headerAvatar = document.getElementById("profile-header-avatar");
+  if (headerAvatar) {
+    headerAvatar.innerHTML = renderProfileAvatar({ image_url: image }, name || "You", session.user.id);
+  }
+  document.getElementById("profile-header-name").textContent = name || "You";
+  const paceGroup = myRunner?.pace_group || derivePaceGroup(getRunnerPRs(myRunner?.id)) || "No pace group yet";
+  const paceEl = document.getElementById("profile-header-pace");
+  if (paceEl) paceEl.textContent = paceGroup ? `Pace group: ${paceGroup}` : "Pace group: —";
+  document.getElementById("profile-join-date-label")?.remove();
+  const joinDateText = myRunner?.join_date ? formatDate(myRunner.join_date) : "Joined —";
+  const joinDateMeta = document.getElementById("profile-join-date-meta");
+  if (joinDateMeta) joinDateMeta.textContent = `Joined: ${joinDateText}`;
+  const streak = computeStreak(myRunner?.id);
+  const streakEl = document.getElementById("profile-streak");
+  if (streakEl) {
+    streakEl.textContent = streak > 0 ? `${streak}-week streak` : "No streak yet";
+  }
+
+  // Public toggle
+  const publicToggle = document.getElementById("profile-public-toggle");
+  if (publicToggle) publicToggle.checked = !!myRunner?.public_profile_enabled;
+
+  // Stats
+  const stats = computeRunnerStats(myRunner?.id);
+  const statsGrid = document.getElementById("profile-stats-grid");
+  if (statsGrid) {
+    const statMap = [
+      profileStatCard("Best Pace (lifetime)", formatPace(stats.bestPace), "Fastest race pace"),
+      profileStatCard("Avg Pace (3 months)", formatPace(stats.avgPace3mo), "Recent race pace"),
+      profileStatCard("Total Distance (year)", formatDistance(stats.totalDistanceYear), `All time: ${formatDistance(stats.totalDistanceAll)}`),
+      profileStatCard("Total Runs (year)", String(stats.totalRunsYear), "Race finishes"),
+      profileStatCard("Longest Run", formatDistance(stats.longestRun), "Longest race"),
+      profileStatCard("Highest Weekly Volume", formatDistance(stats.highestWeekly), "Most km in one week"),
+    ];
+    statsGrid.innerHTML = statMap.join("");
+  }
+
+  // PRs
+  const prs = getRunnerPRs(myRunner?.id);
+  const prTbody = document.getElementById("profile-pr-tbody");
+  if (prTbody) {
+    if (!prs.length) {
+      prTbody.innerHTML = `<tr><td colspan="6"><div class="empty" style="border:none;margin:0.5rem"><strong>No PRs yet</strong>Add a PR or log a race result.</div></td></tr>`;
+    } else {
+      const fastest = prs.reduce((a, b) =>
+        (b.pace_seconds_per_km != null && (a.pace_seconds_per_km == null || b.pace_seconds_per_km < a.pace_seconds_per_km)) ? b : a
+      , null);
+      prTbody.innerHTML = prs.map((pr) => {
+        const isFastest = pr.id === fastest?.id;
+        const isNew = pr.is_new_pr || pr.derived;
+        return `
+          <tr class="${isFastest ? "pr-fastest" : ""}">
+            <td>${escapeHtml(pr.distance)}${isFastest ? ' <span class="pr-trophy">🏆</span>' : ""}</td>
+            <td class="time-mono">${formatSeconds(pr.time_seconds)}</td>
+            <td class="time-mono">${formatPace(pr.pace_seconds_per_km)}</td>
+            <td>${monthShortYear(pr.race_date)}</td>
+            <td>${escapeHtml(pr.race_name || "—")}${pr.location ? ` <span class="text-dim">· ${escapeHtml(pr.location)}</span>` : ""}</td>
+            <td>
+              ${isNew ? `<span class="badge badge-pr">New PR</span>` : ""}
+              ${canEditRunnerProfile(myRunner) ? `
+                <div class="actions">
+                  <button class="btn btn-ghost btn-sm" data-action="edit-pr" data-id="${pr.id}">Edit</button>
+                  ${pr.derived ? "" : `<button class="btn btn-danger btn-sm" data-action="delete-pr" data-id="${pr.id}">Delete</button>`}
+                </div>` : ""}
+            </td>
+          </tr>`;
+      }).join("");
+    }
+  }
+
+  // Race history
+  const historyEl = document.getElementById("profile-race-history");
+  if (historyEl) {
+    const races = regsForRunner(myRunner?.id)
+      .map((r) => ({ r, marathon: getMarathon(r.marathon_id) }))
+      .filter((x) => x.marathon)
+      .sort((a, b) => String(b.marathon.race_date).localeCompare(String(a.marathon.race_date)));
+    if (!races.length) {
+      historyEl.innerHTML = `<div class="empty"><strong>No race history yet</strong>Log a result to see it here.</div>`;
+    } else {
+      historyEl.innerHTML = races.map(({ r, marathon }) => {
+        const pace = paceForRegistration(r, marathon);
+        return `
+          <div class="list-item">
+            <div class="list-item-main">
+              <p class="list-item-title">${escapeHtml(marathon.name)}</p>
+              <p class="list-item-sub">${formatDate(marathon.race_date)} · ${escapeHtml(marathon.distance)}${pace ? ` · ${pace.perKm}/km` : ""}</p>
+            </div>
+            <div style="display:flex;gap:0.45rem;align-items:center">
+              ${r.is_pr ? `<span class="badge badge-pr">PR</span>` : ""}
+              <span class="time-mono">${escapeHtml(displayFinishTime(r) || "—")}</span>
+              ${r.place_overall ? `<span class="badge badge-count">#${escapeHtml(r.place_overall)}</span>` : ""}
+            </div>
+          </div>`;
+      }).join("");
+    }
+  }
+
+  // Badges
+  const badgesEl = document.getElementById("profile-badges");
+  if (badgesEl) {
+    const badges = computeBadges(myRunner?.id);
+    if (!badges.length) {
+      badgesEl.innerHTML = `<p class="panel-hint">Earn badges by finishing races (First Marathon, Sub-4, 1000 km Club…).</p>`;
+    } else {
+      badgesEl.innerHTML = badges.map((b) => `
+        <div class="profile-badge">
+          <span class="profile-badge-icon">${b.icon}</span>
+          <span>${escapeHtml(b.label)}</span>
+        </div>`).join("");
+    }
+  }
+}
+
+// ─── PR CRUD ─────────────────────────────────────────────────────────────────
+
+function openPrForm(prId) {
+  const myRunner = getMyRunner();
+  if (!myRunner) return toast("No linked runner profile", "error");
+  const existing = prId ? state.personalRecords.find((pr) => pr.id === prId) : null;
+  const distanceOptions = DISTANCES.map(
+    (d) => `<option value="${d}" ${existing?.distance === d ? "selected" : ""}>${d}</option>`
+  ).join("");
+
+  openModal({
+    title: existing ? "Edit PR" : "Add PR",
+    bodyHtml: `
+      <form class="form-grid">
+        <div class="field">
+          <label for="pr-distance">Distance *</label>
+          <select class="select full" id="pr-distance">${distanceOptions}</select>
+          <p class="panel-hint" style="margin:0.35rem 0 0">Pace is computed automatically from time + distance.</p>
+        </div>
+        <div class="field">
+          <label for="pr-time">Time *</label>
+          <input class="input" id="pr-time" value="${existing ? formatSeconds(existing.time_seconds) : ""}" placeholder="e.g. 22:18 or 1:48:32" required />
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="pr-date">Date</label>
+            <input class="input" type="date" id="pr-date" value="${escapeHtml(existing?.race_date || "")}" />
+          </div>
+          <div class="field">
+            <label for="pr-location">Location</label>
+            <input class="input" id="pr-location" value="${escapeHtml(existing?.location || "")}" placeholder="e.g. Dhaka" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="pr-name">Race / Event name</label>
+          <input class="input" id="pr-name" value="${escapeHtml(existing?.race_name || "")}" placeholder="e.g. Dhaka Night Run" />
+        </div>
+        <div class="pace-preview" id="pr-pace-preview"></div>
+      </form>`,
+    footerHtml: `
+      <button class="btn btn-ghost" id="pr-cancel">Cancel</button>
+      <button class="btn btn-primary" id="pr-save">Save PR</button>`,
+    onMount() {
+      const pacePreview = document.getElementById("pr-pace-preview");
+      const updatePace = () => {
+        const dist = document.getElementById("pr-distance").value;
+        const km = DISTANCE_KM[dist];
+        const sec = parseTimeToSeconds(document.getElementById("pr-time").value);
+        if (km && sec != null) {
+          pacePreview.textContent = `Pace: ${formatSeconds(sec / km)}/km`;
+        } else {
+          pacePreview.textContent = "";
+        }
+      };
+      ["pr-distance", "pr-time"].forEach((id) => {
+        document.getElementById(id)?.addEventListener("input", updatePace);
+        document.getElementById(id)?.addEventListener("change", updatePace);
+      });
+      updatePace();
+
+      document.getElementById("pr-cancel").onclick = closeModal;
+      document.getElementById("pr-save").onclick = async () => {
+        const dist = document.getElementById("pr-distance").value;
+        const seconds = parseTimeToSeconds(document.getElementById("pr-time").value);
+        if (!dist) return toast("Distance required", "error");
+        if (seconds == null) return toast("Time format not recognized", "error");
+        const km = DISTANCE_KM[dist];
+        if (km == null) return toast("Pace cannot be computed for that distance", "error");
+
+        const payload = {
+          group_id: group.id,
+          runner_id: myRunner.id,
+          distance: dist,
+          time_seconds: seconds,
+          pace_seconds_per_km: seconds / km,
+          race_date: document.getElementById("pr-date").value || null,
+          race_name: document.getElementById("pr-name").value.trim(),
+          location: document.getElementById("pr-location").value.trim(),
+          is_new_pr: true,
+          created_by: session.user.id,
+        };
+
+        try {
+          if (existing) {
+            delete payload.created_by;
+            const { error } = await sb.from("personal_records").update(payload).eq("id", existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await sb.from("personal_records").insert(payload);
+            if (error) throw error;
+          }
+          closeModal();
+          toast("PR saved");
+          await loadGroupData();
+          renderProfile();
+          updatePaceGroupAuto();
+        } catch (e) {
+          toast(errMsg(e), "error");
+        }
+      };
+    },
+  });
+}
+
+async function updatePaceGroupAuto() {
+  const myRunner = getMyRunner();
+  if (!myRunner || !group) return;
+  // Only auto-update if the user hasn't set a manual pace group different from auto
+  const prs = getRunnerPRs(myRunner.id);
+  const auto = derivePaceGroup(prs);
+  if (!myRunner.pace_group || myRunner.pace_group === auto) {
+    if (myRunner.pace_group !== auto) {
+      const { error } = await sb.from("runners").update({ pace_group: auto }).eq("id", myRunner.id);
+      if (!error) myRunner.pace_group = auto;
+    }
+  }
+}
+
+async function deletePr(id) {
+  const myRunner = getMyRunner();
+  if (!myRunner) return;
+  openModal({
+    title: "Delete PR?",
+    bodyHtml: `<p>Remove this personal record?</p>`,
+    footerHtml: `
+      <button class="btn btn-ghost" id="del-cancel">Cancel</button>
+      <button class="btn btn-danger" id="del-confirm">Delete</button>`,
+    onMount() {
+      document.getElementById("del-cancel").onclick = closeModal;
+      document.getElementById("del-confirm").onclick = async () => {
+        try {
+          const { error } = await sb.from("personal_records").delete().eq("id", id);
+          if (error) throw error;
+          closeModal();
+          toast("PR deleted");
+          await loadGroupData();
+          renderProfile();
+          updatePaceGroupAuto();
+        } catch (e) {
+          toast(errMsg(e), "error");
+        }
+      };
+    },
+  });
+}
+
+// ─── Share / public toggle ───────────────────────────────────────────────────
+
+async function togglePublicProfile() {
+  const myRunner = getMyRunner();
+  if (!myRunner || !group) return;
+  const enabled = !!document.getElementById("profile-public-toggle")?.checked;
+  let payload = { public_profile_enabled: enabled };
+  if (enabled && !myRunner.share_slug) {
+    payload.share_slug = (myRunner.id || "").slice(0, 8) + Math.random().toString(36).slice(2, 8);
+  }
+  try {
+    const { error } = await sb.from("runners").update(payload).eq("id", myRunner.id);
+    if (error) throw error;
+    Object.assign(myRunner, payload);
+    toast(enabled ? "Profile is now visible to members" : "Profile hidden from members");
+  } catch (e) {
+    toast(errMsg(e), "error");
+    document.getElementById("profile-public-toggle").checked = !enabled;
+  }
+}
+
+async function copyShareLink() {
+  const myRunner = getMyRunner();
+  if (!myRunner) return toast("No linked runner profile", "error");
+  const link = shareLinkFor(myRunner);
+  try {
+    await navigator.clipboard.writeText(link);
+    toast("Share link copied to clipboard");
+  } catch (e) {
+    prompt("Copy this share link:", link);
+  }
+}
+
+// ─── Runner public profile detail (from Runners menu) ────────────────────────
+
+function openRunnerProfileDetail(runnerId) {
+  const runner = getRunner(runnerId);
+  if (!runner) return;
+  if (!canViewRunnerProfile(runner)) {
+    toast("This runner's profile is not public", "error");
+    return;
+  }
+  const me = getMyRunner();
+  const prs = getRunnerPRs(runnerId);
+  const stats = computeRunnerStats(runnerId);
+  const streak = computeStreak(runnerId);
+  const badges = computeBadges(runnerId);
+  const paced = derivePaceGroup(prs) || runner.pace_group || "—";
+
+  openModal({
+    title: "Runner Profile",
+    wide: true,
+    bodyHtml: `
+      <div class="runner-profile-detail">
+        <div class="runner-profile-head">
+          ${renderProfileAvatar({ image_url: runner.image_url }, runner.name, runner.id)}
+          <div>
+            <h3>${escapeHtml(runner.name)}</h3>
+            <p class="profile-header-pace">Pace group: ${escapeHtml(paced)}</p>
+            <p class="panel-hint" style="margin:0.2rem 0 0">
+              ${runner.join_date ? `Joined ${formatDate(runner.join_date)}` : ""}
+              ${streak > 0 ? ` · ${streak}-week streak` : ""}
+            </p>
+          </div>
+        </div>
+
+        <div class="profile-stats-grid" style="margin-top:1rem">
+          ${profileStatCard("Best Pace", formatPace(stats.bestPace), "Lifetime")}
+          ${profileStatCard("Avg Pace (3mo)", formatPace(stats.avgPace3mo), "Recent")}
+          ${profileStatCard("Distance (year)", formatDistance(stats.totalDistanceYear), `All: ${formatDistance(stats.totalDistanceAll)}`)}
+          ${profileStatCard("Races (year)", String(stats.totalRunsYear), "Finishes")}
+          ${profileStatCard("Longest Run", formatDistance(stats.longestRun), "")}
+          ${profileStatCard("Weekly Volume", formatDistance(stats.highestWeekly), "Best week")}
+        </div>
+
+        <h4 style="margin:1.25rem 0 0.5rem">Personal Records</h4>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Distance</th><th>Time</th><th>Pace</th><th>Date</th><th>Race / Location</th></tr></thead>
+            <tbody>
+              ${prs.length ? prs.map((pr) => `
+                <tr>
+                  <td>${escapeHtml(pr.distance)}</td>
+                  <td class="time-mono">${formatSeconds(pr.time_seconds)}</td>
+                  <td class="time-mono">${formatPace(pr.pace_seconds_per_km)}</td>
+                  <td>${monthShortYear(pr.race_date)}</td>
+                  <td>${escapeHtml(pr.race_name || "—")}</td>
+                </tr>`).join("")
+              : `<tr><td colspan="5"><div class="empty" style="border:none;margin:0.5rem">No PRs yet</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+
+        ${badges.length ? `
+          <h4 style="margin:1.25rem 0 0.5rem">Badges</h4>
+          <div class="profile-badges">
+            ${badges.map((b) => `<div class="profile-badge"><span class="profile-badge-icon">${b.icon}</span><span>${escapeHtml(b.label)}</span></div>`).join("")}
+          </div>` : ""}
+
+        ${me && me.id !== runnerId ? `
+          <div class="room-actions" style="margin-top:1.25rem">
+            <button class="btn btn-secondary btn-sm" id="btn-compare-with-me">⚖ Compare with me</button>
+            <button class="btn btn-ghost btn-sm" id="btn-copy-runner-link">🔗 Copy link</button>
+          </div>` : ""}
+      </div>`,
+    onMount() {
+      const compareBtn = document.getElementById("btn-compare-with-me");
+      if (compareBtn) {
+        compareBtn.onclick = () => openCompareModal(runnerId);
+      }
+      const copyLinkBtn = document.getElementById("btn-copy-runner-link");
+      if (copyLinkBtn) {
+        copyLinkBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(shareLinkFor(runner));
+            toast("Link copied");
+          } catch (e) {
+            prompt("Copy link:", shareLinkFor(runner));
+          }
+        };
+      }
+    },
+  });
+}
+
+function openCompareModal(runnerId) {
+  const me = getMyRunner();
+  const other = getRunner(runnerId);
+  if (!me || !other) return;
+  const myPRs = getRunnerPRs(me.id);
+  const otherPRs = getRunnerPRs(runnerId);
+  const distances = [...new Set([...myPRs.map((p) => p.distance), ...otherPRs.map((p) => p.distance)])];
+
+  openModal({
+    title: "Compare PRs",
+    wide: true,
+    bodyHtml: `
+      <div class="compare-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Distance</th>
+              <th>${escapeHtml(me.name)}</th>
+              <th>${escapeHtml(other.name)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${distances.length ? distances.map((dist) => {
+              const my = myPRs.find((p) => p.distance === dist);
+              const ot = otherPRs.find((p) => p.distance === dist);
+              const myTime = my ? formatSeconds(my.time_seconds) : "—";
+              const otTime = ot ? formatSeconds(ot.time_seconds) : "—";
+              return `<tr><td>${escapeHtml(dist)}</td><td class="time-mono">${myTime}</td><td class="time-mono">${otTime}</td></tr>`;
+            }).join("") : `<tr><td colspan="3"><div class="empty" style="border:none;margin:0.5rem">No PRs to compare</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>`,
+    footerHtml: `<button class="btn btn-ghost" id="cmp-close">Close</button>`,
+    onMount() {
+      document.getElementById("cmp-close").onclick = closeModal;
+    },
+  });
 }
 
 function renderTeam() {
@@ -2668,6 +3628,8 @@ async function saveProfile() {
   const imageUrl = document.getElementById("profile-image-url").value.trim();
   const newPass = document.getElementById("profile-password").value;
   const confirmPass = document.getElementById("profile-password-confirm").value;
+  const joinDate = document.getElementById("profile-join-date")?.value || null;
+  const paceGroup = document.getElementById("profile-pace-group")?.value || "";
   const errEl = document.getElementById("profile-error");
   errEl.hidden = true;
 
@@ -2725,6 +3687,14 @@ async function saveProfile() {
       name,
       email: session.user.email || linked.email || "",
     });
+    // Save join date + pace group on the runner
+    const runnerPatch = {};
+    if (joinDate && linked.join_date !== joinDate) runnerPatch.join_date = joinDate;
+    if (paceGroup && linked.pace_group !== paceGroup) runnerPatch.pace_group = paceGroup;
+    if (Object.keys(runnerPatch).length) {
+      const { error } = await sb.from("runners").update(runnerPatch).eq("id", linked.id);
+      if (!error) Object.assign(linked, runnerPatch);
+    }
   } else if (group?.id) {
     try {
       await createRunnerForMember({
@@ -2975,6 +3945,24 @@ function wireAppUi() {
     if (e.key === "Escape" && !document.getElementById("modal-backdrop").hidden) closeModal();
   });
 
+  // Notification bell
+  document.getElementById("btn-notifications")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleNotificationPanel();
+  });
+  document.getElementById("btn-mark-all-read")?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await markAllNotificationsRead();
+  });
+
+  // Close notification panel when clicking outside
+  document.addEventListener("click", (e) => {
+    const wrap = document.querySelector(".notification-bell-wrap");
+    if (wrap && !wrap.contains(e.target)) {
+      hideNotificationPanel();
+    }
+  });
+
   ["marathon-search", "marathon-filter-status", "marathon-sort"].forEach((id) => {
     const el = document.getElementById(id);
     el?.addEventListener("input", () => renderMarathons());
@@ -2988,6 +3976,20 @@ function wireAppUi() {
   });
   ["results-marathon", "results-sort", "results-completed-only"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", () => renderResults());
+  });
+
+  // Profile: share link + public toggle + add PR
+  document.getElementById("btn-copy-share-link")?.addEventListener("click", copyShareLink);
+  document.getElementById("profile-public-toggle")?.addEventListener("change", togglePublicProfile);
+  document.getElementById("btn-add-pr")?.addEventListener("click", () => openPrForm());
+
+  // PR table actions (delegated)
+  document.getElementById("profile-pr-tbody")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.action === "edit-pr") openPrForm(id);
+    if (btn.dataset.action === "delete-pr") deletePr(id);
   });
 }
 
@@ -3075,6 +4077,35 @@ async function init() {
   wireAppUi();
   fetchGroupBranding();
 
+  // Handle push notification clicks while app is open
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "NOTIFICATION_CLICK") {
+        const data = event.data.data || {};
+        const type = data.type;
+        const marathonId = data.marathon_id;
+
+        if (type === "new_marathon" || type === "race_reminder") {
+          setView("marathons");
+          if (marathonId) {
+            setTimeout(() => {
+              const card = document.querySelector(`[data-action="results"][data-id="${marathonId}"]`);
+              if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 100);
+          }
+        } else if (type === "result_added") {
+          setView("results");
+          if (marathonId) {
+            setTimeout(() => {
+              const sel = document.getElementById("results-marathon");
+              if (sel) { sel.value = marathonId; renderResults(); }
+            }, 100);
+          }
+        }
+      }
+    });
+  }
+
   sb.auth.onAuthStateChange(async (_event, newSession) => {
     await handleSession(newSession);
   });
@@ -3087,6 +4118,27 @@ async function init() {
   // else onAuthStateChange / getSession will handle
   if (data.session) {
     await handleSession(data.session);
+  }
+
+  // Handle share link: ?runner=<slug-or-id>
+  const params = new URLSearchParams(window.location.search);
+  const runnerParam = params.get("runner");
+  if (runnerParam) {
+    // Wait for app to be ready, then open the runner profile
+    const tryOpen = () => {
+      const runner = state.runners.find((r) => r.share_slug === runnerParam || r.id === runnerParam);
+      if (runner) {
+        openRunnerProfileDetail(runner.id);
+        return true;
+      }
+      return false;
+    };
+    if (!tryOpen()) {
+      const checkInterval = setInterval(() => {
+        if (tryOpen()) clearInterval(checkInterval);
+      }, 500);
+      setTimeout(() => clearInterval(checkInterval), 10000);
+    }
   }
 }
 

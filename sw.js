@@ -1,7 +1,7 @@
 /**
  * PacePack Service Worker
- * Caches the app shell for offline use and provides network-first
- * fallback for Supabase API requests.
+ * Caches the app shell for offline use, provides network-first
+ * fallback for Supabase API requests, and handles web push notifications.
  */
 
 const CACHE_NAME = "pacepack-v1";
@@ -85,6 +85,60 @@ self.addEventListener("fetch", (event) => {
 
   // Everything else (local assets) — cache first
   event.respondWith(cacheFirst(request));
+});
+
+// ─── Push notifications ───────────────────────────────────────────────────────
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: "PacePack", body: event.data ? event.data.text() : "" };
+  }
+
+  const title = data.title || "PacePack";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/icons/icon-192.png",
+    badge: data.badge || "/icons/icon-72.png",
+    data: data.data || {},
+    tag: data.tag || `pp-${Date.now()}`,
+    renotify: data.renotify !== false,
+    vibrate: data.vibrate || [200, 100, 200],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  const marathonId = data.marathon_id;
+  const type = data.type;
+
+  // Determine which view to open
+  let url = "./";
+  if (type === "new_marathon" || type === "race_reminder") {
+    url = "./?view=marathons";
+  } else if (type === "result_added") {
+    url = "./?view=results";
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) {
+          client.postMessage({ type: "NOTIFICATION_CLICK", data });
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
+  );
 });
 
 // ─── Strategies ───────────────────────────────────────────────────────────────
