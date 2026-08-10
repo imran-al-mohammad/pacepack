@@ -802,7 +802,7 @@ button {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 1rem;
 }
 
@@ -862,11 +862,14 @@ button {
   margin-top: auto;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .card-actions {
   display: flex;
   gap: 0.35rem;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 /* Badges */
