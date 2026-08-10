@@ -2076,6 +2076,13 @@ function renderMarathons() {
     const finished = regs.filter((r) => r.status === "completed" || displayFinishTime(r));
     const times = finished.map(bestFinishSeconds).filter((s) => s != null).sort((a, b) => a - b);
     const best = times.length ? formatSeconds(times[0]) : null;
+    const regOpen = m.reg_open_date ? `Opens ${formatDate(m.reg_open_date)}` : "";
+    const regClose = m.reg_close_date ? `Closes ${formatDate(m.reg_close_date)}` : "";
+    const regPeriod = [regOpen, regClose].filter(Boolean).join(" · ");
+    const signupUrl = safeUrl(m.reg_link);
+    const regButton = signupUrl
+      ? `<a class="btn btn-secondary btn-sm" href="${escapeHtml(signupUrl)}" target="_blank" rel="noopener noreferrer">Sign up</a>`
+      : "";
     const delBtn = canDelete()
       ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${m.id}">Delete</button>`
       : "";
@@ -2092,12 +2099,14 @@ function renderMarathons() {
         <div class="card-meta">
           <span>📅 ${formatRaceDateTime(m)}${isPast(m) ? " · past" : ""}</span>
           <span>📍 ${escapeHtml(m.location || "TBD")}</span>
+          ${regPeriod ? `<span>📝 ${escapeHtml(regPeriod)}</span>` : ""}
           ${best ? `<span>🏆 <span class="time-mono">${best}</span></span>` : ""}
         </div>
         ${m.notes ? `<p class="card-notes">${escapeHtml(m.notes)}</p>` : ""}
         <div class="card-footer">
           <span class="badge badge-count">${regs.length} entries · ${finished.length} results</span>
           <div class="card-actions">
+            ${regButton}
             <button class="btn btn-ghost btn-sm" data-action="results" data-id="${m.id}">Results</button>
             ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
             ${delBtn}
@@ -3164,6 +3173,20 @@ function openMarathonForm(id) {
           <label for="m-location">Location</label>
           <input class="input" id="m-location" value="${escapeHtml(existing?.location || "")}" />
         </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="m-open-date">Registration opens</label>
+            <input class="input" type="date" id="m-open-date" value="${escapeHtml(existing?.reg_open_date || "")}" />
+          </div>
+          <div class="field">
+            <label for="m-close-date">Registration closes</label>
+            <input class="input" type="date" id="m-close-date" value="${escapeHtml(existing?.reg_close_date || "")}" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="m-reg-link">Registration URL</label>
+          <input class="input" type="url" id="m-reg-link" placeholder="https://..." value="${escapeHtml(existing?.reg_link || "")}" />
+        </div>
         <div class="field">
           <label for="m-image-url">Image URL</label>
           <input class="input" id="m-image-url" placeholder="https://..." value="${escapeHtml(existing?.image_url || "")}" />
@@ -3180,6 +3203,10 @@ function openMarathonForm(id) {
       document.getElementById("mf-cancel").onclick = closeModal;
       document.getElementById("mf-save").onclick = async () => {
         const raceTimeRaw = document.getElementById("m-time").value.trim();
+        const rawRegLink = document.getElementById("m-reg-link").value.trim();
+        const regLink = rawRegLink ? safeUrl(rawRegLink) : "";
+        if (rawRegLink && !regLink) return toast("Registration link must start with http:// or https://", "error");
+
         const payload = {
           group_id: group.id,
           name: document.getElementById("m-name").value.trim(),
@@ -3189,10 +3216,16 @@ function openMarathonForm(id) {
           image_url: document.getElementById("m-image-url").value.trim(),
           distance: document.getElementById("m-distance").value,
           notes: document.getElementById("m-notes").value.trim(),
+          reg_open_date: document.getElementById("m-open-date").value || null,
+          reg_close_date: document.getElementById("m-close-date").value || null,
+          reg_link: regLink || null,
           created_by: session.user.id,
         };
         if (!payload.name || !payload.race_date) return toast("Name and date required", "error");
         if (!raceTimeRaw) return toast("Start time required", "error");
+        if (payload.reg_open_date && payload.reg_close_date && payload.reg_close_date < payload.reg_open_date) {
+          return toast("Registration close date must be on or after the open date", "error");
+        }
         try {
           if (existing) {
             const { error } = await sb.from("marathons").update(payload).eq("id", existing.id);
