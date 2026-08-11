@@ -1,0 +1,20 @@
+# Race Scraper Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+python-dateutil>=2.8.0
+
+# Optional: JavaScript rendering (for SPAs)
+# Install with: pip install playwright
+# Then run: playwright install chromium
+playwright>=1.40.0
+
+# Optional: Supabase integration
+# Install with: pip install supabase
+supabase>=2.0.0
+
+# Optional: Environment variables
+# Install with: pip install python-dotenv
+python-dotenv>=1.0.0
