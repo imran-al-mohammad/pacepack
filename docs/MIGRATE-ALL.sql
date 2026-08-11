@@ -146,7 +146,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select 'YOUR_VAPID_PUBLIC_KEY_HERE'::text
+  select 'BKX3deDuUifCoYfOJFhrz/j7dDQIa3AiSvdJS4kGPAZwTJHgCGg8SAf4B3PsrjA4IVaREnj6dlll/7vTDwdb9CM='::text
   where exists (
     select 1 from public.group_memberships
     where user_id = auth.uid()

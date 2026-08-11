@@ -7,6 +7,9 @@
 --   (see supabase/functions/send-notifications/index.ts)
 --   Set VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY secrets (generate with:
 --     npx web-push generate-vapid-keys )
+--   Current keys (generated 2026-08-11):
+--     Public:  BKX3deDuUifCoYfOJFhrz/j7dDQIa3AiSvdJS4kGPAZwTJHgCGg8SAf4B3PsrjA4IVaREnj6dlll/7vTDwdb9CM=
+--     Private: Pd8cOwjY69ackb4tHVFOenXcRZqtgq4tFnWmfv3yA1c=
 --   Database → Extensions → enable pg_cron
 -- =============================================================================
 
@@ -230,7 +233,8 @@ $$;
 
 -- ─── VAPID public key (for client-side push subscription) ────────────────────
 -- Set this to your VAPID public key (generate with: npx web-push generate-vapid-keys)
--- Replace 'YOUR_VAPID_PUBLIC_KEY_HERE' with the actual key.
+-- Current key (generated 2026-08-11):
+--   BKX3deDuUifCoYfOJFhrz/j7dDQIa3AiSvdJS4kGPAZwTJHgCGg8SAf4B3PsrjA4IVaREnj6dlll/7vTDwdb9CM=
 
 create or replace function public.get_vapid_public_key()
 returns text
@@ -239,7 +243,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select 'YOUR_VAPID_PUBLIC_KEY_HERE'::text
+  select 'BKX3deDuUifCoYfOJFhrz/j7dDQIa3AiSvdJS4kGPAZwTJHgCGg8SAf4B3PsrjA4IVaREnj6dlll/7vTDwdb9CM='::text
   where exists (
     select 1 from public.group_memberships
     where user_id = auth.uid()
