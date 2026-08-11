@@ -88,8 +88,8 @@ Deno.serve(async (req) => {
     const payload = JSON.stringify({
       title: notif.title,
       body: notif.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-72.png",
+      icon: "/public/icons/icon-192.png",
+      badge: "/public/icons/icon-72.png",
       data: notif.data || {},
       tag: `pp-${notif.id}`,
       renotify: true,

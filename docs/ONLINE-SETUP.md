@@ -23,7 +23,7 @@ This version is **multi-user and online-only**:
 ### Database
 
 1. **SQL Editor → New query**  
-2. Paste **all** of `supabase-schema.sql`  
+2. Paste **all** of `docs/supabase-schema.sql`  
 3. **Run**  
 
 ### API keys
@@ -112,7 +112,7 @@ You (Admin) can promote people to **Moderator** or **Admin** under **Team & acce
 | Invalid invite code | Check code under Team & access; re-run SQL if tables missing |
 | Confirm email message | Disable email confirmation in Auth settings |
 | Permission denied | Role too low, or RLS/SQL not applied |
-| Relation does not exist | Re-run `supabase-schema.sql` |
+| Relation does not exist | Re-run `docs/supabase-schema.sql` |
 
 ### Migrating from the old “room” version
 

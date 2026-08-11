@@ -8,7 +8,7 @@ Completed a comprehensive code review and fixed all identified errors in the Pac
 ## Issues Found & Fixed
 
 ### 1. Code Error: Duplicate Function Definition
-**File:** `app.js` (lines 204-214)
+**File:** `src/js/app.js` (lines 204-214)
 **Issue:** The `safeUrl` function was defined twice, causing the second definition to override the first.
 **Fix:** Removed the duplicate function definition.
 
@@ -142,7 +142,7 @@ If you want push notifications to work:
 
 ## Files Modified
 
-1. **app.js** - Removed duplicate `safeUrl` function
+1. **src/js/app.js** - Removed duplicate `safeUrl` function
 2. **MIGRATE-ALL.sql** - Created comprehensive migration script (NEW FILE)
 
 ---
