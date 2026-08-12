@@ -2116,6 +2116,8 @@ function renderVisualAnalytics() {
   const total = state.registrations.length;
   const finished = state.registrations.filter((r) => r.status === "completed" || displayFinishTime(r)).length;
   const finishRate = total ? Math.round((finished / total) * 100) : 0;
+  const activeRunnerIds = new Set(state.registrations.map((r) => r.runner_id));
+  const participationRate = state.runners.length ? Math.round((activeRunnerIds.size / state.runners.length) * 100) : 0;
   const statusOrder = ["registered", "interested", "waitlisted", "completed", "dnf", "dns"];
   const statusColors = { registered: "var(--teal)", interested: "var(--blue)", waitlisted: "var(--amber)", completed: "var(--green)", dnf: "var(--purple)", dns: "var(--danger)" };
   const statusCounts = Object.fromEntries(statusOrder.map((status) => [status, state.registrations.filter((r) => r.status === status).length]));
@@ -2123,22 +2125,22 @@ function renderVisualAnalytics() {
   const raceSeries = sortMarathons(state.marathons).map((marathon) => ({ name: marathon.name, count: regsForMarathon(marathon.id).length })).sort((a, b) => b.count - a.count).slice(0, 5);
   const maxRaceCount = Math.max(...raceSeries.map((race) => race.count), 1);
 
-  let accumulated = 0;
-  const segments = activeStatuses.map((status) => {
-    const start = total ? (accumulated / total) * 100 : 0;
-    accumulated += statusCounts[status];
-    return `${statusColors[status]} ${start}% ${total ? (accumulated / total) * 100 : 0}%`;
-  });
-  const mixStyle = segments.length ? `background:conic-gradient(${segments.join(",")})` : "background:var(--bg-hover)";
+  const mixSegments = activeStatuses.map((status) => `<span class="entry-mix-segment" style="width:${total ? (statusCounts[status] / total) * 100 : 0}%;background:${statusColors[status]}" title="${escapeHtml(statusLabel(status))}: ${statusCounts[status]}"></span>`).join("");
+  const ring = (value, label, color) => `<div class="analytics-ring" style="--ring-value:${value}%;--ring-color:${color}" role="img" aria-label="${label}: ${value}%"><div><strong>${value}%</strong><span>${label}</span></div></div>`;
 
   container.innerHTML = `
-    <div class="analytics-card">
-      <div class="analytics-card-head"><span class="analytics-eyebrow">Entry mix</span><span class="analytics-mini-total">${total} entries</span></div>
-      <div class="status-donut-row"><div class="status-donut" style="${mixStyle}" role="img" aria-label="Registration status breakdown"><span>${total}</span></div><div class="status-legend">${activeStatuses.length ? activeStatuses.map((status) => `<div class="status-legend-item"><i style="background:${statusColors[status]}"></i><span>${escapeHtml(statusLabel(status))}</span><strong>${statusCounts[status]}</strong></div>`).join("") : `<p class="analytics-copy">Add registrations to see the mix.</p>`}</div></div>
+    <div class="analytics-card analytics-progress-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Group progress</span><span class="analytics-mini-total">${total} entries</span></div>
+      <div class="analytics-rings">${ring(finishRate, "finished", "var(--green)")}${ring(participationRate, "active", "var(--accent)")}</div>
+      <p class="analytics-copy">${finished} of ${total} entries have a recorded finish.</p>
+    </div>
+    <div class="analytics-card analytics-mix-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Entry mix</span><span class="analytics-mini-total">${total} total</span></div>
+      ${activeStatuses.length ? `<div class="entry-mix-bar" role="img" aria-label="Registration status breakdown">${mixSegments}</div><div class="status-legend">${activeStatuses.map((status) => `<div class="status-legend-item"><i style="background:${statusColors[status]}"></i><span>${escapeHtml(statusLabel(status))}</span><strong>${statusCounts[status]}</strong></div>`).join("")}</div>` : `<p class="analytics-copy">Add registrations to see the mix.</p>`}
     </div>
     <div class="analytics-card analytics-race-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Most popular races</span><span class="analytics-mini-total">Top ${raceSeries.length || 0}</span></div>
-      <div class="race-bars">${raceSeries.length ? raceSeries.map((race, index) => `<div class="race-bar-row"><span title="${escapeHtml(race.name)}">${escapeHtml(race.name)}</span><div class="race-bar-track"><div class="race-bar-fill" style="width:${(race.count / maxRaceCount) * 100}%;--bar-index:${index}"></div></div><strong>${race.count}</strong></div>`).join("") : `<p class="analytics-copy">Add races to compare signups.</p>`}</div>
+      <div class="race-bars">${raceSeries.length ? raceSeries.map((race, index) => `<div class="race-bar-row"><span class="race-bar-rank">${index + 1}</span><span class="race-bar-name" title="${escapeHtml(race.name)}">${escapeHtml(race.name)}</span><div class="race-bar-track"><div class="race-bar-fill" style="width:${(race.count / maxRaceCount) * 100}%;--bar-index:${index}"></div></div><strong>${race.count}<small> runners</small></strong></div>`).join("") : `<p class="analytics-copy">Add races to compare signups.</p>`}</div>
     </div>`;
 }
 
@@ -2336,6 +2338,19 @@ function renderWhosRunningChart() {
       </g>`;
   }).join("");
 
+  const horizontalBars = series.map((s) => {
+    const selected = s.marathon.id === selectedWhosRunningMarathonId;
+    const stacks = chartStatuses.map((status) => {
+      const count = s.byStatus[status] || 0;
+      return count ? `<span class="wr-stack wr-stack-${status}" style="width:${s.count ? (count / s.count) * 100 : 0}%;background:${statusChartColors[status]}" title="${escapeHtml(statusLabel(status))}: ${count}"></span>` : "";
+    }).join("");
+    return `<div class="wr-bar-group${selected ? " is-selected" : ""}" data-marathon-id="${s.marathon.id}" role="button" tabindex="0" aria-label="${escapeHtml(s.marathon.name)}: ${s.count} runners">
+      <div class="wr-row-label"><strong>${escapeHtml(s.marathon.name)}</strong><span>${escapeHtml(formatRaceDateTime(s.marathon))}</span></div>
+      <div class="wr-row-track"><div class="wr-row-fill" style="width:${(s.count / max) * 100}%"><div class="wr-stack-track">${stacks}</div></div></div>
+      <strong class="wr-row-count">${s.count}<small> runner${s.count === 1 ? "" : "s"}</small></strong>
+    </div>`;
+  }).join("");
+
   const selected = series.find((s) => s.marathon.id === selectedWhosRunningMarathonId);
   const selectedRegs = selected ? regsSortedForMarathon(selected.marathon.id) : [];
 
@@ -2367,7 +2382,8 @@ function renderWhosRunningChart() {
   wrap.innerHTML = `
     <div class="whos-running-chart-area">
       <div class="wr-chart-legend">${chartStatuses.map((status) => `<span><i style="background:${statusChartColors[status]}"></i>${escapeHtml(statusLabel(status))}</span>`).join("")}</div>
-      <div class="leaderboard-chart-scroll">
+      <div class="wr-race-list" role="list" aria-label="Runners by race">${horizontalBars}</div>
+      <div class="leaderboard-chart-scroll" hidden>
         <svg class="whos-running-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Registrations by race bar chart">
           <line class="lb-axis" x1="${padL - 10}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" />
           ${bars}
