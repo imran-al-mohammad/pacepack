@@ -2087,12 +2087,21 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
 .wr-chart-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
 .wr-chart-legend i { width: 8px; height: 8px; display: block; border-radius: 50%; }
 .wr-bar-base { stroke: var(--border); stroke-width: 1; }
+.wr-summary { display: grid; grid-template-columns: repeat(3, auto) minmax(0, 1fr); align-items: center; gap: 1rem; margin-bottom: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: linear-gradient(110deg, var(--bg-hover), transparent); }
+.wr-summary div { display: grid; gap: 0.12rem; }
+.wr-summary strong { color: var(--text); font: 800 1.35rem var(--display); }
+.wr-summary span { color: var(--text-dim); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.wr-summary p { margin: 0; color: var(--text-dim); font-size: 0.78rem; text-align: right; }
+.wr-visual-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr); gap: 1rem; align-items: start; }
 
 .wr-race-list { display: grid; gap: 0.65rem; }
-.wr-bar-group { display: grid; grid-template-columns: minmax(9rem, 1.1fr) minmax(8rem, 2fr) auto; gap: 0.75rem; align-items: center; padding: 0.65rem 0.7rem; border: 1px solid transparent; border-radius: 10px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.wr-bar-group { display: grid; grid-template-columns: minmax(9rem, 1.1fr) minmax(8rem, 2fr) auto; gap: 0.75rem; align-items: center; padding: 0.8rem 0.75rem; border: 1px solid transparent; border-radius: 10px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
 .wr-bar-group:hover, .wr-bar-group:focus-visible, .wr-bar-group.is-selected { background: var(--bg-hover); border-color: var(--border-strong); outline: none; }
+.wr-bar-group.is-selected { transform: translateX(3px); box-shadow: 0 0 0 1px var(--accent-soft); }
 .wr-row-label { min-width: 0; display: grid; gap: 0.2rem; }
+.wr-row-title { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .wr-row-label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 0.82rem; }
+.wr-race-state { flex: 0 0 auto; padding: 0.12rem 0.35rem; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: 0.59rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .wr-row-label span { color: var(--text-dim); font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-row-track { height: 12px; overflow: hidden; border-radius: 99px; background: var(--bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); }
 .wr-row-fill { height: 100%; min-width: 4px; border-radius: inherit; background: linear-gradient(90deg, rgba(226,125,93,0.65), rgba(226,125,93,0.2)); transition: width 0.3s ease, filter 0.15s ease; }
@@ -2101,11 +2110,30 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
 .wr-stack { min-width: 2px; height: 100%; opacity: 0.92; }
 .wr-row-count { color: var(--text); font-family: var(--mono); font-size: 0.78rem; white-space: nowrap; }
 .wr-row-count small { color: var(--text-dim); font-family: var(--display); font-size: 0.68rem; font-weight: 500; }
+.wr-row-people { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; }
+.wr-mini-avatar { display: inline-flex; margin-left: -0.45rem; }
+.wr-mini-avatar:first-child { margin-left: 0; }
+.wr-mini-avatar .avatar { width: 24px; height: 24px; border: 2px solid var(--bg-panel); border-radius: 50%; font-size: 0.55rem; }
+.wr-no-avatar { color: var(--text-muted); }
 
 .wr-detail {
-  margin-top: 1rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border);
+  margin-top: 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+@media (max-width: 900px) {
+  .wr-visual-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .wr-summary { grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
+  .wr-summary p { grid-column: 1 / -1; text-align: left; }
+  .wr-bar-group { grid-template-columns: 1fr auto; gap: 0.55rem; }
+  .wr-row-track { grid-column: 1 / -1; grid-row: 2; }
+  .wr-row-people { grid-column: 2; grid-row: 1; }
 }
 
 .wr-detail-title {
