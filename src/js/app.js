@@ -1310,8 +1310,7 @@ function setSidebarCollapsed(collapsed) {
   document.querySelectorAll("#btn-sidebar-toggle, #btn-sidebar-toggle-mobile").forEach((btn) => {
     btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
     btn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
-    const icon = btn.querySelector(".sidebar-toggle-icon");
-    if (icon) icon.textContent = collapsed ? "⟩" : "⟨";
+    // Desktop chevron rotates via CSS (.app.sidebar-collapsed .sidebar-toggle-icon)
   });
 }
 

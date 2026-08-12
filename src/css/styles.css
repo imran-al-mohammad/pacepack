@@ -305,22 +305,19 @@ button {
 .sidebar-toggle {
   flex-shrink: 0;
   box-sizing: border-box;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
+  /* Compact control — matches Menu label scale, still easy to click */
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   color: var(--text-muted);
   display: inline-grid;
   place-items: center;
-  /* Avoid inheriting the large display serif (makes ⟨ look huge) */
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1;
+  line-height: 0;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
@@ -335,11 +332,17 @@ button {
   outline-offset: 2px;
 }
 
+/* SVG chevron — fixed pixel size so display fonts never inflate it */
 .sidebar-toggle-icon {
   display: block;
-  font-size: 0.72rem;
-  line-height: 1;
-  transform: translateY(-0.5px); /* optical center for ⟨ / ⟩ */
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.app.sidebar-collapsed .sidebar-toggle-icon {
+  transform: rotate(180deg);
 }
 
 .sidebar-toggle-mobile {
@@ -349,7 +352,9 @@ button {
   height: 32px;
   min-width: 32px;
   min-height: 32px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 0.85rem;
+  line-height: 1;
 }
 
 .top-nav-brand .sidebar-toggle-mobile {

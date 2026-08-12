@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="src/css/styles.css" />
+  <link rel="stylesheet" href="src/css/styles.css?v=20260813-sidebar" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="src/js/cache.js"></script>
@@ -193,7 +193,9 @@
       <div class="sidebar-top">
         <h2 class="sidebar-menu-title">Menu</h2>
         <button type="button" class="sidebar-toggle" id="btn-sidebar-toggle" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true">
-          <span class="sidebar-toggle-icon" aria-hidden="true">⟨</span>
+          <svg class="sidebar-toggle-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+            <path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
       </div>
 
