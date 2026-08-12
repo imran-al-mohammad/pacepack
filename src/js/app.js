@@ -1669,6 +1669,11 @@ async function createRunnerForMember({ userId, name, email, imageUrl }) {
   const existing =
     (userId && state.runners.find((r) => r.user_id === userId)) ||
     (mail && state.runners.find((r) => (r.email || "").toLowerCase() === mail.toLowerCase())) ||
+    // Older imports often have no email. Only use a unique name match so an
+    // existing historical runner is linked instead of creating an empty one.
+    (state.runners.filter((r) => String(r.name || "").trim().toLowerCase() === displayName.toLowerCase()).length === 1
+      ? state.runners.find((r) => String(r.name || "").trim().toLowerCase() === displayName.toLowerCase())
+      : null) ||
     null;
 
   if (existing) {
@@ -2901,13 +2906,22 @@ function renderResults() {
 
 function getMyRunner() {
   const linked = getRunnerForUser(session?.user?.id);
-  if (linked) return linked;
   const displayName = String(profile?.display_name || session?.user?.user_metadata?.display_name || "").trim().toLowerCase();
   const email = String(profile?.email || session?.user?.email || "").trim().toLowerCase();
-  const legacyMatches = state.runners.filter((runner) =>
-    (email && String(runner.email || "").trim().toLowerCase() === email) ||
-    (displayName && String(runner.name || "").trim().toLowerCase() === displayName)
-  );
+  const emailMatches = email ? state.runners.filter((runner) => String(runner.email || "").trim().toLowerCase() === email) : [];
+  const nameMatches = displayName ? state.runners.filter((runner) => String(runner.name || "").trim().toLowerCase() === displayName) : [];
+  const historicalNameMatches = nameMatches.filter((runner) => regsForRunner(runner.id).length);
+  const legacyMatches = emailMatches.length
+    ? emailMatches
+    : (nameMatches.length === 1 || historicalNameMatches.length === 1 ? (historicalNameMatches.length === 1 ? historicalNameMatches : nameMatches) : []);
+  // A newly-created linked row can coexist with an older imported row when
+  // the import had no email. Prefer the row carrying historical registrations.
+  if (linked && regsForRunner(linked.id).length) return linked;
+  const historicalMatch = legacyMatches
+    .filter((runner) => regsForRunner(runner.id).length)
+    .sort((a, b) => regsForRunner(b.id).length - regsForRunner(a.id).length)[0];
+  if (historicalMatch) return historicalMatch;
+  if (linked) return linked;
   return legacyMatches.sort((a, b) => regsForRunner(b.id).length - regsForRunner(a.id).length)[0] || null;
 }
 
