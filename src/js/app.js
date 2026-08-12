@@ -4862,8 +4862,8 @@ function wireAuthUi() {
   const onboardSignoutButton = document.getElementById("btn-signout-onboard");
   if (onboardSignoutButton) onboardSignoutButton.onclick = () => signOut();
 
-  const profileBtn = document.getElementById("btn-profile");
-  if (profileBtn) profileBtn.onclick = () => setView("profile");
+  // Profile menu: open dropdown (Profile + Sign out) — do not jump to profile immediately
+  wireProfileDropdown();
 
   const passwordGateForm = document.getElementById("form-password-gate");
   if (passwordGateForm) {
@@ -4962,6 +4962,79 @@ function wireAuthUi() {
   }
 }
 
+/**
+ * Top-nav user menu: toggle Profile / Sign out dropdown.
+ */
+function closeProfileDropdown() {
+  const dropdown = document.getElementById("profileDropdown");
+  const profileBtn = document.getElementById("btn-profile");
+  if (dropdown) dropdown.hidden = true;
+  if (profileBtn) profileBtn.setAttribute("aria-expanded", "false");
+}
+
+function openProfileDropdown() {
+  const dropdown = document.getElementById("profileDropdown");
+  const profileBtn = document.getElementById("btn-profile");
+  if (dropdown) dropdown.hidden = false;
+  if (profileBtn) profileBtn.setAttribute("aria-expanded", "true");
+  // Close notifications if open so panels don't stack
+  try {
+    hideNotificationPanel();
+  } catch {
+    /* ignore */
+  }
+}
+
+function toggleProfileDropdown(e) {
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
+  const dropdown = document.getElementById("profileDropdown");
+  if (!dropdown) return;
+  if (dropdown.hidden) openProfileDropdown();
+  else closeProfileDropdown();
+}
+
+function wireProfileDropdown() {
+  const profileBtn = document.getElementById("btn-profile");
+  const dropdown = document.getElementById("profileDropdown");
+  if (!profileBtn || !dropdown) return;
+
+  profileBtn.setAttribute("aria-haspopup", "menu");
+  profileBtn.setAttribute("aria-expanded", "false");
+  profileBtn.setAttribute("aria-controls", "profileDropdown");
+
+  profileBtn.onclick = (e) => toggleProfileDropdown(e);
+
+  // Menu items
+  dropdown.querySelectorAll(".dropdown-item[data-view]").forEach((item) => {
+    item.onclick = (e) => {
+      e.stopPropagation();
+      closeProfileDropdown();
+      const view = item.dataset.view;
+      if (view) setView(view);
+    };
+  });
+
+  const signoutDropdown = document.getElementById("btn-signout-dropdown");
+  if (signoutDropdown) {
+    signoutDropdown.onclick = (e) => {
+      e.stopPropagation();
+      closeProfileDropdown();
+      signOut();
+    };
+  }
+
+  // Click outside closes menu
+  document.addEventListener("click", (e) => {
+    const chip = profileBtn.closest(".user-chip");
+    if (chip && !chip.contains(e.target)) closeProfileDropdown();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeProfileDropdown();
+  });
+}
+
 function wireAppUi() {
   setSidebarCollapsed(isSidebarCollapsed());
   document.getElementById("btn-sidebar-toggle")?.addEventListener("click", toggleSidebar);
@@ -4984,6 +5057,7 @@ function wireAppUi() {
   // Notification bell
   document.getElementById("btn-notifications")?.addEventListener("click", (e) => {
     e.stopPropagation();
+    closeProfileDropdown();
     toggleNotificationPanel();
   });
   document.getElementById("btn-mark-all-read")?.addEventListener("click", async (e) => {

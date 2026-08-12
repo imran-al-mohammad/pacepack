@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="src/css/styles.css?v=20260813-mobile-brand" />
+  <link rel="stylesheet" href="src/css/styles.css?v=20260813-profile-menu" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="src/js/cache.js"></script>
@@ -174,16 +174,16 @@
           </div>
         </div>
         <div class="user-chip">
-          <button type="button" class="user-chip-btn" id="btn-profile" title="My Profile">
+          <button type="button" class="user-chip-btn" id="btn-profile" title="Account menu" aria-label="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="profileDropdown">
             <span id="user-avatar-slot"></span>
             <span id="user-display" class="user-display-label">User</span>
-            <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="arrow-down" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M6 9l6 6 6-6"/>
             </svg>
           </button>
-          <div class="profile-dropdown" id="profileDropdown" hidden>
-            <button class="dropdown-item" data-view="profile">My Profile</button>
-            <button class="dropdown-item" id="btn-signout-dropdown">Sign out</button>
+          <div class="profile-dropdown" id="profileDropdown" role="menu" hidden>
+            <button type="button" class="dropdown-item" role="menuitem" data-view="profile">My Profile</button>
+            <button type="button" class="dropdown-item" role="menuitem" id="btn-signout-dropdown">Sign out</button>
           </div>
         </div>
       </div>
@@ -735,6 +735,6 @@
     </div>
   </div>
 
-  <script src="src/js/app.js"></script>
+  <script src="src/js/app.js?v=20260813-profile-menu"></script>
 </body>
 </html>

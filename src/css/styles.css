@@ -312,42 +312,53 @@ button {
   transition: opacity 0.22s ease, width 0.22s ease;
 }
 
-.sidebar-toggle {
+/* Sidebar collapse control — keep compact (do not inherit large button styles) */
+.sidebar .sidebar-toggle,
+button.sidebar-toggle:not(.sidebar-toggle-mobile) {
   flex-shrink: 0;
   box-sizing: border-box;
-  /* Compact control — matches Menu label scale, still easy to click */
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 8px;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  max-width: 22px;
+  max-height: 22px;
+  padding: 0 !important;
+  margin: 0;
+  border-radius: 7px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   color: var(--text-muted);
-  display: inline-grid;
+  display: inline-grid !important;
   place-items: center;
-  line-height: 0;
+  line-height: 0 !important;
+  font-size: 0 !important;
+  font-family: system-ui, sans-serif !important;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.sidebar-toggle:hover {
+.sidebar .sidebar-toggle:hover,
+button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   background: var(--bg-hover);
   color: var(--text);
   border-color: var(--border-strong);
 }
 
-.sidebar-toggle:focus-visible {
+.sidebar .sidebar-toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 /* SVG chevron — fixed pixel size so display fonts never inflate it */
+.sidebar .sidebar-toggle-icon,
 .sidebar-toggle-icon {
-  display: block;
-  width: 12px;
-  height: 12px;
+  display: block !important;
+  width: 11px !important;
+  height: 11px !important;
+  max-width: 11px;
+  max-height: 11px;
   flex-shrink: 0;
+  pointer-events: none;
   transition: transform 0.2s ease;
 }
 
@@ -358,13 +369,21 @@ button {
 .sidebar-toggle-mobile {
   display: none;
   /* Slightly larger hit target in the top nav (touch / mobile) */
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 0.85rem;
-  line-height: 1;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px;
+  max-height: 32px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+  font-size: 0.85rem !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  place-items: center;
 }
 
 .top-nav-brand .sidebar-toggle-mobile {
@@ -3131,30 +3150,78 @@ button {
   font-size: 1rem;
 }
 
-.user-chip-btn {
+/* Top-nav account control + Profile / Sign out dropdown */
+.top-nav-user .user-chip {
+  position: relative;
+  width: auto;
+  max-width: min(220px, 42vw);
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
-  flex: 1;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  gap: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
 }
 
-.user-chip-btn .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  font-size: 0.75rem;
+.user-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 0 1 auto;
+  padding: 0.2rem 0.45rem 0.2rem 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.user-chip-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.user-chip-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.user-chip-btn[aria-expanded="true"] {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.user-chip-btn .avatar,
+.user-chip-btn #user-avatar-slot .avatar,
+.user-chip-btn #user-avatar-slot .avatar-image {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 999px !important;
+  font-size: 0.7rem !important;
+  flex-shrink: 0;
+}
+
+.user-chip-btn .arrow-down {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.75;
+  transition: transform 0.15s ease;
+}
+
+.user-chip-btn[aria-expanded="true"] .arrow-down {
+  transform: rotate(180deg);
 }
 
 .user-chip-btn:hover #user-display {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .user-chip {
@@ -3171,6 +3238,74 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 80;
+  min-width: 168px;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.profile-dropdown[hidden] {
+  display: none !important;
+}
+
+.profile-dropdown .dropdown-item {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.profile-dropdown .dropdown-item:hover,
+.profile-dropdown .dropdown-item:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text);
+  outline: none;
+}
+
+.profile-dropdown .dropdown-item#btn-signout-dropdown {
+  color: var(--text-muted);
+}
+
+.profile-dropdown .dropdown-item#btn-signout-dropdown:hover {
+  color: var(--text);
+  background: var(--danger-soft);
+}
+
+@media (max-width: 800px) {
+  .top-nav-user .user-chip {
+    max-width: none;
+  }
+
+  .user-chip-btn {
+    padding: 0.15rem;
+    gap: 0;
+  }
+
+  .user-chip-btn .arrow-down {
+    display: none;
+  }
 }
 
 .invite-code-big {
