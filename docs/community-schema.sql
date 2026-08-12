@@ -14,15 +14,19 @@ create table if not exists public.community_posts (
   runner_id uuid references public.runners (id) on delete set null,
   title text,
   content text not null,
+  is_pinned boolean not null default false,
   parent_id uuid references public.community_posts (id) on delete cascade,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+alter table public.community_posts add column if not exists is_pinned boolean not null default false;
+
 create index if not exists community_posts_group_idx on public.community_posts (group_id);
 create index if not exists community_posts_parent_idx on public.community_posts (parent_id);
 create index if not exists community_posts_user_idx on public.community_posts (user_id);
 create index if not exists community_posts_created_idx on public.community_posts (group_id, created_at desc);
+create index if not exists community_posts_pinned_idx on public.community_posts (group_id, is_pinned, created_at desc);
 
 -- updated_at trigger (reuses the shared set_updated_at helper)
 drop trigger if exists community_posts_updated on public.community_posts;

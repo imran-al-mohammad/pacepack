@@ -14,12 +14,13 @@ import argparse
 import json
 import os
 import sys
+from statistics import median
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
-from achievement_engine import BADGE_RULES, DISTANCE_KM, detect_prs, eligible_badges, format_time, is_finish
+from achievement_engine import BADGE_RULES, DISTANCE_KM, detect_prs, eligible_badges, finish_seconds, format_time, is_finish
 
 
 TABLES = ("runners", "marathons", "registrations", "personal_records", "runner_badges", "group_memberships", "community_posts", "notifications")
@@ -126,9 +127,12 @@ def main() -> int:
     # One compact discussion prompt per race with newly available finishes.
     announced_races = {p for p in posts if p and p.startswith("New results have been logged for ")}
     for race_id, race in races.items():
-        if not any(r.get("marathon_id") == race_id and is_finish(r) for r in data["registrations"]):
+        race_results = [r for r in data["registrations"] if r.get("marathon_id") == race_id and is_finish(r)]
+        if not race_results:
             continue
-        content = f"New results have been logged for {race.get('name', 'this race')}. Share your favorite moment!"
+        times = sorted(filter(None, (finish_seconds(r) for r in race_results)))
+        median_text = f" Median finish: {format_time(int(median(times)))}." if times else ""
+        content = f"New results have been logged for {race.get('name', 'this race')}: {len(race_results)} finish{'er' if len(race_results) == 1 else 'ers'} recorded.{median_text} Share your favorite moment!"
         if content not in posts and content not in announced_races:
             mutations.append(("community_posts", "insert", {"group_id": group_id or race.get("group_id"), "user_id": actor_id, "title": "Race results", "content": content}))
 

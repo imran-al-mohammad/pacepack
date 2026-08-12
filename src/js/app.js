@@ -89,6 +89,7 @@ const leaderboardFeature = createLeaderboardFeature({
 });
 
 let currentView = "dashboard";
+let activeProfileTab = "overview";
 let channels = [];
 let suppressToast = false;
 let raceTimerId = null;
@@ -2066,6 +2067,31 @@ function renderCompactDashboardAnalytics() {
   if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
 }
 
+function findImprovementSpotlight() {
+  const grouped = new Map();
+  state.registrations.forEach((reg) => {
+    const race = getMarathon(reg.marathon_id);
+    const runner = getRunner(reg.runner_id);
+    const seconds = bestFinishSeconds(reg);
+    if (!race || !runner || seconds == null) return;
+    const key = `${reg.runner_id}:${race.distance}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push({ seconds, date: String(race.race_date || "") });
+  });
+  let spotlight = null;
+  grouped.forEach((results, key) => {
+    if (results.length < 2) return;
+    results.sort((a, b) => a.date.localeCompare(b.date));
+    const from = results[0].seconds;
+    const to = Math.min(...results.slice(1).map((result) => result.seconds));
+    if (from <= to) return;
+    const [runnerId, distance] = key.split(":");
+    const candidate = { name: getRunner(runnerId)?.name || "Runner", distance, from, to, drop: from - to };
+    if (!spotlight || candidate.drop > spotlight.drop) spotlight = candidate;
+  });
+  return spotlight;
+}
+
 function renderVisualAnalytics() {
   const container = document.getElementById("analytics-visuals");
   if (!container) return;
@@ -2081,6 +2107,47 @@ function renderVisualAnalytics() {
   const activeStatuses = statusOrder.filter((status) => statusCounts[status]);
   const raceSeries = sortMarathons(state.marathons).map((marathon) => ({ name: marathon.name, count: regsForMarathon(marathon.id).length })).sort((a, b) => b.count - a.count).slice(0, 5);
   const maxRaceCount = Math.max(...raceSeries.map((race) => race.count), 1);
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const finishes = state.registrations.filter((r) => r.status === "completed" || displayFinishTime(r));
+  const prRows = state.registrations
+    .filter((r) => r.is_pr && displayFinishTime(r))
+    .map((reg) => ({ reg, runner: getRunner(reg.runner_id), race: getMarathon(reg.marathon_id) }))
+    .filter((row) => row.runner && row.race)
+    .sort((a, b) => String(b.race.race_date || b.reg.updated_at || "").localeCompare(String(a.race.race_date || a.reg.updated_at || "")));
+  const monthPRs = prRows.filter((row) => new Date(`${String(row.race.race_date || "").slice(0, 10)}T12:00:00`) >= monthStart);
+  const prRate = finishes.length ? Math.round((prRows.length / finishes.length) * 100) : 0;
+  const prDistanceCounts = {};
+  prRows.forEach((row) => { prDistanceCounts[row.race.distance] = (prDistanceCounts[row.race.distance] || 0) + 1; });
+  const badgeRows = state.runnerBadges || [];
+  const monthBadges = badgeRows.filter((badge) => new Date(badge.awarded_at || 0) >= monthStart);
+  const badgeCounts = {};
+  badgeRows.forEach((badge) => { badgeCounts[badge.badge_key] = (badgeCounts[badge.badge_key] || 0) + 1; });
+  const topBadges = Object.entries(badgeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const badgeLeaderboard = Object.entries(badgeRows.reduce((counts, badge) => { counts[badge.runner_id] = (counts[badge.runner_id] || 0) + 1; return counts; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([runnerId, count]) => ({ name: getRunner(runnerId)?.name || "Runner", count }));
+  const badgeRunnerCounts = new Set(badgeRows.map((badge) => badge.runner_id)).size;
+  const badgeRate = state.runners.length ? Math.round((badgeRunnerCounts / state.runners.length) * 100) : 0;
+  const badgeLabel = (key) => String(key || "Achievement").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const closestBadge = state.runners.map((runner) => {
+    const count = state.registrations.filter((reg) => reg.runner_id === runner.id && (reg.status === "completed" || displayFinishTime(reg))).length;
+    if (count >= 4 && count < 5) return `${runner.name} is 1 race from 5 Races Completed`;
+    if (count >= 9 && count < 10) return `${runner.name} is 1 race from 10 Races Completed`;
+    return null;
+  }).find(Boolean);
+  const recentPRMarkup = prRows.length ? prRows.slice(0, 5).map((row) => `<div class="recognition-row"><span class="recognition-icon">★</span><span class="recognition-main"><strong>${escapeHtml(row.runner.name)}</strong><small>${escapeHtml(row.race.distance)} · ${escapeHtml(row.race.name)}</small></span><span class="time-mono">${escapeHtml(displayFinishTime(row.reg))}</span></div>`).join("") : `<p class="analytics-copy">PRs will appear here automatically after results are logged.</p>`;
+  const distanceRows = ["5K", "10K", "Half Marathon", "Marathon"].map((distance) => [distance, prDistanceCounts[distance] || 0]);
+  const maxPRDistance = Math.max(1, ...distanceRows.map(([, count]) => count));
+  const nextRace = sortMarathons(state.marathons.filter((m) => !isPast(m)))[0];
+  const nextRaceRegs = nextRace ? regsForMarathon(nextRace.id) : [];
+  const readiness = nextRace ? Math.round((nextRaceRegs.length / Math.max(state.runners.length, 1)) * 100) : 0;
+  const improvement = findImprovementSpotlight();
+  const trendRaces = sortMarathons(state.marathons.filter((m) => isPast(m))).slice(-6);
+  const progressTrend = trendRaces.map((race) => {
+    const rows = regsForMarathon(race.id);
+    const times = rows.map((row) => bestFinishSeconds(row)).filter((value) => value != null).sort((a, b) => a - b);
+    return { race, signups: rows.length, completion: rows.length ? Math.round((finishes.filter((row) => row.marathon_id === race.id).length / rows.length) * 100) : 0, median: times.length ? times[Math.floor(times.length / 2)] : null };
+  });
 
   const mixSegments = activeStatuses.map((status) => `<span class="entry-mix-segment" style="width:${total ? (statusCounts[status] / total) * 100 : 0}%;background:${statusColors[status]}" title="${escapeHtml(statusLabel(status))}: ${statusCounts[status]}"></span>`).join("");
   const ring = (value, label, color) => `<div class="analytics-ring" style="--ring-value:${value}%;--ring-color:${color}" role="img" aria-label="${label}: ${value}%"><div><strong>${value}%</strong><span>${label}</span></div></div>`;
@@ -2098,6 +2165,37 @@ function renderVisualAnalytics() {
     <div class="analytics-card analytics-race-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Most popular races</span><span class="analytics-mini-total">Top ${raceSeries.length || 0}</span></div>
       <div class="race-bars">${raceSeries.length ? raceSeries.map((race, index) => `<div class="race-bar-row"><span class="race-bar-rank">${index + 1}</span><span class="race-bar-name" title="${escapeHtml(race.name)}">${escapeHtml(race.name)}</span><div class="race-bar-track"><div class="race-bar-fill" style="width:${(race.count / maxRaceCount) * 100}%;--bar-index:${index}"></div></div><strong>${race.count}<small> runners</small></strong></div>`).join("") : `<p class="analytics-copy">Add races to compare signups.</p>`}</div>
+    </div>
+    <div class="analytics-card recognition-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Group pulse</span><span class="analytics-trend">${monthPRs.length} PR${monthPRs.length === 1 ? "" : "s"} this month</span></div>
+      <div class="recognition-kpis"><div><strong>${prRate}%</strong><span>PR rate</span></div><div><strong>${badgeRate}%</strong><span>badge reach</span></div><div><strong>${activeRunnerIds.size}</strong><span>active runners</span></div></div>
+      <p class="analytics-copy">${finishes.length ? `${prRows.length} of ${finishes.length} recorded finishes are marked as personal bests.` : "Log results to measure group progress."}</p>
+    </div>
+    <div class="analytics-card recognition-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Recent PRs</span><span class="analytics-mini-total">Last ${Math.min(prRows.length, 5)}</span></div>
+      <div class="recognition-list">${recentPRMarkup}</div>
+    </div>
+    <div class="analytics-card recognition-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">PRs by distance</span><span class="analytics-mini-total">${prRows.length} total</span></div>
+      <div class="recognition-bars">${distanceRows.map(([distance, count]) => `<div class="recognition-bar-row"><span>${escapeHtml(distance)}</span><span class="race-bar-track"><span class="race-bar-fill" style="width:${(count / maxPRDistance) * 100}%"></span></span><strong>${count}</strong></div>`).join("")}</div>
+    </div>
+    <div class="analytics-card recognition-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Achievement momentum</span><span class="analytics-trend">${monthBadges.length} earned this month</span></div>
+      <div class="recognition-list">${topBadges.length ? topBadges.map(([key, count]) => `<div class="recognition-row"><span class="recognition-icon">◆</span><span class="recognition-main"><strong>${escapeHtml(badgeLabel(key))}</strong><small>${count} runner${count === 1 ? "" : "s"} earned it</small></span><span class="badge badge-count">${count}</span></div>`).join("") : `<p class="analytics-copy">Badges will be awarded automatically from race results.</p>`}</div>
+      ${closestBadge ? `<p class="analytics-copy">Closest to next badge: ${escapeHtml(closestBadge)}.</p>` : ""}
+      ${badgeLeaderboard.length ? `<p class="analytics-copy">Badge leaders: ${badgeLeaderboard.map((entry) => `${escapeHtml(entry.name)} (${entry.count})`).join(" · ")}</p>` : ""}
+    </div>
+    <div class="analytics-card recognition-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Improvement spotlight</span><span class="analytics-mini-total">Biggest drop</span></div>
+      ${improvement ? `<div class="recognition-feature"><strong>${escapeHtml(improvement.name)}</strong><span>${escapeHtml(improvement.distance)} improved by <b>${formatSeconds(improvement.drop)}</b></span><small>${formatSeconds(improvement.from)} → ${formatSeconds(improvement.to)}</small></div>` : `<p class="analytics-copy">Two results at the same distance unlock the improvement spotlight.</p>`}
+    </div>
+    <div class="analytics-card recognition-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Race readiness</span><span class="analytics-mini-total">Next race</span></div>
+      ${nextRace ? `<div class="readiness-head"><strong>${readiness}%</strong><span>${nextRaceRegs.length}/${state.runners.length} registered</span></div><div class="profile-progress-track"><div class="profile-progress-fill" style="width:${Math.min(readiness, 100)}%"></div></div><p class="analytics-copy">${state.runners.length - nextRaceRegs.length} runner${state.runners.length - nextRaceRegs.length === 1 ? "" : "s"} still need to register for ${escapeHtml(nextRace.name)}.</p>` : `<p class="analytics-copy">Add an upcoming race to track readiness.</p>`}
+    </div>
+    <div class="analytics-card recognition-card analytics-trend-card">
+      <div class="analytics-card-head"><span class="analytics-eyebrow">Progress trend</span><span class="analytics-mini-total">Last ${progressTrend.length} races</span></div>
+      ${progressTrend.length ? `<div class="group-trend-chart">${progressTrend.map((item) => `<div class="group-trend-item" title="${escapeHtml(item.race.name)}"><span class="group-trend-value">${item.completion}%</span><span class="group-trend-bar" style="height:${Math.max(8, item.completion)}%"></span><small>${escapeHtml(item.race.name.slice(0, 10))}</small><em>${item.median != null ? escapeHtml(formatSeconds(item.median)) : "—"}</em></div>`).join("")}</div><p class="analytics-copy">Bars show result completion; labels show median finish.</p>` : `<p class="analytics-copy">Complete races to build a progress trend.</p>`}
     </div>`;
 }
 
@@ -2873,6 +2971,17 @@ function computeBadges(runnerId) {
   const regs = regsForRunner(runnerId);
   const timed = regs.filter((r) => displayFinishTime(r));
   const prs = getRunnerPRs(runnerId);
+  const stored = state.runnerBadges.filter((badge) => badge.runner_id === runnerId);
+  const storedLabels = {
+    new_personal_record: ["New Personal Record", "🏅"],
+    first_10k: ["First 10K", "🏃"],
+    first_half_marathon: ["First Half Marathon", "🎖"],
+    first_marathon: ["First Marathon", "🎖"],
+    sub_5_marathon: ["Sub-5:00 Marathon", "⚡"],
+    sub_4_marathon: ["Sub-4:00 Marathon", "⚡"],
+    five_races: ["5 Races Completed", "🏁"],
+    ten_races: ["10 Races Completed", "🏆"],
+  };
 
   const marathonFinish = timed.find((r) => {
     const m = getMarathon(r.marathon_id);
@@ -2901,6 +3010,12 @@ function computeBadges(runnerId) {
     badges.push({ key: "sub45_10k", label: "Sub-45 10K", icon: "🔥" });
   }
   if (badges.length) badges.push({ key: "first_race", label: "First Race", icon: "🏁", auto: true });
+  const known = new Set(badges.map((badge) => badge.key));
+  stored.forEach((badge) => {
+    if (known.has(badge.badge_key)) return;
+    const [label, icon] = storedLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "🏅"];
+    badges.push({ key: badge.badge_key, label, icon, awardedAt: badge.awarded_at });
+  });
   return badges;
 }
 
@@ -2931,6 +3046,110 @@ function profileStatCard(label, value, hint) {
     </div>`;
 }
 
+function setProfileTab(tab) {
+  const valid = ["overview", "analytics", "records", "badges", "history", "settings"];
+  activeProfileTab = valid.includes(tab) ? tab : "overview";
+  document.querySelectorAll("[data-profile-tab]").forEach((button) => {
+    const selected = button.dataset.profileTab === activeProfileTab;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+  });
+  document.querySelectorAll("[data-profile-panel]").forEach((panel) => {
+    const selected = panel.dataset.profilePanel === activeProfileTab;
+    panel.hidden = !selected;
+    panel.classList.toggle("is-active", selected);
+  });
+}
+
+function getProfileTimedResults(runnerId) {
+  return regsForRunner(runnerId)
+    .map((reg) => {
+      const marathon = getMarathon(reg.marathon_id);
+      const seconds = bestFinishSeconds(reg);
+      const km = marathon ? DISTANCE_KM[marathon.distance] : null;
+      if (!marathon || seconds == null || km == null) return null;
+      const date = new Date(`${String(marathon.race_date || "").slice(0, 10)}T12:00:00`);
+      return { reg, marathon, seconds, km, date, pace: seconds / km };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date - b.date);
+}
+
+function renderProfileAnalytics(runnerId) {
+  const results = getProfileTimedResults(runnerId);
+  const registrations = regsForRunner(runnerId);
+  const completed = results.length;
+  const summary = document.getElementById("profile-summary");
+  const stats = computeRunnerStats(runnerId);
+  if (summary) {
+    summary.innerHTML = [
+      ["Completed races", `${completed} of ${registrations.length}`],
+      ["Current focus", results.length ? `${formatPace(results[results.length - 1].pace)} recent pace` : "Log a result to start tracking"],
+      ["Longest completed distance", formatDistance(stats.longestRun)],
+      ["Consistency", computeStreak(runnerId) ? `${computeStreak(runnerId)}-month activity streak` : "Build a streak by racing regularly"],
+    ].map(([label, value]) => `<div class="profile-summary-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+  }
+
+  const trend = document.getElementById("profile-pace-trend");
+  if (trend) {
+    const points = results.slice(-8);
+    if (!points.length) trend.innerHTML = `<p class="profile-chart-empty">Complete a timed race to see your pace trend.</p>`;
+    else {
+      const paces = points.map((point) => point.pace);
+      const fastest = Math.min(...paces), slowest = Math.max(...paces);
+      trend.innerHTML = points.map((point) => {
+        const ratio = slowest === fastest ? 0.7 : 0.28 + ((slowest - point.pace) / (slowest - fastest)) * 0.72;
+        return `<div class="profile-trend-item" title="${escapeHtml(point.marathon.name)}"><span class="profile-trend-value">${escapeHtml(formatPace(point.pace))}</span><span class="profile-trend-bar" style="height:${Math.round(ratio * 100)}%"></span><span class="profile-trend-label">${escapeHtml(monthShortYear(point.marathon.race_date))}</span></div>`;
+      }).join("");
+    }
+  }
+
+  const progression = document.getElementById("profile-pr-progression");
+  if (progression) {
+    const prRows = results.filter((point) => point.reg.is_pr);
+    const grouped = {};
+    prRows.forEach((point) => { (grouped[point.marathon.distance] ||= []).push(point); });
+    const distances = Object.keys(grouped);
+    progression.innerHTML = distances.length ? distances.map((distance) => {
+      const points = grouped[distance].slice(-5);
+      return `<div class="profile-pr-progress-row"><strong>${escapeHtml(distance)}</strong><div class="profile-pr-progress-points">${points.map((point) => `<span title="${escapeHtml(monthShortYear(point.marathon.race_date))}">${escapeHtml(displayFinishTime(point.reg) || formatSeconds(point.seconds))}</span>`).join("<i>→</i>")}</div></div>`;
+    }).join("") : `<p class="profile-chart-empty">Your PR progression will appear after your first detected personal record.</p>`;
+  }
+
+  const completion = document.getElementById("profile-completion");
+  if (completion) {
+    const percent = registrations.length ? Math.round((completed / registrations.length) * 100) : 0;
+    completion.innerHTML = `<div class="profile-progress-percent">${percent}%</div><div class="profile-progress-track"><div class="profile-progress-fill" style="width:${percent}%"></div></div><div class="profile-progress-meta"><span>${completed} finished</span><span>${registrations.length - completed} pending / incomplete</span></div>`;
+  }
+
+  const mix = document.getElementById("profile-distance-mix");
+  if (mix) {
+    const counts = {};
+    results.forEach((point) => { counts[point.marathon.distance] = (counts[point.marathon.distance] || 0) + 1; });
+    const rows = ["5K", "10K", "Half Marathon", "Marathon"].map((distance) => [distance, counts[distance] || 0]);
+    const max = Math.max(1, ...rows.map(([, count]) => count));
+    mix.innerHTML = rows.map(([distance, count]) => `<div class="profile-bar-row"><span>${escapeHtml(distance)}</span><span class="profile-bar-track"><span class="profile-bar-fill" style="width:${(count / max) * 100}%"></span></span><span class="profile-bar-count">${count}</span></div>`).join("");
+  }
+
+  const recent = document.getElementById("profile-recent-form");
+  if (recent) {
+    const points = results.slice(-5).reverse();
+    recent.innerHTML = points.length ? points.map((point) => `<div class="profile-form-row"><span class="profile-form-race" title="${escapeHtml(point.marathon.name)}">${escapeHtml(point.marathon.name)}</span><span class="profile-form-meta">${escapeHtml(point.marathon.distance)} · ${escapeHtml(monthShortYear(point.marathon.race_date))}</span><span class="profile-form-time">${escapeHtml(displayFinishTime(point.reg) || "—")}</span></div>`).join("") : `<p class="profile-chart-empty">Your recent finishes will appear here.</p>`;
+  }
+
+  const monthly = document.getElementById("profile-monthly-activity");
+  if (monthly) {
+    const now = new Date();
+    const months = Array.from({ length: 12 }, (_, index) => new Date(now.getFullYear(), now.getMonth() - 11 + index, 1));
+    const monthCounts = months.map((month) => {
+      const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+      return results.filter((point) => `${point.date.getFullYear()}-${String(point.date.getMonth() + 1).padStart(2, "0")}` === key).length;
+    });
+    const max = Math.max(1, ...monthCounts);
+    monthly.innerHTML = months.map((month, index) => `<div class="profile-month-item"><span class="profile-month-count">${monthCounts[index] || ""}</span><span class="profile-month-bar" style="height:${Math.max(4, (monthCounts[index] / max) * 100)}%"></span><span class="profile-month-label">${month.toLocaleDateString(undefined, { month: "short" }).slice(0, 3)}</span></div>`).join("");
+  }
+}
+
 function getShareSlug(runner) {
   if (runner?.share_slug) return runner.share_slug;
   return runner?.id || "";
@@ -2945,6 +3164,7 @@ function shareLinkFor(runner) {
 
 function renderProfile() {
   if (!profile && !session) return;
+  setProfileTab(activeProfileTab);
   const name = profile?.display_name || session.user.user_metadata?.display_name || "";
   const email = profile?.email || session.user.email || "";
   const image = profileImageUrl(profile);
@@ -2989,7 +3209,7 @@ function renderProfile() {
   const streak = computeStreak(myRunner?.id);
   const streakEl = document.getElementById("profile-streak");
   if (streakEl) {
-    streakEl.textContent = streak > 0 ? `${streak}-week streak` : "No streak yet";
+    streakEl.textContent = streak > 0 ? `${streak}-month streak` : "No streak yet";
   }
 
   // Public toggle
@@ -3011,6 +3231,8 @@ function renderProfile() {
     statsGrid.innerHTML = statMap.join("");
   }
 
+  renderProfileAnalytics(myRunner?.id);
+
   // PRs
   const prs = getRunnerPRs(myRunner?.id);
   const prTbody = document.getElementById("profile-pr-tbody");
@@ -3018,12 +3240,13 @@ function renderProfile() {
     if (!prs.length) {
       prTbody.innerHTML = `<tr><td colspan="6"><div class="empty" style="border:none;margin:0.5rem"><strong>No PRs yet</strong>Complete a race and your best time will appear here automatically.</div></td></tr>`;
     } else {
+      const newestPrId = prs.slice().sort((a, b) => String(b.race_date || "").localeCompare(String(a.race_date || "")))[0]?.id;
       const fastest = prs.reduce((a, b) =>
         (b.pace_seconds_per_km != null && (a.pace_seconds_per_km == null || b.pace_seconds_per_km < a.pace_seconds_per_km)) ? b : a
       , null);
       prTbody.innerHTML = prs.map((pr) => {
         const isFastest = pr.id === fastest?.id;
-        const isNew = pr.is_new_pr || pr.derived;
+        const isNew = pr.is_new_pr || pr.derived || pr.id === newestPrId;
         return `
           <tr class="${isFastest ? "pr-fastest" : ""}">
             <td>${escapeHtml(pr.distance)}${isFastest ? ' <span class="pr-trophy">🏆</span>' : ""}</td>
@@ -3290,7 +3513,7 @@ function openRunnerProfileDetail(runnerId) {
             <p class="profile-header-pace">Pace group: ${escapeHtml(paced)}</p>
             <p class="panel-hint" style="margin:0.2rem 0 0">
               ${runner.join_date ? `Joined ${formatDate(runner.join_date)}` : ""}
-              ${streak > 0 ? ` · ${streak}-week streak` : ""}
+              ${streak > 0 ? ` · ${streak}-month streak` : ""}
             </p>
           </div>
         </div>
@@ -3663,7 +3886,7 @@ function canManageCommunityPost(post) {
 function communityTopics() {
   return (state.communityPosts || [])
     .filter((p) => !p.parent_id)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    .sort((a, b) => Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned)) || new Date(b.created_at) - new Date(a.created_at));
 }
 
 function communityReplies(topicId) {
@@ -3703,6 +3926,7 @@ function renderCommunity() {
       const title = (topic.title || "").trim();
       const content = (topic.content || "").trim();
       const canDelete = canManageCommunityPost(topic);
+      const canPin = hasMinRole("moderator");
 
       return `
         <article class="community-topic${open ? " open" : ""}" data-topic-id="${topic.id}">
@@ -3717,7 +3941,9 @@ function renderCommunity() {
               <p class="community-topic-preview">${escapeHtml(content)}</p>
             </div>
             <div class="community-topic-actions">
+              ${topic.is_pinned ? `<span class="community-pin-label">Pinned</span>` : ""}
               <span class="community-reply-count">${replies.length} ${replies.length === 1 ? "reply" : "replies"}</span>
+              ${canPin ? `<button type="button" class="btn btn-ghost btn-sm" data-action="toggle-pin" data-id="${topic.id}">${topic.is_pinned ? "Unpin" : "Pin"}</button>` : ""}
               ${canDelete ? `<button type="button" class="btn btn-ghost btn-sm community-delete-btn" data-action="delete-post" data-id="${topic.id}">Delete</button>` : ""}
             </div>
           </div>
@@ -3754,6 +3980,16 @@ function renderCommunity() {
         </article>`;
     })
     .join("");
+}
+
+async function toggleCommunityPostPin(postId) {
+  if (!hasMinRole("moderator")) return toast("Moderators can pin community posts", "error");
+  const post = (state.communityPosts || []).find((item) => item.id === postId);
+  if (!post) return;
+  const { error } = await sb.from("community_posts").update({ is_pinned: !post.is_pinned }).eq("id", postId);
+  if (error) return toast(errMsg(error), "error");
+  post.is_pinned = !post.is_pinned;
+  renderCommunity();
 }
 
 async function createCommunityTopic() {
@@ -3856,6 +4092,13 @@ async function deleteCommunityPost(postId) {
 }
 
 function onCommunityFeedClick(e) {
+  const pinBtn = e.target.closest("[data-action='toggle-pin']");
+  if (pinBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleCommunityPostPin(pinBtn.dataset.id);
+    return;
+  }
   const deleteBtn = e.target.closest("[data-action='delete-post']");
   if (deleteBtn) {
     e.preventDefault();
@@ -5167,6 +5410,9 @@ function wireAppUi() {
   });
 
   // Profile: share link + public toggle. PRs are result-derived.
+  document.querySelectorAll("[data-profile-tab]").forEach((button) => {
+    button.addEventListener("click", () => setProfileTab(button.dataset.profileTab));
+  });
   document.getElementById("btn-copy-share-link")?.addEventListener("click", copyShareLink);
   document.getElementById("profile-public-toggle")?.addEventListener("change", togglePublicProfile);
 

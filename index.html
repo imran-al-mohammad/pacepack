@@ -515,6 +515,16 @@
             </div>
           </div>
 
+          <nav class="profile-tabs" aria-label="Profile sections" role="tablist">
+            <button class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profile-panel-overview" data-profile-tab="overview">Overview</button>
+            <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-analytics" data-profile-tab="analytics">Analytics</button>
+            <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-records" data-profile-tab="records">Records</button>
+            <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-badges" data-profile-tab="badges">Badges</button>
+            <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-history" data-profile-tab="history">Race History</button>
+            <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-settings" data-profile-tab="settings">Settings</button>
+          </nav>
+
+          <div class="profile-tab-panel is-active" id="profile-panel-overview" data-profile-panel="overview" role="tabpanel">
           <!-- Key performance stats -->
           <div class="panel">
             <div class="panel-header">
@@ -524,6 +534,45 @@
             <div class="profile-stats-grid" id="profile-stats-grid"></div>
           </div>
 
+          <div class="panel profile-summary-panel">
+            <div class="panel-header">
+              <h3>At a glance</h3>
+              <p class="panel-hint">A quick read on your current race profile</p>
+            </div>
+            <div id="profile-summary" class="profile-summary"></div>
+          </div>
+          </div>
+
+          <div class="profile-tab-panel" id="profile-panel-analytics" data-profile-panel="analytics" role="tabpanel" hidden>
+            <div class="profile-analytics-grid">
+              <div class="panel profile-analytics-wide">
+                <div class="panel-header"><h3>Pace trend</h3><p class="panel-hint">Minutes per kilometre across completed races · lower is faster</p></div>
+                <div id="profile-pace-trend" class="profile-trend-chart"></div>
+              </div>
+              <div class="panel profile-analytics-wide">
+                <div class="panel-header"><h3>PR progression</h3><p class="panel-hint">System-detected best times by distance</p></div>
+                <div id="profile-pr-progression" class="profile-pr-progression"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-header"><h3>Results completion</h3><p class="panel-hint">Registered races that have a finish result</p></div>
+                <div id="profile-completion" class="profile-progress-wrap"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-header"><h3>Distance mix</h3><p class="panel-hint">Your completed race distribution</p></div>
+                <div id="profile-distance-mix" class="profile-bars"></div>
+              </div>
+              <div class="panel profile-analytics-wide">
+                <div class="panel-header"><h3>Recent form</h3><p class="panel-hint">Your last five completed races</p></div>
+                <div id="profile-recent-form" class="profile-recent-form"></div>
+              </div>
+              <div class="panel profile-analytics-wide">
+                <div class="panel-header"><h3>Activity by month</h3><p class="panel-hint">Completed races over the last 12 months</p></div>
+                <div id="profile-monthly-activity" class="profile-monthly-chart"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="profile-tab-panel" id="profile-panel-records" data-profile-panel="records" role="tabpanel" hidden>
           <!-- Personal records -->
           <div class="panel">
             <div class="panel-header">
@@ -547,7 +596,9 @@
             </div>
             <p class="panel-hint" style="margin-top:0.75rem">Personal records are detected automatically from completed race results.</p>
           </div>
+          </div>
 
+          <div class="profile-tab-panel" id="profile-panel-history" data-profile-panel="history" role="tabpanel" hidden>
           <!-- Race history -->
           <div class="panel">
             <div class="panel-header">
@@ -556,7 +607,9 @@
             </div>
             <div id="profile-race-history" class="list"></div>
           </div>
+          </div>
 
+          <div class="profile-tab-panel" id="profile-panel-badges" data-profile-panel="badges" role="tabpanel" hidden>
           <!-- Badges -->
           <div class="panel">
             <div class="panel-header">
@@ -565,7 +618,9 @@
             </div>
             <div id="profile-badges" class="profile-badges"></div>
           </div>
+          </div>
 
+          <div class="profile-tab-panel" id="profile-panel-settings" data-profile-panel="settings" role="tabpanel" hidden>
           <!-- Edit profile form -->
           <div class="panel">
             <div class="panel-header">
@@ -621,6 +676,7 @@
               <p class="auth-error" id="profile-error" hidden></p>
               <button class="btn btn-primary" type="submit" id="btn-save-profile">Save profile</button>
             </form>
+          </div>
           </div>
         </div>
       </section>
