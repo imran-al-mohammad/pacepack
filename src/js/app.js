@@ -27,6 +27,17 @@ const DISTANCE_KM = {
   Other: null,
 };
 
+function normalizeDistanceLabel(value) {
+  const raw = String(value || "Other").trim().toLowerCase().replace(/[\s-]+/g, "");
+  if (["5k", "5km"].includes(raw)) return "5K";
+  if (["7.5k", "7.5km"].includes(raw)) return "7.5K";
+  if (["10k", "10km"].includes(raw)) return "10K";
+  if (["15k", "15km"].includes(raw)) return "15K";
+  if (["half", "halfmarathon", "21k", "21.1k", "21km", "21.1km"].includes(raw)) return "Half Marathon";
+  if (["marathon", "fullmarathon", "42k", "42.2k", "42km", "42.2km"].includes(raw)) return "Marathon";
+  return String(value || "Other").trim() || "Other";
+}
+
 const AVATAR_COLORS = [
   "#ff6b4a", "#2dd4bf", "#60a5fa", "#fbbf24",
   "#c084fc", "#4ade80", "#f472b6", "#38bdf8",
@@ -95,6 +106,7 @@ let suppressToast = false;
 let raceTimerId = null;
 let selectedWhosRunningMarathonId = null;
 let selectedCommunityTopicId = null;
+let activeCommunityTab = "announcements";
 let communityUnavailable = false;
 /** Prevent concurrent enterApp / dual auth handlers from double-subscribing Realtime */
 let enterAppInFlight = null;
@@ -410,6 +422,22 @@ function regsForMarathon(id) {
 
 function regsForRunner(id) {
   return state.registrations.filter((r) => r.runner_id === id);
+}
+
+function canonicalPRRegistrations() {
+  const bestByKey = new Map();
+  const prIds = new Set();
+  const rows = state.registrations
+    .map((reg) => ({ reg, marathon: getMarathon(reg.marathon_id), seconds: bestFinishSeconds(reg) }))
+    .filter((row) => row.marathon && row.seconds != null && (row.reg.status === "completed" || row.reg.status === "dnf" || displayFinishTime(row.reg)))
+    .sort((a, b) => String(a.marathon.race_date || "9999-12-31").localeCompare(String(b.marathon.race_date || "9999-12-31")) || String(a.reg.id).localeCompare(String(b.reg.id)));
+  rows.forEach(({ reg, marathon, seconds }) => {
+    const key = `${reg.runner_id}:${normalizeDistanceLabel(marathon.distance)}`;
+    const previous = bestByKey.get(key);
+    if (previous == null || seconds < previous) prIds.add(reg.id);
+    if (previous == null || seconds < previous) bestByKey.set(key, Math.min(previous ?? seconds, seconds));
+  });
+  return prIds;
 }
 
 function statusLabel(value) {
@@ -2127,15 +2155,19 @@ function renderVisualAnalytics() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const finishes = state.registrations.filter((r) => r.status === "completed" || displayFinishTime(r));
+  const canonicalPRs = canonicalPRRegistrations();
   const prRows = state.registrations
-    .filter((r) => r.is_pr && displayFinishTime(r))
+    .filter((r) => (r.is_pr || canonicalPRs.has(r.id)) && displayFinishTime(r))
     .map((reg) => ({ reg, runner: getRunner(reg.runner_id), race: getMarathon(reg.marathon_id) }))
     .filter((row) => row.runner && row.race)
     .sort((a, b) => String(b.race.race_date || b.reg.updated_at || "").localeCompare(String(a.race.race_date || a.reg.updated_at || "")));
   const monthPRs = prRows.filter((row) => new Date(`${String(row.race.race_date || "").slice(0, 10)}T12:00:00`) >= monthStart);
   const prRate = finishes.length ? Math.round((prRows.length / finishes.length) * 100) : 0;
   const prDistanceCounts = {};
-  prRows.forEach((row) => { prDistanceCounts[row.race.distance] = (prDistanceCounts[row.race.distance] || 0) + 1; });
+  prRows.forEach((row) => {
+    const distance = normalizeDistanceLabel(row.race.distance);
+    prDistanceCounts[distance] = (prDistanceCounts[distance] || 0) + 1;
+  });
   const badgeRows = state.runnerBadges || [];
   const monthBadges = badgeRows.filter((badge) => new Date(badge.awarded_at || 0) >= monthStart);
   const badgeCounts = {};
@@ -2152,7 +2184,10 @@ function renderVisualAnalytics() {
     return null;
   }).find(Boolean);
   const recentPRMarkup = prRows.length ? prRows.slice(0, 5).map((row) => `<div class="recognition-row"><span class="recognition-icon">★</span><span class="recognition-main"><strong>${escapeHtml(row.runner.name)}</strong><small>${escapeHtml(row.race.distance)} · ${escapeHtml(row.race.name)}</small></span><span class="time-mono">${escapeHtml(displayFinishTime(row.reg))}</span></div>`).join("") : `<p class="analytics-copy">PRs will appear here automatically after results are logged.</p>`;
-  const distanceRows = ["5K", "10K", "Half Marathon", "Marathon"].map((distance) => [distance, prDistanceCounts[distance] || 0]);
+  const distanceOrder = ["5K", "7.5K", "10K", "15K", "Half Marathon", "Marathon", "Ultra", "Other"];
+  const distanceRows = [...new Set([...distanceOrder, ...Object.keys(prDistanceCounts)])]
+    .filter((distance) => prDistanceCounts[distance] || Object.keys(prDistanceCounts).length === 0)
+    .map((distance) => [distance, prDistanceCounts[distance] || 0]);
   const maxPRDistance = Math.max(1, ...distanceRows.map(([, count]) => count));
   const nextRace = sortMarathons(state.marathons.filter((m) => !isPast(m)))[0];
   const nextRaceRegs = nextRace ? regsForMarathon(nextRace.id) : [];
@@ -2836,7 +2871,15 @@ function renderResults() {
 // ─── Profile helpers ─────────────────────────────────────────────────────────
 
 function getMyRunner() {
-  return getRunnerForUser(session?.user?.id) || null;
+  const linked = getRunnerForUser(session?.user?.id);
+  if (linked) return linked;
+  const displayName = String(profile?.display_name || session?.user?.user_metadata?.display_name || "").trim().toLowerCase();
+  const email = String(profile?.email || session?.user?.email || "").trim().toLowerCase();
+  const legacyMatches = state.runners.filter((runner) =>
+    (email && String(runner.email || "").trim().toLowerCase() === email) ||
+    (displayName && String(runner.name || "").trim().toLowerCase() === displayName)
+  );
+  return legacyMatches.sort((a, b) => regsForRunner(b.id).length - regsForRunner(a.id).length)[0] || null;
 }
 
 function canEditRunnerProfile(runner) {
@@ -2853,9 +2896,36 @@ function canViewRunnerProfile(runner) {
 
 /** System-owned PRs. Race results are recalculated by the database trigger/RPC. */
 function getRunnerPRs(runnerId) {
-  return state.personalRecords
-    .filter((pr) => pr.runner_id === runnerId)
-    .sort((a, b) => String(a.distance).localeCompare(String(b.distance)));
+  const byDistance = new Map();
+  state.personalRecords.filter((pr) => pr.runner_id === runnerId).forEach((pr) => {
+    const distance = normalizeDistanceLabel(pr.distance);
+    byDistance.set(distance, { ...pr, distance });
+  });
+  // Compatibility fallback for historical projects where the SQL backfill has
+  // not been run yet, or where legacy runners were not linked to a user.
+  regsForRunner(runnerId).forEach((reg) => {
+    const marathon = getMarathon(reg.marathon_id);
+    const seconds = bestFinishSeconds(reg);
+    const distance = normalizeDistanceLabel(marathon?.distance);
+    const km = DISTANCE_KM[distance];
+    if (!marathon || seconds == null || km == null) return;
+    const current = byDistance.get(distance);
+    if (!current || seconds < Number(current.time_seconds)) {
+      byDistance.set(distance, {
+        id: `derived-${reg.id}`,
+        runner_id: runnerId,
+        distance,
+        time_seconds: seconds,
+        pace_seconds_per_km: seconds / km,
+        race_date: marathon.race_date,
+        race_name: marathon.name,
+        location: marathon.location,
+        is_new_pr: true,
+        derived: true,
+      });
+    }
+  });
+  return [...byDistance.values()].sort((a, b) => String(a.distance).localeCompare(String(b.distance)));
 }
 
 /** Compute performance stats for a runner from race results + PRs. */
@@ -2976,18 +3046,46 @@ function computeBadges(runnerId) {
     ten_races: ["10 Races Completed", "🏆"],
     "1000km": ["1000 km Club", "🏅"],
   };
-  return state.runnerBadges
+  const storedBadges = state.runnerBadges
     .filter((badge) => badge.runner_id === runnerId)
     .map((badge) => {
       const [label, icon] = systemLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "🏅"];
       return { key: badge.badge_key, label, icon, awardedAt: badge.awarded_at };
     });
-
-  const badges = [];
   const regs = regsForRunner(runnerId);
-  const timed = regs.filter((r) => displayFinishTime(r));
+  const finished = regs.filter((reg) => {
+    return reg.status === "completed" || reg.status === "dnf" || bestFinishSeconds(reg) != null;
+  });
   const prs = getRunnerPRs(runnerId);
-  const stored = state.runnerBadges.filter((badge) => badge.runner_id === runnerId);
+  const earned = new Set(storedBadges.map((badge) => badge.key));
+  const add = (key) => {
+    if (earned.has(key)) return;
+    const [label, icon] = systemLabels[key] || [key.replaceAll("_", " "), "🏅"];
+    storedBadges.push({ key, label, icon, auto: true });
+    earned.add(key);
+  };
+  if (finished.length) add("first_race");
+  if (regs.some((reg) => reg.is_pr)) add("new_personal_record");
+  const distances = new Set(finished.map((reg) => normalizeDistanceLabel(getMarathon(reg.marathon_id)?.distance)));
+  if (distances.has("10K")) add("first_10k");
+  if (distances.has("Half Marathon")) add("first_half_marathon");
+  if (distances.has("Marathon")) add("first_marathon");
+  const marathonPR = prs.find((pr) => pr.distance === "Marathon");
+  if (marathonPR?.time_seconds < 18000) add("sub_5_marathon");
+  if (marathonPR?.time_seconds < 14400) add("sub_4_marathon");
+  if (finished.length >= 5) add("five_races");
+  if (finished.length >= 10) add("ten_races");
+  const totalKm = finished.reduce((total, reg) => total + (DISTANCE_KM[normalizeDistanceLabel(getMarathon(reg.marathon_id)?.distance)] || 0), 0);
+  if (totalKm >= 1000) add("1000km");
+  return storedBadges;
+
+  /* Legacy browser badge derivation retained below for reference; the
+     system-backed result above is returned before this compatibility block. */
+  const legacyBadges = [];
+  const legacyRegs = regsForRunner(runnerId);
+  const legacyTimed = legacyRegs.filter((r) => displayFinishTime(r));
+  const legacyPrs = getRunnerPRs(runnerId);
+  const legacyStored = state.runnerBadges.filter((badge) => badge.runner_id === runnerId);
   const storedLabels = {
     new_personal_record: ["New Personal Record", "🏅"],
     first_10k: ["First 10K", "🏃"],
@@ -3005,12 +3103,12 @@ function computeBadges(runnerId) {
   });
   if (marathonFinish) badges.push({ key: "first_marathon", label: "First Marathon", icon: "🎖" });
 
-  const marathonPR = prs.find((pr) => pr.distance === "Marathon" && pr.time_seconds != null);
-  if (marathonPR && marathonPR.time_seconds < 14400) {
+  const legacyMarathonPR = legacyPrs.find((pr) => pr.distance === "Marathon" && pr.time_seconds != null);
+  if (legacyMarathonPR && legacyMarathonPR.time_seconds < 14400) {
     badges.push({ key: "sub4", label: "Sub-4 Marathon", icon: "⚡" });
   }
 
-  const totalKm = timed.reduce((sum, r) => {
+  const legacyTotalKm = legacyTimed.reduce((sum, r) => {
     const m = getMarathon(r.marathon_id);
     const km = DISTANCE_KM[m?.distance];
     return sum + (km || 0);
@@ -3122,7 +3220,8 @@ function renderProfileAnalytics(runnerId) {
 
   const progression = document.getElementById("profile-pr-progression");
   if (progression) {
-    const prRows = results.filter((point) => point.reg.is_pr);
+    const canonicalPRs = canonicalPRRegistrations();
+    const prRows = results.filter((point) => point.reg.is_pr || canonicalPRs.has(point.reg.id));
     const grouped = {};
     prRows.forEach((point) => { (grouped[point.marathon.distance] ||= []).push(point); });
     const distances = Object.keys(grouped);
@@ -3141,8 +3240,14 @@ function renderProfileAnalytics(runnerId) {
   const mix = document.getElementById("profile-distance-mix");
   if (mix) {
     const counts = {};
-    results.forEach((point) => { counts[point.marathon.distance] = (counts[point.marathon.distance] || 0) + 1; });
-    const rows = ["5K", "10K", "Half Marathon", "Marathon"].map((distance) => [distance, counts[distance] || 0]);
+    results.forEach((point) => {
+      const distance = normalizeDistanceLabel(point.marathon.distance);
+      counts[distance] = (counts[distance] || 0) + 1;
+    });
+    const preferredOrder = ["5K", "7.5K", "10K", "15K", "Half Marathon", "Marathon", "Ultra", "Other"];
+    const distances = [...new Set([...preferredOrder, ...Object.keys(counts)])]
+      .filter((distance) => counts[distance] || Object.keys(counts).length === 0);
+    const rows = distances.map((distance) => [distance, counts[distance] || 0]);
     const max = Math.max(1, ...rows.map(([, count]) => count));
     mix.innerHTML = rows.map(([distance, count]) => `<div class="profile-bar-row"><span>${escapeHtml(distance)}</span><span class="profile-bar-track"><span class="profile-bar-fill" style="width:${(count / max) * 100}%"></span></span><span class="profile-bar-count">${count}</span></div>`).join("");
   }
@@ -3297,7 +3402,7 @@ function renderProfile() {
               <p class="list-item-sub">${formatDate(marathon.race_date)} · ${escapeHtml(marathon.distance)}${pace ? ` · ${pace.perKm}/km` : ""}</p>
             </div>
             <div style="display:flex;gap:0.45rem;align-items:center">
-              ${r.is_pr ? `<span class="badge badge-pr">PR</span>` : ""}
+              ${(r.is_pr || canonicalPRRegistrations().has(r.id)) ? `<span class="badge badge-pr">PR</span>` : ""}
               <span class="time-mono">${escapeHtml(displayFinishTime(r) || "—")}</span>
               ${r.place_overall ? `<span class="badge badge-count">#${escapeHtml(r.place_overall)}</span>` : ""}
             </div>
@@ -3904,6 +4009,10 @@ function canManageCommunityPost(post) {
 
 function communityTopics() {
   return (state.communityPosts || [])
+    .filter((p) => {
+      const announcement = p.post_type === "announcement" || ["New personal record", "Badge unlocked", "Race results"].includes(p.title);
+      return activeCommunityTab === "announcements" ? announcement : !announcement;
+    })
     .filter((p) => !p.parent_id)
     .sort((a, b) => Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned)) || new Date(b.created_at) - new Date(a.created_at));
 }
@@ -3917,6 +4026,16 @@ function communityReplies(topicId) {
 function renderCommunity() {
   const feed = document.getElementById("community-feed");
   if (!feed) return;
+
+  document.querySelectorAll("[data-community-tab]").forEach((button) => {
+    const selected = button.dataset.communityTab === activeCommunityTab;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+  });
+  const compose = document.querySelector(".community-compose-panel");
+  if (compose) compose.hidden = activeCommunityTab !== "create";
+  const feedTitle = document.getElementById("community-feed-title");
+  if (feedTitle) feedTitle.textContent = activeCommunityTab === "announcements" ? "Announcements" : "Community board";
 
   if (communityUnavailable) {
     feed.innerHTML = `
@@ -4043,6 +4162,7 @@ async function createCommunityTopic() {
         runner_id: myRunner?.id || null,
         title: title || null,
         content,
+        post_type: "board",
         parent_id: null,
       })
       .select("*")
@@ -4055,6 +4175,7 @@ async function createCommunityTopic() {
     }
     if (titleEl) titleEl.value = "";
     if (contentEl) contentEl.value = "";
+    activeCommunityTab = "board";
     toast("Topic posted successfully.");
     renderCommunity();
   } catch (e) {
@@ -5504,6 +5625,12 @@ function wireAppUi() {
   document.getElementById("form-community-topic")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     await createCommunityTopic();
+  });
+  document.querySelectorAll("[data-community-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeCommunityTab = button.dataset.communityTab;
+      renderCommunity();
+    });
   });
   const communityFeed = document.getElementById("community-feed");
   communityFeed?.addEventListener("click", onCommunityFeedClick);

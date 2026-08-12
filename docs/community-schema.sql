@@ -21,6 +21,7 @@ create table if not exists public.community_posts (
 );
 
 alter table public.community_posts add column if not exists is_pinned boolean not null default false;
+alter table public.community_posts add column if not exists post_type text not null default 'board';
 
 create index if not exists community_posts_group_idx on public.community_posts (group_id);
 create index if not exists community_posts_parent_idx on public.community_posts (parent_id);

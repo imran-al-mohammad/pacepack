@@ -3,6 +3,7 @@
 -- Safe to run repeatedly. registrations/marathons remain the source of truth.
 
 alter table public.runners add column if not exists join_date date;
+alter table public.community_posts add column if not exists post_type text not null default 'board';
 
 create or replace function public.pp_time_seconds(value text)
 returns integer
@@ -102,8 +103,8 @@ begin
     );
   select coalesce((select user_id from public.group_memberships where group_id=p_group_id order by created_at limit 1), auth.uid()) into v_actor_id;
   if v_actor_id is not null and to_regclass('public.community_posts') is not null then
-    insert into public.community_posts (group_id, user_id, runner_id, title, content)
-    select p_group_id, v_actor_id, p_runner_id, v_title, v_content
+    insert into public.community_posts (group_id, user_id, runner_id, title, content, post_type)
+    select p_group_id, v_actor_id, p_runner_id, v_title, v_content, 'announcement'
     where not exists (select 1 from public.community_posts where group_id=p_group_id and content=v_content);
   end if;
 end;

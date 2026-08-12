@@ -461,6 +461,13 @@
 
       <section class="view" id="view-community">
         <div class="community-layout">
+          <div class="panel community-tabs-panel">
+            <div class="community-tabs" role="tablist" aria-label="Community sections">
+              <button type="button" class="profile-tab is-active" data-community-tab="announcements" role="tab" aria-selected="true">Announcements</button>
+              <button type="button" class="profile-tab" data-community-tab="board" role="tab" aria-selected="false">Community board</button>
+              <button type="button" class="btn btn-primary community-create-button" data-community-tab="create" role="tab" aria-selected="false">+ Create post</button>
+            </div>
+          </div>
           <div class="panel community-compose-panel">
             <div class="panel-header">
               <h3>Start a conversation</h3>
@@ -483,7 +490,7 @@
 
           <div class="panel community-feed-panel">
             <div class="panel-header">
-              <h3>Group board</h3>
+              <h3 id="community-feed-title">Announcements</h3>
               <p class="panel-hint">Topics and replies from your running group</p>
             </div>
             <div id="community-feed" class="community-feed" aria-live="polite"></div>
