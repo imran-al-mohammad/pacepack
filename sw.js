@@ -4,13 +4,12 @@
  * fallback for Supabase API requests, and handles web push notifications.
  */
 
-const CACHE_NAME = `pacepack-v2-${CACHE_VERSION}`;
-const OFFLINE_PAGE = "offline.html";
-
 // ─── Version: increment when assets change ─────────────────────────────────────
 // Update this string (or use a build step) whenever STATIC_ASSETS changes.
-// The new value will be used as part of the cache name to force fresh installs.
-const CACHE_VERSION = "20260812";
+// Must be declared BEFORE CACHE_NAME (const is not hoisted for use).
+const CACHE_VERSION = "20260813";
+const CACHE_NAME = `pacepack-v2-${CACHE_VERSION}`;
+const OFFLINE_PAGE = "offline.html";
 
 // Static assets to cache on install (app shell)
 const STATIC_ASSETS = [

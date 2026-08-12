@@ -80,6 +80,9 @@ let raceTimerId = null;
 let selectedWhosRunningMarathonId = null;
 let selectedCommunityTopicId = null;
 let communityUnavailable = false;
+/** Prevent concurrent enterApp / dual auth handlers from double-subscribing Realtime */
+let enterAppInFlight = null;
+let lastHandledSessionUserId = null;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 const BRAND_CACHE_KEY = "pacepack_brand_cache";
 
@@ -781,11 +784,59 @@ async function loadGroupData() {
   await loadCommunityPosts();
 }
 
+/**
+ * Remove a channel by short name or Realtime topic (`realtime:name`).
+ * Safe to call even if the channel was already subscribed (avoids
+ * "cannot add postgres_changes callbacks … after subscribe()").
+ */
+function removeChannelByName(name) {
+  if (!sb || !name) return;
+  try {
+    const all = typeof sb.getChannels === "function" ? sb.getChannels() : [];
+    for (const ch of all) {
+      const topic = ch?.topic || "";
+      if (
+        topic === name ||
+        topic === `realtime:${name}` ||
+        topic.endsWith(`:${name}`)
+      ) {
+        try {
+          sb.removeChannel(ch);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function unsubscribeAll() {
+  // Prefer tracked list; also clear any leftover client channels (race / remount)
   channels.forEach((ch) => {
-    try { sb.removeChannel(ch); } catch { /* ignore */ }
+    try {
+      sb.removeChannel(ch);
+    } catch {
+      /* ignore */
+    }
   });
   channels = [];
+  try {
+    const all = typeof sb.getChannels === "function" ? sb.getChannels() : [];
+    all.forEach((ch) => {
+      const topic = ch?.topic || "";
+      if (topic.includes("pp-") || topic.includes("realtime:pp-")) {
+        try {
+          sb.removeChannel(ch);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 function subscribeRealtime() {
@@ -806,8 +857,10 @@ function subscribeRealtime() {
   };
 
   ["marathons", "runners", "registrations", "group_memberships", "personal_records", "runner_badges", "group_notification_settings", "notification_schedules", "community_posts"].forEach((table) => {
+    const name = `pp-${table}-${gid}`;
+    removeChannelByName(name);
     const ch = sb
-      .channel(`pp-${table}-${gid}`)
+      .channel(name)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table, filter: `group_id=eq.${gid}` },
@@ -817,8 +870,10 @@ function subscribeRealtime() {
     channels.push(ch);
   });
 
+  const groupName = `pp-groups-${gid}`;
+  removeChannelByName(groupName);
   const chGroup = sb
-    .channel(`pp-groups-${gid}`)
+    .channel(groupName)
     .on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "groups", filter: `id=eq.${gid}` },
@@ -833,32 +888,55 @@ function subscribeRealtime() {
     )
     .subscribe();
   channels.push(chGroup);
+
+  // Notifications share the same lifecycle as group realtime (prevents orphan re-subscribe)
+  subscribeNotificationsRealtime();
 }
 
 function subscribeNotificationsRealtime() {
-  if (!session?.user?.id) return;
+  if (!session?.user?.id || !sb) return;
+  const name = `pp-notifications-${session.user.id}`;
+
+  // Drop any prior subscription with this name before attaching new callbacks
+  removeChannelByName(name);
+  channels = channels.filter((ch) => {
+    const topic = ch?.topic || "";
+    return !(
+      topic === name ||
+      topic === `realtime:${name}` ||
+      topic.endsWith(`:${name}`)
+    );
+  });
+
   const ch = sb
-    .channel(`pp-notifications-${session.user.id}`)
+    .channel(name)
     .on(
       "postgres_changes",
-      { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${session.user.id}` },
-      async (payload) => {
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${session.user.id}`,
+      },
+      (payload) => {
         const newNotif = payload.new;
-        if (newNotif) {
-          state.notifications.unshift(newNotif);
-          if (state.notifications.length > 50) state.notifications.pop();
-          if (!newNotif.is_read) {
-            state.unreadCount += 1;
-            renderNotificationBadge();
-          }
-          // If panel is open, refresh it
-          if (!document.getElementById("notification-panel")?.hidden) {
-            renderNotificationPanel();
-          }
+        if (!newNotif) return;
+        state.notifications.unshift(newNotif);
+        if (state.notifications.length > 50) state.notifications.pop();
+        if (!newNotif.is_read) {
+          state.unreadCount += 1;
+          renderNotificationBadge();
+        }
+        if (!document.getElementById("notification-panel")?.hidden) {
+          renderNotificationPanel();
         }
       }
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("notifications realtime:", status, err || "");
+      }
+    });
   channels.push(ch);
 }
 
@@ -1038,75 +1116,147 @@ async function markAllNotificationsRead() {
 
 // ─── Web Push subscription ────────────────────────────────────────────────────
 
+async function ensurePushSubscriptionStored(sub) {
+  if (!session?.user?.id || !group?.id || !sub) return;
+  const p256dhKey = sub.getKey("p256dh");
+  const authKey = sub.getKey("auth");
+  if (!p256dhKey || !authKey) return;
+
+  const { data: stored } = await sb
+    .from("push_subscriptions")
+    .select("id")
+    .eq("endpoint", sub.endpoint)
+    .maybeSingle();
+
+  if (!stored) {
+    await sb.from("push_subscriptions").insert({
+      user_id: session.user.id,
+      group_id: group.id,
+      endpoint: sub.endpoint,
+      p256dh: arrayBufferToBase64(p256dhKey),
+      auth: arrayBufferToBase64(authKey),
+    });
+  }
+}
+
 async function subscribeToPushNotifications() {
   if (!session?.user?.id || !group?.id) return;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  // Secure context required (HTTPS or localhost)
+  if (!window.isSecureContext) return;
 
   try {
+    // Permission: never force a prompt mid-load if denied; request only when default
+    if (typeof Notification !== "undefined") {
+      if (Notification.permission === "denied") return;
+      if (Notification.permission === "default") {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") return;
+      }
+    }
+
+    // Wait for an active SW (registration alone is not enough for push)
     const reg = await navigator.serviceWorker.ready;
-    const existing = await reg.pushManager.getSubscription();
+    if (!reg?.active && !reg?.pushManager) return;
+
+    let existing = null;
+    try {
+      existing = await reg.pushManager.getSubscription();
+    } catch {
+      existing = null;
+    }
 
     if (existing) {
-      // Already subscribed — ensure it's stored in DB
-      const sub = existing;
-      const { data: stored } = await sb
-        .from("push_subscriptions")
-        .select("id")
-        .eq("endpoint", sub.endpoint)
-        .maybeSingle();
-
-      if (!stored) {
-        await sb.from("push_subscriptions").insert({
-          user_id: session.user.id,
-          group_id: group.id,
-          endpoint: sub.endpoint,
-          p256dh: arrayBufferToBase64(sub.getKey("p256dh")),
-          auth: arrayBufferToBase64(sub.getKey("auth")),
-        });
+      try {
+        await ensurePushSubscriptionStored(existing);
+      } catch (e) {
+        console.warn("push store existing:", e?.message || e);
       }
       return;
     }
 
-    // Try to subscribe using VAPID key from the server
-    // The VAPID public key must be available — we'll fetch it from config
     const vapidPublicKey = await fetchVapidPublicKey();
     if (!vapidPublicKey) return;
 
-    const subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-    });
+    let applicationServerKey;
+    try {
+      applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      // Uncompressed P-256 public keys are 65 bytes (0x04 || x || y)
+      if (applicationServerKey.byteLength !== 65) {
+        console.warn(
+          "push subscribe: unexpected VAPID key length",
+          applicationServerKey.byteLength
+        );
+        return;
+      }
+    } catch (e) {
+      console.warn("push subscribe: invalid VAPID key", e?.message || e);
+      return;
+    }
 
-    await sb.from("push_subscriptions").insert({
-      user_id: session.user.id,
-      group_id: group.id,
-      endpoint: subscription.endpoint,
-      p256dh: arrayBufferToBase64(subscription.getKey("p256dh")),
-      auth: arrayBufferToBase64(subscription.getKey("auth")),
-    });
+    let subscription;
+    try {
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+    } catch (subErr) {
+      // Common when an old subscription used a different VAPID key
+      const name = subErr?.name || "";
+      const msg = String(subErr?.message || subErr);
+      if (name === "AbortError" || /push service error|Registration failed/i.test(msg)) {
+        try {
+          const stale = await reg.pushManager.getSubscription();
+          if (stale) await stale.unsubscribe();
+          subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+        } catch (retryErr) {
+          // Push is optional — do not break the app
+          console.warn("push subscribe:", retryErr?.message || retryErr);
+          return;
+        }
+      } else if (name === "NotAllowedError") {
+        return;
+      } else {
+        console.warn("push subscribe:", msg);
+        return;
+      }
+    }
 
-    console.log("Push subscription saved");
+    try {
+      await ensurePushSubscriptionStored(subscription);
+      console.log("Push subscription saved");
+    } catch (e) {
+      console.warn("push store:", e?.message || e);
+    }
   } catch (e) {
-    console.warn("push subscribe:", e);
+    // Optional feature — never surface as a hard app error
+    console.warn("push subscribe:", e?.message || e);
   }
 }
 
 async function fetchVapidPublicKey() {
+  // 1) Optional override in config.js
+  const fromConfig = (window.PACEPACK_CONFIG?.vapidPublicKey || "").trim();
+  if (fromConfig) return fromConfig;
+
   try {
-    // Try to get VAPID key from a config endpoint or environment
     const { data, error } = await sb.rpc("get_vapid_public_key");
     if (error) throw error;
-    return data;
-  } catch {
-    // Fallback: try to get from a well-known location or environment variable
-    // For now, return null (user can set this up later)
-    return null;
+    if (typeof data === "string" && data.trim()) return data.trim();
+  } catch (e) {
+    console.warn("get_vapid_public_key:", e?.message || e);
   }
+  return null;
 }
 
 function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = String(base64String || "").trim();
+  if (!raw) throw new Error("empty VAPID key");
+  const padding = "=".repeat((4 - (raw.length % 4)) % 4);
+  const base64 = (raw + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -1471,24 +1621,33 @@ async function ensureRunnersForTeamMembers() {
 }
 
 async function enterApp() {
-  if (mustChangePassword()) {
-    showScreen("password-gate");
-    return;
-  }
-  setBoot("Loading group data…");
-  await loadGroupData();
-  subscribeRealtime();
-  await loadNotifications();
-  subscribeNotificationsRealtime();
-  showScreen("app");
-  cacheBrandFromGroup(group);
-  applyBrandLogo();
-  updateUserChrome();
-  updateRolePill();
-  setSidebarCollapsed(isSidebarCollapsed());
-  setView("dashboard");
-  // Best-effort push subscription (requires VAPID key setup)
-  subscribeToPushNotifications();
+  // Serialize concurrent enterApp (auth INITIAL_SESSION + getSession double-fire)
+  if (enterAppInFlight) return enterAppInFlight;
+
+  enterAppInFlight = (async () => {
+    if (mustChangePassword()) {
+      showScreen("password-gate");
+      return;
+    }
+    setBoot("Loading group data…");
+    await loadGroupData();
+    // Realtime group + notifications (subscribeRealtime calls subscribeNotificationsRealtime)
+    subscribeRealtime();
+    await loadNotifications();
+    showScreen("app");
+    cacheBrandFromGroup(group);
+    applyBrandLogo();
+    updateUserChrome();
+    updateRolePill();
+    setSidebarCollapsed(isSidebarCollapsed());
+    setView("dashboard");
+    // Best-effort push (never blocks UI)
+    subscribeToPushNotifications().catch(() => {});
+  })().finally(() => {
+    enterAppInFlight = null;
+  });
+
+  return enterAppInFlight;
 }
 
 async function completePasswordGate(newPassword) {
@@ -1557,18 +1716,32 @@ function updateRolePill() {
 async function handleSession(newSession) {
   session = newSession;
   if (!session) {
+    lastHandledSessionUserId = null;
     unsubscribeAll();
     applyBrandLogo();
     showScreen("auth");
     fetchGroupBranding();
     return;
   }
+
+  // Skip duplicate SIGNED_IN / INITIAL_SESSION for the same user while app is up
+  const uid = session.user?.id || null;
+  if (
+    uid &&
+    uid === lastHandledSessionUserId &&
+    document.getElementById("app-shell") &&
+    !document.getElementById("app-shell").hidden
+  ) {
+    return;
+  }
+
   try {
     setBoot("Loading your profile…");
     await loadProfile();
     const hasGroup = await loadMembership();
 
     if (!hasGroup) {
+      lastHandledSessionUserId = uid;
       showScreen("onboard");
       document.getElementById("onboard-user-label").textContent =
         `Signed in as ${profile?.display_name || session.user.email}`;
@@ -1576,8 +1749,10 @@ async function handleSession(newSession) {
     }
 
     await enterApp();
+    lastHandledSessionUserId = uid;
   } catch (e) {
     console.error(e);
+    lastHandledSessionUserId = null;
     toast(errMsg(e), "error");
     applyBrandLogo();
     showScreen("auth");
@@ -4875,11 +5050,16 @@ function wireAppUi() {
 // ─── Boot ────────────────────────────────────────────────────────────────────
 
 function registerServiceWorker() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch((err) => {
+  if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+  navigator.serviceWorker
+    .register("./sw.js", { scope: "./" })
+    .then((reg) => {
+      // Pick up SW fixes (e.g. cache version) without waiting for full refresh cycles
+      reg.update?.().catch(() => {});
+    })
+    .catch((err) => {
       console.warn("SW registration failed:", err);
     });
-  }
 }
 
 // ─── PWA install prompt ──────────────────────────────────────────────────────
@@ -4985,7 +5165,16 @@ async function init() {
     });
   }
 
-  sb.auth.onAuthStateChange(async (_event, newSession) => {
+  // Single path for session: onAuthStateChange also emits INITIAL_SESSION.
+  // Avoid calling handleSession from both getSession + onAuthStateChange (double Realtime subscribe).
+  let initialSessionHandled = false;
+  sb.auth.onAuthStateChange(async (event, newSession) => {
+    if (event === "INITIAL_SESSION") initialSessionHandled = true;
+    // TOKEN_REFRESHED should not re-run full app boot
+    if (event === "TOKEN_REFRESHED") {
+      session = newSession;
+      return;
+    }
     await handleSession(newSession);
   });
 
@@ -4993,9 +5182,8 @@ async function init() {
   if (!data.session) {
     applyBrandLogo();
     showScreen("auth");
-  }
-  // else onAuthStateChange / getSession will handle
-  if (data.session) {
+  } else if (!initialSessionHandled) {
+    // Older supabase-js may not emit INITIAL_SESSION — boot once here
     await handleSession(data.session);
   }
 
