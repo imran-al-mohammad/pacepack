@@ -2921,6 +2921,15 @@ function getMyRunner() {
     .filter((runner) => regsForRunner(runner.id).length)
     .sort((a, b) => regsForRunner(b.id).length - regsForRunner(a.id).length)[0];
   if (historicalMatch) return historicalMatch;
+  if (!linked || !regsForRunner(linked.id).length) {
+    const historicalRunners = state.runners.filter((runner) => regsForRunner(runner.id).length);
+    // Legacy imports may have no reliable identity fields. It is safe to use
+    // the sole historical runner for a one-member group, or an unambiguous
+    // single historical runner in the loaded group.
+    if (historicalRunners.length === 1 && (team.length <= 1 || state.runners.length === 1)) {
+      return historicalRunners[0];
+    }
+  }
   if (linked) return linked;
   return legacyMatches.sort((a, b) => regsForRunner(b.id).length - regsForRunner(a.id).length)[0] || null;
 }
@@ -5745,7 +5754,12 @@ function wireAppUi() {
 
   // Profile: share link + public toggle. PRs are result-derived.
   document.querySelectorAll("[data-profile-tab]").forEach((button) => {
-    button.addEventListener("click", () => setProfileTab(button.dataset.profileTab));
+    button.addEventListener("click", () => {
+      setProfileTab(button.dataset.profileTab);
+      // Refresh all profile panels after async/realtime state changes. This
+      // also re-resolves legacy runner links before rendering tab contents.
+      renderProfile();
+    });
   });
   document.getElementById("btn-copy-share-link")?.addEventListener("click", copyShareLink);
   document.getElementById("profile-public-toggle")?.addEventListener("change", togglePublicProfile);
