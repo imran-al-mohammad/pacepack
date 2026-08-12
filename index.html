@@ -177,8 +177,14 @@
           <button type="button" class="user-chip-btn" id="btn-profile" title="My Profile">
             <span id="user-avatar-slot"></span>
             <span id="user-display" class="user-display-label">User</span>
+            <svg class="arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
           </button>
-          <button class="btn btn-ghost btn-sm" id="btn-signout" type="button">Sign out</button>
+          <div class="profile-dropdown" id="profileDropdown" hidden>
+            <button class="dropdown-item" data-view="profile">My Profile</button>
+            <button class="dropdown-item" id="btn-signout-dropdown">Sign out</button>
+          </div>
         </div>
       </div>
     </nav>
@@ -200,7 +206,7 @@
         <button class="nav-item" data-view="team" title="Team & Access"><span class="nav-icon">⚙</span><span class="nav-label">Team & Access</span></button>
         <button class="nav-item" data-view="notifications" title="Notifications"><span class="nav-icon">🔔</span><span class="nav-label">Notifications</span></button>
         <button class="nav-item" data-view="community" title="Community"><span class="nav-icon">💬</span><span class="nav-label">Community</span></button>
-        <button class="nav-item" data-view="profile" title="My Profile"><span class="nav-icon">☺</span><span class="nav-label">My Profile</span></button>
+        
       </nav>
 
     </aside>
