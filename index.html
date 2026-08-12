@@ -199,7 +199,7 @@
         <button class="nav-item" data-view="results" title="Results & Times"><span class="nav-icon">⏱</span><span class="nav-label">Results & Times</span></button>
         <button class="nav-item" data-view="team" title="Team & Access"><span class="nav-icon">⚙</span><span class="nav-label">Team & Access</span></button>
         <button class="nav-item" data-view="notifications" title="Notifications"><span class="nav-icon">🔔</span><span class="nav-label">Notifications</span></button>
-        <button class="nav-item" data-view="community" title="Community"><span class="nav-icon">??</span><span class="nav-label">Community</span></button>
+        <button class="nav-item" data-view="community" title="Community"><span class="nav-icon">💬</span><span class="nav-label">Community</span></button>
         <button class="nav-item" data-view="profile" title="My Profile"><span class="nav-icon">☺</span><span class="nav-label">My Profile</span></button>
       </nav>
 
@@ -369,8 +369,8 @@
       </section>
 
       <section class="view" id="view-notifications">
-        <div class="share-layout team-layout">
-          <div class="panel" id="notification-settings-panel" hidden>
+        <div class="share-layout notifications-layout">
+          <div class="panel notifications-full-panel" id="notification-settings-panel" hidden>
             <div class="panel-header">
               <h3>Notification Settings</h3>
               <p class="panel-hint">Admins can configure which notifications are sent and how often. Changes apply immediately.</p>
@@ -402,12 +402,44 @@
             </form>
           </div>
 
-          <div class="panel" id="notification-readonly-panel" hidden>
+          <div class="panel notifications-full-panel" id="notification-readonly-panel" hidden>
             <div class="panel-header">
               <h3>Notifications</h3>
               <p class="panel-hint">Only admins can configure notification settings. Ask an admin to adjust the cadence.</p>
             </div>
             <div class="notification-readonly-summary" id="notification-readonly-summary"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-community">
+        <div class="community-layout">
+          <div class="panel community-compose-panel">
+            <div class="panel-header">
+              <h3>Start a conversation</h3>
+              <p class="panel-hint">Share race tips, training notes, or race-day plans with the group.</p>
+            </div>
+            <form id="form-community-topic" class="form-grid community-compose-form">
+              <div class="field">
+                <label for="community-topic-title">Title (optional)</label>
+                <input class="input" id="community-topic-title" type="text" maxlength="120" placeholder="e.g. Long run this weekend?" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label for="community-topic-content">Message</label>
+                <textarea class="textarea" id="community-topic-content" required maxlength="4000" placeholder="Write something for the group…" rows="3"></textarea>
+              </div>
+              <div class="room-actions">
+                <button class="btn btn-primary" type="submit" id="btn-post-topic">Post topic</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel community-feed-panel">
+            <div class="panel-header">
+              <h3>Group board</h3>
+              <p class="panel-hint">Topics and replies from your running group</p>
+            </div>
+            <div id="community-feed" class="community-feed" aria-live="polite"></div>
           </div>
         </div>
       </section>

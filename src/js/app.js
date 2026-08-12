@@ -38,6 +38,7 @@ const VIEW_META = {
   results: { title: "Results & Times", desc: "Finish times for registered runners only" },
   team: { title: "Team & Access", desc: "Create users, logo, roles, and permissions" },
   notifications: { title: "Notifications", desc: "Configure notification channels and reminder cadence" },
+  community: { title: "Community", desc: "Group board for topics, tips, and race-day chat" },
   profile: { title: "My Profile", desc: "Photo, display name, and password" },
 };
 
@@ -69,6 +70,7 @@ let state = {
   runnerBadges: [],
   notificationSettings: null,
   notificationSchedules: [],
+  communityPosts: [],
 };
 
 let currentView = "dashboard";
@@ -76,6 +78,8 @@ let channels = [];
 let suppressToast = false;
 let raceTimerId = null;
 let selectedWhosRunningMarathonId = null;
+let selectedCommunityTopicId = null;
+let communityUnavailable = false;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 const BRAND_CACHE_KEY = "pacepack_brand_cache";
 
@@ -772,6 +776,9 @@ async function loadGroupData() {
 
   // Each app member is also a runner on the roster
   await ensureRunnersForTeamMembers();
+
+  // Community board (soft-fail if schema not applied yet)
+  await loadCommunityPosts();
 }
 
 function unsubscribeAll() {
@@ -798,7 +805,7 @@ function subscribeRealtime() {
     }
   };
 
-  ["marathons", "runners", "registrations", "group_memberships", "personal_records", "runner_badges", "group_notification_settings", "notification_schedules"].forEach((table) => {
+  ["marathons", "runners", "registrations", "group_memberships", "personal_records", "runner_badges", "group_notification_settings", "notification_schedules", "community_posts"].forEach((table) => {
     const ch = sb
       .channel(`pp-${table}-${gid}`)
       .on(
@@ -947,18 +954,18 @@ function renderNotificationPanel() {
       let data = {};
       try { data = JSON.parse(el.dataset.data); } catch {}
 
-      // Mark as read
-      if (!el.classList.contains("unread")) {
-        hideNotificationPanel();
-        return;
-      }
-      try {
-        await sb.from("notifications").update({ is_read: true }).eq("id", id);
-        el.classList.remove("unread");
-        state.unreadCount = Math.max(0, state.unreadCount - 1);
-        renderNotificationBadge();
-      } catch (e) {
-        console.warn("mark read:", e);
+      // Mark as read when unread, then always allow navigation
+      if (el.classList.contains("unread")) {
+        try {
+          await sb.from("notifications").update({ is_read: true }).eq("id", id);
+          el.classList.remove("unread");
+          const notif = state.notifications.find((n) => n.id === id);
+          if (notif) notif.is_read = true;
+          state.unreadCount = Math.max(0, state.unreadCount - 1);
+          renderNotificationBadge();
+        } catch (e) {
+          console.warn("mark read:", e);
+        }
       }
 
       hideNotificationPanel();
@@ -993,10 +1000,10 @@ let notificationPanelOpen = false;
 function toggleNotificationPanel() {
   const panel = document.getElementById("notification-panel");
   if (!panel) return;
-  notificationPanelOpen = !panel.hidden;
   if (panel.hidden) {
     renderNotificationPanel();
     panel.hidden = false;
+    notificationPanelOpen = true;
     document.getElementById("btn-notifications")?.setAttribute("aria-expanded", "true");
   } else {
     hideNotificationPanel();
@@ -1587,7 +1594,7 @@ function setView(view) {
   document.querySelectorAll(".view").forEach((el) => {
     el.classList.toggle("active", el.id === `view-${view}`);
   });
-  const meta = VIEW_META[view];
+  const meta = VIEW_META[view] || { title: view, desc: "" };
   document.getElementById("view-title").textContent = meta.title;
   document.getElementById("view-desc").textContent = meta.desc;
   if (view !== "dashboard") stopRaceTimer();
@@ -1658,6 +1665,7 @@ function render() {
   if (currentView === "results") renderResults();
   if (currentView === "team") renderTeam();
   if (currentView === "notifications") renderNotifications();
+  if (currentView === "community") renderCommunity();
   if (currentView === "profile") renderProfile();
 }
 
@@ -3276,7 +3284,7 @@ async function saveNotificationSettings() {
       .upsert({ group_id: group.id, ...settings });
     if (error) throw error;
 
-    // Save schedule rows
+    // Save schedule rows (update existing + insert newly added rows)
     const tbody = document.getElementById("notification-schedule-tbody");
     if (tbody) {
       const rows = tbody.querySelectorAll("tr[data-schedule-id]");
@@ -3290,8 +3298,16 @@ async function saveNotificationSettings() {
           relative_to: row.querySelector('[data-field="relative_to"]').value,
           enabled: row.querySelector('[data-field="enabled"]').checked,
         };
-        const { error: sErr } = await sb.from("notification_schedules").update(payload).eq("id", id);
-        if (sErr) throw sErr;
+        if (id === "new") {
+          const { error: sErr } = await sb.from("notification_schedules").insert({
+            group_id: group.id,
+            ...payload,
+          });
+          if (sErr) throw sErr;
+        } else {
+          const { error: sErr } = await sb.from("notification_schedules").update(payload).eq("id", id);
+          if (sErr) throw sErr;
+        }
       }
     }
 
@@ -3336,6 +3352,300 @@ function addScheduleRow() {
   row.querySelector("[data-action='delete-schedule']").addEventListener("click", () => {
     row.remove();
   });
+}
+
+// ─── Community board ─────────────────────────────────────────────────────────
+
+async function loadCommunityPosts() {
+  if (!group?.id) {
+    state.communityPosts = [];
+    communityUnavailable = false;
+    return;
+  }
+  try {
+    const { data, error } = await sb
+      .from("community_posts")
+      .select("*")
+      .eq("group_id", group.id)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    state.communityPosts = data || [];
+    communityUnavailable = false;
+  } catch (e) {
+    // Table may not exist yet (community-schema.sql not run) — keep board empty
+    console.warn("load community:", e);
+    state.communityPosts = [];
+    communityUnavailable = true;
+  }
+}
+
+function getCommunityAuthor(post) {
+  if (post?.runner_id) {
+    const runner = getRunner(post.runner_id);
+    if (runner) {
+      return {
+        name: runner.name || "Runner",
+        image: runner.image_url || "",
+        id: runner.id,
+      };
+    }
+  }
+  if (post?.user_id) {
+    const runner = getRunnerForUser(post.user_id);
+    if (runner) {
+      return {
+        name: runner.name || "Runner",
+        image: runner.image_url || "",
+        id: runner.id || post.user_id,
+      };
+    }
+    const member = team.find((t) => t.user_id === post.user_id);
+    if (member) {
+      return {
+        name: member.profile?.display_name || "Member",
+        image: member.profile?.profile_picture_url || "",
+        id: post.user_id,
+      };
+    }
+  }
+  return { name: "Member", image: "", id: post?.user_id || "unknown" };
+}
+
+function canManageCommunityPost(post) {
+  if (!post) return false;
+  if (session?.user?.id && post.user_id === session.user.id) return true;
+  return hasMinRole("moderator");
+}
+
+function communityTopics() {
+  return (state.communityPosts || [])
+    .filter((p) => !p.parent_id)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+function communityReplies(topicId) {
+  return (state.communityPosts || [])
+    .filter((p) => p.parent_id === topicId)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+}
+
+function renderCommunity() {
+  const feed = document.getElementById("community-feed");
+  if (!feed) return;
+
+  if (communityUnavailable) {
+    feed.innerHTML = `
+      <div class="empty">
+        <strong>Community board unavailable</strong>
+        Run <code>docs/community-schema.sql</code> (or <code>docs/MIGRATE-ALL.sql</code>) in the Supabase SQL Editor, then refresh.
+      </div>`;
+    return;
+  }
+
+  const topics = communityTopics();
+  if (!topics.length) {
+    feed.innerHTML = `
+      <div class="empty">
+        <strong>No topics yet</strong>
+        Be the first to start a conversation with your group.
+      </div>`;
+    return;
+  }
+
+  feed.innerHTML = topics
+    .map((topic) => {
+      const author = getCommunityAuthor(topic);
+      const replies = communityReplies(topic.id);
+      const open = selectedCommunityTopicId === topic.id;
+      const title = (topic.title || "").trim();
+      const content = (topic.content || "").trim();
+      const canDelete = canManageCommunityPost(topic);
+
+      return `
+        <article class="community-topic${open ? " open" : ""}" data-topic-id="${topic.id}">
+          <div class="community-topic-header" data-action="toggle-topic" data-id="${topic.id}" role="button" tabindex="0" aria-expanded="${open ? "true" : "false"}">
+            ${renderProfileAvatar({ image_url: author.image }, author.name, author.id)}
+            <div class="community-topic-body">
+              <div class="community-topic-meta">
+                <span class="community-topic-author">${escapeHtml(author.name)}</span>
+                <span>${escapeHtml(formatNotificationTime(topic.created_at))}</span>
+              </div>
+              ${title ? `<h4 class="community-topic-title">${escapeHtml(title)}</h4>` : ""}
+              <p class="community-topic-preview">${escapeHtml(content)}</p>
+            </div>
+            <div class="community-topic-actions">
+              <span class="community-reply-count">${replies.length} ${replies.length === 1 ? "reply" : "replies"}</span>
+              ${canDelete ? `<button type="button" class="btn btn-ghost btn-sm community-delete-btn" data-action="delete-post" data-id="${topic.id}">Delete</button>` : ""}
+            </div>
+          </div>
+          <div class="community-thread">
+            <div class="community-replies">
+              ${replies.length
+                ? replies
+                    .map((reply) => {
+                      const replyAuthor = getCommunityAuthor(reply);
+                      const canDeleteReply = canManageCommunityPost(reply);
+                      return `
+                        <div class="community-reply" data-reply-id="${reply.id}">
+                          ${renderProfileAvatar({ image_url: replyAuthor.image }, replyAuthor.name, replyAuthor.id)}
+                          <div class="community-reply-body">
+                            <div class="community-topic-meta">
+                              <span class="community-topic-author">${escapeHtml(replyAuthor.name)}</span>
+                              <span>${escapeHtml(formatNotificationTime(reply.created_at))}</span>
+                              ${canDeleteReply ? `<button type="button" class="btn btn-ghost btn-sm community-delete-btn" data-action="delete-post" data-id="${reply.id}">Delete</button>` : ""}
+                            </div>
+                            <p class="community-reply-content">${escapeHtml(reply.content || "")}</p>
+                          </div>
+                        </div>`;
+                    })
+                    .join("")
+                : `<div class="empty" style="padding:1rem;margin:0"><strong>No replies yet</strong>Start the thread below.</div>`}
+            </div>
+            <form class="community-reply-form" data-action="reply-form" data-parent-id="${topic.id}">
+              <textarea class="textarea" name="reply" required maxlength="4000" placeholder="Write a reply…" rows="2"></textarea>
+              <div class="community-reply-actions">
+                <button type="submit" class="btn btn-primary btn-sm">Reply</button>
+              </div>
+            </form>
+          </div>
+        </article>`;
+    })
+    .join("");
+}
+
+async function createCommunityTopic() {
+  if (!canWrite()) return toast("You need to be a group member to post", "error");
+  if (!group?.id || !session?.user?.id) return toast("Not signed in", "error");
+
+  const titleEl = document.getElementById("community-topic-title");
+  const contentEl = document.getElementById("community-topic-content");
+  const title = (titleEl?.value || "").trim();
+  const content = (contentEl?.value || "").trim();
+  if (!content) return toast("Write a message first", "error");
+
+  const myRunner = getMyRunner();
+  const btn = document.getElementById("btn-post-topic");
+  if (btn) btn.disabled = true;
+
+  try {
+    const { data, error } = await sb
+      .from("community_posts")
+      .insert({
+        group_id: group.id,
+        user_id: session.user.id,
+        runner_id: myRunner?.id || null,
+        title: title || null,
+        content,
+        parent_id: null,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    if (data) {
+      state.communityPosts.unshift(data);
+      selectedCommunityTopicId = data.id;
+    }
+    if (titleEl) titleEl.value = "";
+    if (contentEl) contentEl.value = "";
+    toast("Topic posted");
+    renderCommunity();
+  } catch (e) {
+    toast(errMsg(e), "error");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function createCommunityReply(parentId, content) {
+  if (!canWrite()) return toast("You need to be a group member to reply", "error");
+  if (!group?.id || !session?.user?.id) return toast("Not signed in", "error");
+  const text = String(content || "").trim();
+  if (!parentId || !text) return toast("Write a reply first", "error");
+
+  const myRunner = getMyRunner();
+  try {
+    const { data, error } = await sb
+      .from("community_posts")
+      .insert({
+        group_id: group.id,
+        user_id: session.user.id,
+        runner_id: myRunner?.id || null,
+        title: null,
+        content: text,
+        parent_id: parentId,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    if (data) state.communityPosts.unshift(data);
+    selectedCommunityTopicId = parentId;
+    toast("Reply posted");
+    renderCommunity();
+  } catch (e) {
+    toast(errMsg(e), "error");
+  }
+}
+
+async function deleteCommunityPost(postId) {
+  const post = (state.communityPosts || []).find((p) => p.id === postId);
+  if (!post) return;
+  if (!canManageCommunityPost(post)) return toast("You can only delete your own posts", "error");
+
+  const label = post.parent_id ? "reply" : "topic";
+  if (!confirm(`Delete this ${label}?`)) return;
+
+  try {
+    const { error } = await sb.from("community_posts").delete().eq("id", postId);
+    if (error) throw error;
+
+    // Remove the post and any nested replies when deleting a topic
+    state.communityPosts = state.communityPosts.filter(
+      (p) => p.id !== postId && p.parent_id !== postId
+    );
+    if (selectedCommunityTopicId === postId) selectedCommunityTopicId = null;
+    toast(`${label[0].toUpperCase()}${label.slice(1)} deleted`);
+    renderCommunity();
+  } catch (e) {
+    toast(errMsg(e), "error");
+  }
+}
+
+function onCommunityFeedClick(e) {
+  const deleteBtn = e.target.closest("[data-action='delete-post']");
+  if (deleteBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteCommunityPost(deleteBtn.dataset.id);
+    return;
+  }
+
+  const toggle = e.target.closest("[data-action='toggle-topic']");
+  if (toggle && !e.target.closest("button")) {
+    const id = toggle.dataset.id;
+    selectedCommunityTopicId = selectedCommunityTopicId === id ? null : id;
+    renderCommunity();
+  }
+}
+
+function onCommunityFeedSubmit(e) {
+  const form = e.target.closest("form[data-action='reply-form']");
+  if (!form) return;
+  e.preventDefault();
+  const parentId = form.dataset.parentId;
+  const textarea = form.querySelector("textarea[name='reply']");
+  createCommunityReply(parentId, textarea?.value || "");
+}
+
+function onCommunityFeedKeydown(e) {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const toggle = e.target.closest("[data-action='toggle-topic']");
+  if (!toggle || e.target.closest("button, textarea, input")) return;
+  e.preventDefault();
+  const id = toggle.dataset.id;
+  selectedCommunityTopicId = selectedCommunityTopicId === id ? null : id;
+  renderCommunity();
 }
 
 function renderTeam() {
@@ -4513,6 +4823,16 @@ function wireAppUi() {
     await saveNotificationSettings();
   });
   document.getElementById("btn-add-schedule")?.addEventListener("click", addScheduleRow);
+
+  // Community board
+  document.getElementById("form-community-topic")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await createCommunityTopic();
+  });
+  const communityFeed = document.getElementById("community-feed");
+  communityFeed?.addEventListener("click", onCommunityFeedClick);
+  communityFeed?.addEventListener("submit", onCommunityFeedSubmit);
+  communityFeed?.addEventListener("keydown", onCommunityFeedKeydown);
 }
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
