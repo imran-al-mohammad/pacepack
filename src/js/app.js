@@ -85,6 +85,7 @@ let enterAppInFlight = null;
 let lastHandledSessionUserId = null;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 const BRAND_CACHE_KEY = "pacepack_brand_cache";
+let dynamicManifestUrl = null;
 
 // ─── Config / client ─────────────────────────────────────────────────────────
 
@@ -511,6 +512,15 @@ function brandLogoHtml(url) {
   return DEFAULT_BRAND_SVG;
 }
 
+function logoMimeType(url) {
+  const path = String(url || "").split(/[?#]/)[0].toLowerCase();
+  if (path.endsWith(".svg")) return "image/svg+xml";
+  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+  if (path.endsWith(".webp")) return "image/webp";
+  if (path.endsWith(".avif")) return "image/avif";
+  return "image/png";
+}
+
 function updateFavicon(url) {
   const src = (url || "").trim();
   if (!src) return;
@@ -523,7 +533,7 @@ function updateFavicon(url) {
     document.head.appendChild(shortcutIcon);
   }
   shortcutIcon.href = src;
-  shortcutIcon.type = 'image/png';
+  shortcutIcon.type = logoMimeType(src);
   
   // Update standard favicon
   let favicon = document.querySelector('link[rel="icon"]');
@@ -533,7 +543,7 @@ function updateFavicon(url) {
     document.head.appendChild(favicon);
   }
   favicon.href = src;
-  favicon.type = 'image/png';
+  favicon.type = logoMimeType(src);
   
   // Update apple-touch-icons to use group logo
   const appleIconSizes = ['48x48', '72x72', '96x96', '120x120', '144x144', '152x152', '167x167', '180x180', '192x192', '512x512'];
@@ -554,19 +564,7 @@ function updateManifestIcons(url) {
   if (!src) return;
   
   // Update the manifest to use group logo for all icons
-  const iconSizes = [
-    { sizes: '48x48', type: 'image/png' },
-    { sizes: '72x72', type: 'image/png' },
-    { sizes: '96x96', type: 'image/png' },
-    { sizes: '120x120', type: 'image/png' },
-    { sizes: '144x144', type: 'image/png' },
-    { sizes: '152x152', type: 'image/png' },
-    { sizes: '167x167', type: 'image/png' },
-    { sizes: '180x180', type: 'image/png' },
-    { sizes: '192x192', type: 'image/png' },
-    { sizes: '384x384', type: 'image/png' },
-    { sizes: '512x512', type: 'image/png' }
-  ];
+  const iconSizes = ['48x48', '72x72', '96x96', '120x120', '144x144', '152x152', '167x167', '180x180', '192x192', '384x384', '512x512'];
   
   const manifest = {
     name: document.querySelector('meta[name="application-name"]')?.content || "PacePack",
@@ -579,19 +577,21 @@ function updateManifestIcons(url) {
     background_color: "#151515",
     theme_color: "#151515",
     orientation: "portrait-primary",
-    icons: iconSizes.map(icon => ({
+    icons: iconSizes.map(sizes => ({
       src: src,
-      sizes: icon.sizes,
-      type: icon.type
+      sizes,
+      type: logoMimeType(src)
     }))
   };
   
   // Update the manifest link
   const manifestLink = document.querySelector('link[rel="manifest"]');
   if (manifestLink) {
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-    const manifestUrl = URL.createObjectURL(blob);
-    manifestLink.href = manifestUrl;
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/manifest+json' });
+    const nextManifestUrl = URL.createObjectURL(blob);
+    if (dynamicManifestUrl) URL.revokeObjectURL(dynamicManifestUrl);
+    dynamicManifestUrl = nextManifestUrl;
+    manifestLink.href = nextManifestUrl;
   }
 }
 
