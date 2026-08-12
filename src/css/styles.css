@@ -326,6 +326,10 @@ button {
   display: none;
 }
 
+.top-nav-brand .sidebar-toggle-mobile {
+  flex-shrink: 0;
+}
+
 .app.sidebar-collapsed .sidebar {
   padding: 1.15rem 0.55rem;
   align-items: center;
@@ -2054,7 +2058,7 @@ button {
     font-size: 0.95rem;
   }
 
-  .sidebar-toggle-mobile {
+  .top-nav-brand .sidebar-toggle-mobile {
     display: grid;
   }
 
