@@ -201,6 +201,7 @@
 
       <nav class="nav" role="navigation">
         <button class="nav-item active" data-view="dashboard" title="Dashboard"><span class="nav-icon">◈</span><span class="nav-label">Dashboard</span></button>
+        <button class="nav-item" data-view="leaderboard" title="Leaderboard"><span class="nav-icon">★</span><span class="nav-label">Leaderboard</span></button>
         <button class="nav-item" data-view="marathons" title="Marathons"><span class="nav-icon">◎</span><span class="nav-label">Marathons</span></button>
         <button class="nav-item" data-view="members" title="Runners"><span class="nav-icon">◉</span><span class="nav-label">Runners</span></button>
         <button class="nav-item" data-view="registrations" title="Registrations"><span class="nav-icon">✓</span><span class="nav-label">Registrations</span></button>
@@ -275,7 +276,7 @@
             <p class="panel-hint">Top 5 by best race pace</p>
           </div>
           <div class="fastest-runners-list"></div>
-          <button type="button" class="analytics-view-link" data-leaderboard="fastest">View all fastest runners</button>
+          <button type="button" class="analytics-view-link" data-leaderboard="fastest">View full fastest leaderboard</button>
         </div>
         <div class="panel leaderboard-panel">
           <div class="panel-header">
@@ -283,7 +284,7 @@
             <p class="panel-hint">Top 5 by finishes and consistency</p>
           </div>
           <div id="leaderboard-list" class="leaderboard-list"></div>
-          <button type="button" class="analytics-view-link" data-leaderboard="activity">View all contributors</button>
+          <button type="button" class="analytics-view-link" data-leaderboard="activity">View full activity leaderboard</button>
         </div>
         </div>
         <div class="dashboard-grid">
@@ -325,6 +326,13 @@
       </section>
 
       <section class="view" id="view-members">
+        <div class="toolbar">
+          <input type="search" class="search" id="member-search" placeholder="Search runners…" />
+        </div>
+        <div class="card-grid" id="member-list"></div>
+      </section>
+
+      <section class="view" id="view-leaderboard">
         <div class="panel full-leaderboards-panel" id="full-leaderboards">
           <div class="panel-header">
             <h3>Full leaderboards</h3>
@@ -341,10 +349,6 @@
             </section>
           </div>
         </div>
-        <div class="toolbar">
-          <input type="search" class="search" id="member-search" placeholder="Search runners…" />
-        </div>
-        <div class="card-grid" id="member-list"></div>
       </section>
 
       <section class="view" id="view-registrations">
@@ -770,6 +774,6 @@
     </div>
   </div>
 
-  <script src="src/js/app.js?v=20260813-profile-menu"></script>
+  <script type="module" src="src/js/app.js?v=20260813-profile-menu"></script>
 </body>
 </html>

@@ -1,3 +1,5 @@
+import { createLeaderboardFeature } from "./features/leaderboard/leaderboard.js";
+
 /**
  * PacePack — full online multi-user app
  * Roles: admin · moderator · member
@@ -34,6 +36,7 @@ const VIEW_META = {
   dashboard: { title: "Dashboard", desc: "Live overview of races and results" },
   marathons: { title: "Marathons", desc: "Races the group is tracking" },
   members: { title: "Runners", desc: "People in the running roster (one per app member)" },
+  leaderboard: { title: "Leaderboard", desc: "Full rankings for speed and contribution" },
   registrations: { title: "Registrations", desc: "Who is signed up for which race" },
   results: { title: "Results & Times", desc: "Finish times for registered runners only" },
   team: { title: "Team & Access", desc: "Create users, logo, roles, and permissions" },
@@ -72,6 +75,18 @@ let state = {
   notificationSchedules: [],
   communityPosts: [],
 };
+
+const leaderboardFeature = createLeaderboardFeature({
+  getState: () => state,
+  getRunner,
+  getMarathon,
+  getDistanceKm: (distance) => DISTANCE_KM[distance],
+  bestFinishSeconds,
+  displayFinishTime,
+  formatSeconds,
+  renderProfileAvatar,
+  escapeHtml,
+});
 
 let currentView = "dashboard";
 let channels = [];
@@ -1860,37 +1875,13 @@ function render() {
   if (currentView === "dashboard") renderDashboard();
   if (currentView === "marathons") renderMarathons();
   if (currentView === "members") renderRunners();
+  if (currentView === "leaderboard") leaderboardFeature.renderFullLeaderboards();
   if (currentView === "registrations") renderRegistrations();
   if (currentView === "results") renderResults();
   if (currentView === "team") renderTeam();
   if (currentView === "notifications") renderNotifications();
   if (currentView === "community") renderCommunity();
   if (currentView === "profile") renderProfile();
-}
-
-function computeLeaderboard() {
-  const byRunner = new Map();
-  for (const r of state.registrations) {
-    const finished = r.status === "completed" || !!displayFinishTime(r);
-    const cur = byRunner.get(r.runner_id) || { runnerId: r.runner_id, entries: 0, finishes: 0, prs: 0, times: [], score: 0 };
-    cur.entries += 1;
-    if (finished) cur.finishes += 1;
-    if (r.is_pr) cur.prs += 1;
-    const seconds = bestFinishSeconds(r);
-    if (seconds != null) cur.times.push(seconds);
-    cur.score = cur.finishes + cur.prs * 2;
-    byRunner.set(r.runner_id, cur);
-  }
-  return [...byRunner.values()]
-    .map((row) => ({
-      ...row,
-      runner: getRunner(row.runnerId),
-      name: getRunner(row.runnerId)?.name || "Unknown",
-      bestTime: row.times.length ? Math.min(...row.times) : null,
-      averageTime: row.times.length ? Math.round(row.times.reduce((sum, time) => sum + time, 0) / row.times.length) : null,
-    }))
-    .filter((row) => row.entries > 0)
-    .sort((a, b) => b.score - a.score || b.finishes - a.finishes || b.entries - a.entries || a.name.localeCompare(b.name));
 }
 
 function renderLeaderboardChart(entries) {
@@ -2070,43 +2061,9 @@ function renderCompactDashboardAnalytics() {
     if (list) list.innerHTML = fastestRunners.map((runner, index) => `<div class="fastest-runner-item"><span class="fastest-runner-rank">${index + 1}</span><span class="fastest-runner-name">${escapeHtml(runner.name)}</span><span class="fastest-runner-pace time-mono">${escapeHtml(runner.best_pace_display)}/km</span><span class="fastest-runner-races">${runner.races} race${runner.races === 1 ? "" : "s"}</span></div>`).join("");
   }
 
-  const active = computeLeaderboard().slice(0, 5);
+  const active = leaderboardFeature.computeLeaderboard().slice(0, 5);
   const activeList = document.getElementById("leaderboard-list");
   if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
-}
-
-function computeFastestLeaderboard() {
-  const byRunner = new Map();
-  for (const registration of state.registrations) {
-    const marathon = getMarathon(registration.marathon_id);
-    const seconds = bestFinishSeconds(registration);
-    const km = marathon ? DISTANCE_KM[marathon.distance] : null;
-    if (seconds == null || !km) continue;
-    const pace = seconds / km;
-    const current = byRunner.get(registration.runner_id) || { runnerId: registration.runner_id, bestPace: null, races: 0 };
-    current.bestPace = current.bestPace == null ? pace : Math.min(current.bestPace, pace);
-    current.races += 1;
-    byRunner.set(registration.runner_id, current);
-  }
-  return [...byRunner.values()]
-    .map((entry) => ({ ...entry, runner: getRunner(entry.runnerId), name: getRunner(entry.runnerId)?.name || "Unknown" }))
-    .sort((a, b) => a.bestPace - b.bestPace || a.name.localeCompare(b.name));
-}
-
-function renderFullLeaderboards() {
-  const fastestEl = document.getElementById("full-fastest-list");
-  const activityEl = document.getElementById("full-activity-list");
-  if (!fastestEl || !activityEl) return;
-
-  const fastest = computeFastestLeaderboard();
-  fastestEl.innerHTML = fastest.length
-    ? fastest.map((entry, index) => `<div class="fastest-runner-item"><span class="fastest-runner-rank">${index + 1}</span><span class="fastest-runner-name">${escapeHtml(entry.name)}</span><span class="fastest-runner-pace time-mono">${escapeHtml(formatSeconds(entry.bestPace))}/km</span><span class="fastest-runner-races">${entry.races} race${entry.races === 1 ? "" : "s"}</span></div>`).join("")
-    : `<div class="empty"><strong>No pace results yet</strong>Log finish times to rank runners.</div>`;
-
-  const activity = computeLeaderboard();
-  activityEl.innerHTML = activity.length
-    ? `<ol class="leaderboard-ranks">${activity.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>`
-    : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
 }
 
 function renderVisualAnalytics() {
@@ -2529,7 +2486,6 @@ function renderMarathons() {
 }
 
 function renderRunners() {
-  renderFullLeaderboards();
   const q = (document.getElementById("member-search")?.value || "").trim().toLowerCase();
   let list = sortRunners(state.runners);
   if (q) {
@@ -5163,7 +5119,7 @@ function wireAppUi() {
   });
   document.querySelectorAll(".analytics-view-link[data-leaderboard]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      setView("members");
+      setView("leaderboard");
       requestAnimationFrame(() => {
         const target = document.getElementById(btn.dataset.leaderboard === "fastest" ? "full-fastest-leaderboard" : "full-activity-leaderboard");
         target?.scrollIntoView({ behavior: "smooth", block: "start" });
