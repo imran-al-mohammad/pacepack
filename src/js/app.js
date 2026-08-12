@@ -3839,28 +3839,54 @@ function openMarathonForm(id) {
           scrapeBtn.textContent = "Scraping..."
           
           try {
-            // Call the scrape-race edge function
-            const { data, error } = await sb.functions.invoke('scrape-race', {
-              body: { url }
+            // Call the scrape-race edge function (server-side fetch avoids browser CORS)
+            const { data, error } = await sb.functions.invoke("scrape-race", {
+              body: { url },
             })
-            
+
             if (error) {
-              throw error
+              // Supabase wraps HTTP errors; surface a useful message
+              const status = error.context?.status
+              const bodyMsg =
+                (typeof data?.error === "string" && data.error) ||
+                (typeof data?.message === "string" && data.message) ||
+                null
+              if (status === 404) {
+                throw new Error(
+                  "Scraper is not deployed. Deploy the scrape-race edge function in Supabase.",
+                )
+              }
+              if (status === 401 || status === 403) {
+                throw new Error(
+                  "Not authorized to use the scraper. Sign in and try again.",
+                )
+              }
+              throw new Error(
+                bodyMsg ||
+                  error.message ||
+                  "Failed to reach the race scraper service",
+              )
             }
-            
+
             if (data?.error) {
               throw new Error(data.error)
             }
-            
+
             if (data?.data) {
-              // Show confirmation dialog
               showScrapeConfirmation(data.data)
             } else {
               throw new Error("No data received from scraper")
             }
           } catch (e) {
             console.error("Scraping error:", e)
-            toast(e.message || "Failed to scrape race data", "error")
+            // "strict-origin-when-cross-origin" is a Referrer-Policy, not the real error
+            const msg = e?.message || String(e)
+            toast(
+              msg.includes("Failed to fetch") || msg.includes("NetworkError")
+                ? "Could not reach scraper (network/CORS). Is scrape-race deployed?"
+                : msg || "Failed to scrape race data",
+              "error",
+            )
           } finally {
             scrapeBtn.disabled = false
             scrapeBtn.textContent = "Scrape"

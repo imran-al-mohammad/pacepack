@@ -1,0 +1,12 @@
+# Minimal Supabase project config for Edge Functions
+# Project: https://pzpsjifvlrpmxojyfkyh.supabase.co
+
+[project]
+id = "pzpsjifvlrpmxojyfkyh"
+
+[functions.scrape-race]
+# Require a valid JWT (logged-in user or anon key from the app)
+verify_jwt = true
+
+[functions.send-notifications]
+verify_jwt = true
