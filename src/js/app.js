@@ -1348,13 +1348,30 @@ function formatCountdownParts(target) {
 
 function updateRaceTimerDisplay(marathon) {
   const meta = document.getElementById("next-race-meta");
+  const name = document.getElementById("next-race-name");
+  const date = document.getElementById("next-race-date");
+  const location = document.getElementById("next-race-location");
+  const signups = document.getElementById("next-race-signups");
   const panel = document.getElementById("next-race-panel");
   if (!meta || !panel) return;
 
   const thumb = document.getElementById("next-race-thumb");
+  const placeholder = panel.querySelector(".next-race-thumb-placeholder");
+  if (thumb) {
+    thumb.onerror = () => {
+      thumb.hidden = true;
+      thumb.src = "";
+      panel.classList.remove("next-race-has-thumbnail");
+      if (placeholder) placeholder.hidden = false;
+    };
+  }
 
   if (!marathon) {
     meta.textContent = "No upcoming races scheduled";
+    if (name) name.textContent = "No upcoming races scheduled";
+    if (date) date.textContent = "Date to be announced";
+    if (location) location.textContent = "Location to be announced";
+    if (signups) signups.textContent = "0 signed up";
     panel.classList.add("next-race-empty");
     panel.classList.remove("next-race-has-thumbnail");
     if (thumb) {
@@ -1362,6 +1379,7 @@ function updateRaceTimerDisplay(marathon) {
       thumb.src = "";
       thumb.alt = "";
     }
+    if (placeholder) placeholder.hidden = false;
     ["days", "hours", "mins", "secs"].forEach((u) => {
       const el = panel.querySelector(`[data-unit="${u}"]`);
       if (el) el.textContent = "0";
@@ -1375,11 +1393,13 @@ function updateRaceTimerDisplay(marathon) {
       thumb.alt = `${marathon.name} race thumbnail`;
       thumb.hidden = false;
       panel.classList.add("next-race-has-thumbnail");
+      if (placeholder) placeholder.hidden = true;
     } else {
       thumb.hidden = true;
       thumb.src = "";
       thumb.alt = "";
       panel.classList.remove("next-race-has-thumbnail");
+      if (placeholder) placeholder.hidden = false;
     }
   }
 
@@ -1387,11 +1407,16 @@ function updateRaceTimerDisplay(marathon) {
   const target = nextRaceTargetDate(marathon);
   const parts = formatCountdownParts(target);
   const count = regsForMarathon(marathon.id).length;
+  if (name) name.textContent = marathon.name;
+  if (date) date.textContent = formatRaceDateTime(marathon);
+  if (location) location.textContent = marathon.location || "Location TBD";
+  if (signups) signups.textContent = `${count} signed up`;
   if (parts.done) {
     meta.textContent = `${marathon.name} · ${formatRaceDateTime(marathon)} · started · ${count} signed up`;
   } else {
     meta.textContent = `${marathon.name} · ${formatRaceDateTime(marathon)} · ${marathon.location || "TBD"} · ${count} signed up`;
   }
+  meta.textContent = parts.done ? "This race has started" : "Get ready to run with the group";
   const map = { days: parts.days, hours: parts.hours, mins: parts.mins, secs: parts.secs };
   Object.entries(map).forEach(([u, v]) => {
     const el = panel.querySelector(`[data-unit="${u}"]`);
@@ -2050,6 +2075,40 @@ function renderCompactDashboardAnalytics() {
   if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
 }
 
+function computeFastestLeaderboard() {
+  const byRunner = new Map();
+  for (const registration of state.registrations) {
+    const marathon = getMarathon(registration.marathon_id);
+    const seconds = bestFinishSeconds(registration);
+    const km = marathon ? DISTANCE_KM[marathon.distance] : null;
+    if (seconds == null || !km) continue;
+    const pace = seconds / km;
+    const current = byRunner.get(registration.runner_id) || { runnerId: registration.runner_id, bestPace: null, races: 0 };
+    current.bestPace = current.bestPace == null ? pace : Math.min(current.bestPace, pace);
+    current.races += 1;
+    byRunner.set(registration.runner_id, current);
+  }
+  return [...byRunner.values()]
+    .map((entry) => ({ ...entry, runner: getRunner(entry.runnerId), name: getRunner(entry.runnerId)?.name || "Unknown" }))
+    .sort((a, b) => a.bestPace - b.bestPace || a.name.localeCompare(b.name));
+}
+
+function renderFullLeaderboards() {
+  const fastestEl = document.getElementById("full-fastest-list");
+  const activityEl = document.getElementById("full-activity-list");
+  if (!fastestEl || !activityEl) return;
+
+  const fastest = computeFastestLeaderboard();
+  fastestEl.innerHTML = fastest.length
+    ? fastest.map((entry, index) => `<div class="fastest-runner-item"><span class="fastest-runner-rank">${index + 1}</span><span class="fastest-runner-name">${escapeHtml(entry.name)}</span><span class="fastest-runner-pace time-mono">${escapeHtml(formatSeconds(entry.bestPace))}/km</span><span class="fastest-runner-races">${entry.races} race${entry.races === 1 ? "" : "s"}</span></div>`).join("")
+    : `<div class="empty"><strong>No pace results yet</strong>Log finish times to rank runners.</div>`;
+
+  const activity = computeLeaderboard();
+  activityEl.innerHTML = activity.length
+    ? `<ol class="leaderboard-ranks">${activity.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>`
+    : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
+}
+
 function renderVisualAnalytics() {
   const container = document.getElementById("analytics-visuals");
   if (!container) return;
@@ -2454,6 +2513,7 @@ function renderMarathons() {
 }
 
 function renderRunners() {
+  renderFullLeaderboards();
   const q = (document.getElementById("member-search")?.value || "").trim().toLowerCase();
   let list = sortRunners(state.runners);
   if (q) {
@@ -5084,6 +5144,15 @@ function wireAppUi() {
 
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => setView(btn.dataset.view));
+  });
+  document.querySelectorAll(".analytics-view-link[data-leaderboard]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setView("members");
+      requestAnimationFrame(() => {
+        const target = document.getElementById(btn.dataset.leaderboard === "fastest" ? "full-fastest-leaderboard" : "full-activity-leaderboard");
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
   });
   document.getElementById("modal-close").onclick = closeModal;
   const modalBackdrop = document.getElementById("modal-backdrop");

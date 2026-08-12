@@ -227,18 +227,34 @@
       <section class="view active" id="view-dashboard">
         <div class="panel next-race-panel" id="next-race-panel">
           <div class="panel-header">
-            <h3>Next Race Countdown</h3>
-            <p class="panel-hint" id="next-race-meta">No upcoming races scheduled</p>
+            <div>
+              <span class="next-race-eyebrow">Up next</span>
+              <h3>Next Race Countdown</h3>
+            </div>
+            <span class="next-race-live-badge">Live</span>
           </div>
           <div class="next-race-layout">
             <div class="next-race-thumb-wrap">
+              <div class="next-race-thumb-placeholder" aria-hidden="true"><span>Race day</span></div>
               <img id="next-race-thumb" class="next-race-thumb" src="" alt="Upcoming race image" hidden />
             </div>
-            <div id="next-race-timer" class="next-race-timer" aria-live="polite">
-              <div class="timer-unit"><span class="timer-value" data-unit="days">0</span><span class="timer-label">Days</span></div>
-              <div class="timer-unit"><span class="timer-value" data-unit="hours">0</span><span class="timer-label">Hours</span></div>
-              <div class="timer-unit"><span class="timer-value" data-unit="mins">0</span><span class="timer-label">Mins</span></div>
-              <div class="timer-unit"><span class="timer-value" data-unit="secs">0</span><span class="timer-label">Secs</span></div>
+            <div class="next-race-content">
+              <div class="next-race-info">
+                <h4 id="next-race-name">No upcoming races scheduled</h4>
+                <p id="next-race-meta" class="panel-hint">Pick a race to start the countdown</p>
+                <div class="next-race-facts" aria-label="Race details">
+                  <span id="next-race-date">Date to be announced</span>
+                  <span id="next-race-location">Location to be announced</span>
+                  <span id="next-race-signups">0 signed up</span>
+                </div>
+              </div>
+              <div class="next-race-countdown-label">Starts in</div>
+              <div id="next-race-timer" class="next-race-timer" aria-live="polite">
+                <div class="timer-unit"><span class="timer-value" data-unit="days">0</span><span class="timer-label">Days</span></div>
+                <div class="timer-unit"><span class="timer-value" data-unit="hours">0</span><span class="timer-label">Hours</span></div>
+                <div class="timer-unit"><span class="timer-value" data-unit="mins">0</span><span class="timer-label">Mins</span></div>
+                <div class="timer-unit"><span class="timer-value" data-unit="secs">0</span><span class="timer-label">Secs</span></div>
+              </div>
             </div>
           </div>
         </div>
@@ -259,7 +275,7 @@
             <p class="panel-hint">Top 5 by best race pace</p>
           </div>
           <div class="fastest-runners-list"></div>
-          <button type="button" class="analytics-view-link" data-view="members">View full leaderboard</button>
+          <button type="button" class="analytics-view-link" data-leaderboard="fastest">View all fastest runners</button>
         </div>
         <div class="panel leaderboard-panel">
           <div class="panel-header">
@@ -267,7 +283,7 @@
             <p class="panel-hint">Top 5 by finishes and consistency</p>
           </div>
           <div id="leaderboard-list" class="leaderboard-list"></div>
-          <button type="button" class="analytics-view-link" data-view="members">View full leaderboard</button>
+          <button type="button" class="analytics-view-link" data-leaderboard="activity">View all contributors</button>
         </div>
         </div>
         <div class="dashboard-grid">
@@ -309,6 +325,22 @@
       </section>
 
       <section class="view" id="view-members">
+        <div class="panel full-leaderboards-panel" id="full-leaderboards">
+          <div class="panel-header">
+            <h3>Full leaderboards</h3>
+            <p class="panel-hint">Complete rankings across all runners with recorded results</p>
+          </div>
+          <div class="full-leaderboards-grid">
+            <section class="leaderboard-panel" id="full-fastest-leaderboard">
+              <div class="panel-header"><h4>Fastest Runners</h4><p class="panel-hint">Best recorded pace per kilometre</p></div>
+              <div id="full-fastest-list" class="fastest-runners-list"></div>
+            </section>
+            <section class="leaderboard-panel" id="full-activity-leaderboard">
+              <div class="panel-header"><h4>Most Active / Top Contributors</h4><p class="panel-hint">Finishes, participation, and consistency</p></div>
+              <div id="full-activity-list" class="leaderboard-list"></div>
+            </section>
+          </div>
+        </div>
         <div class="toolbar">
           <input type="search" class="search" id="member-search" placeholder="Search runners…" />
         </div>
