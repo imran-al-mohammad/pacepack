@@ -50,6 +50,8 @@ Then run `docs/automated-analytics.sql`. It backfills system PRs, historical PR 
 
 ### 5. Configure the App
 
+Run `docs/race-distance-config.sql` after the migrations to enable admin-managed distance options and per-runner distances within the same race. Existing registrations inherit the race default; new or edited registrations/results can select a different configured distance.
+
 Edit `config.js` with your Supabase URL and anon key:
 
 ```js

@@ -38,6 +38,26 @@ function normalizeDistanceLabel(value) {
   return String(value || "Other").trim() || "Other";
 }
 
+function getDistanceKmValue(distance) {
+  const normalized = normalizeDistanceLabel(distance);
+  if (DISTANCE_KM[normalized] != null) return DISTANCE_KM[normalized];
+  const configured = (state.groupDistances || []).find((item) => normalizeDistanceLabel(item.label) === normalized || item.label === distance);
+  return configured ? Number(configured.distance_km) : null;
+}
+
+function configuredDistanceOptions(current = "") {
+  const labels = [...new Set([
+    ...DISTANCES,
+    ...(state.groupDistances || []).map((item) => item.label),
+    current,
+  ].filter(Boolean))];
+  return labels.map((label) => `<option value="${escapeHtml(label)}" ${label === current ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
+
+function registrationDistance(reg, marathon) {
+  return normalizeDistanceLabel(reg?.race_distance || marathon?.distance || "Other");
+}
+
 const AVATAR_COLORS = [
   "#ff6b4a", "#2dd4bf", "#60a5fa", "#fbbf24",
   "#c084fc", "#4ade80", "#f472b6", "#38bdf8",
@@ -82,6 +102,7 @@ let state = {
   unreadCount: 0,
   personalRecords: [],
   runnerBadges: [],
+  groupDistances: [],
   notificationSettings: null,
   notificationSchedules: [],
   communityPosts: [],
@@ -91,7 +112,7 @@ const leaderboardFeature = createLeaderboardFeature({
   getState: () => state,
   getRunner,
   getMarathon,
-  getDistanceKm: (distance) => DISTANCE_KM[distance],
+  getDistanceKm: (distance) => getDistanceKmValue(distance),
   bestFinishSeconds,
   displayFinishTime,
   formatSeconds,
@@ -327,12 +348,12 @@ function bestFinishSeconds(reg) {
 function computePersonalRecord(reg, marathon) {
   const seconds = bestFinishSeconds(reg);
   if (seconds == null || !marathon) return false;
-  const distance = marathon.distance;
+  const distance = registrationDistance(reg, marathon);
   const previousTimes = state.registrations
     .filter((r) => r.id !== reg.id && r.runner_id === reg.runner_id)
     .map((r) => {
       const m = getMarathon(r.marathon_id);
-      if (!m || m.distance !== distance) return null;
+      if (!m || registrationDistance(r, m) !== distance) return null;
       return bestFinishSeconds(r);
     })
     .filter((s) => s != null);
@@ -346,10 +367,10 @@ function displayFinishTime(reg) {
   return reg.chip_time || reg.gun_time || "";
 }
 
-function paceForRegistration(reg, marathon) {
+function paceForRegistration(reg, marathon, distanceOverride = "") {
   const seconds = bestFinishSeconds(reg);
   if (seconds == null || !marathon) return null;
-  const km = DISTANCE_KM[marathon.distance];
+  const km = getDistanceKmValue(distanceOverride || registrationDistance(reg, marathon));
   if (!km) return null;
   return {
     perKm: formatSeconds(seconds / km),
@@ -432,7 +453,7 @@ function canonicalPRRegistrations() {
     .filter((row) => row.marathon && row.seconds != null && (row.reg.status === "completed" || row.reg.status === "dnf" || displayFinishTime(row.reg)))
     .sort((a, b) => String(a.marathon.race_date || "9999-12-31").localeCompare(String(b.marathon.race_date || "9999-12-31")) || String(a.reg.id).localeCompare(String(b.reg.id)));
   rows.forEach(({ reg, marathon, seconds }) => {
-    const key = `${reg.runner_id}:${normalizeDistanceLabel(marathon.distance)}`;
+    const key = `${reg.runner_id}:${registrationDistance(reg, marathon)}`;
     const previous = bestByKey.get(key);
     if (previous == null || seconds < previous) prIds.add(reg.id);
     if (previous == null || seconds < previous) bestByKey.set(key, Math.min(previous ?? seconds, seconds));
@@ -802,6 +823,12 @@ async function loadGroupData() {
   state.registrations = reg.data || [];
   state.personalRecords = pr.data || [];
   state.runnerBadges = badges.data || [];
+  const { data: distanceRows, error: distanceError } = await sb
+    .from("group_distances")
+    .select("id, label, distance_km")
+    .eq("group_id", gid)
+    .order("label");
+  state.groupDistances = distanceError ? [] : (distanceRows || []);
   state.notificationSettings = notifSettings.data || null;
   state.notificationSchedules = notifSchedules.data || [];
 
@@ -1341,7 +1368,7 @@ async function signOut() {
   profile = null;
   group = null;
   myRole = null;
-  state = { marathons: [], runners: [], registrations: [], notifications: [], unreadCount: 0, personalRecords: [], runnerBadges: [] };
+  state = { marathons: [], runners: [], registrations: [], notifications: [], unreadCount: 0, personalRecords: [], runnerBadges: [], groupDistances: [] };
   team = [];
   selectedWhosRunningMarathonId = null;
   applyBrandLogo();
@@ -2118,7 +2145,7 @@ function findImprovementSpotlight() {
     const runner = getRunner(reg.runner_id);
     const seconds = bestFinishSeconds(reg);
     if (!race || !runner || seconds == null) return;
-    const key = `${reg.runner_id}:${race.distance}`;
+    const key = `${reg.runner_id}:${registrationDistance(reg, race)}`;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push({ seconds, date: String(race.race_date || "") });
   });
@@ -2165,7 +2192,7 @@ function renderVisualAnalytics() {
   const prRate = finishes.length ? Math.round((prRows.length / finishes.length) * 100) : 0;
   const prDistanceCounts = {};
   prRows.forEach((row) => {
-    const distance = normalizeDistanceLabel(row.race.distance);
+    const distance = registrationDistance(row.reg, row.race);
     prDistanceCounts[distance] = (prDistanceCounts[distance] || 0) + 1;
   });
   const badgeRows = state.runnerBadges || [];
@@ -2183,7 +2210,7 @@ function renderVisualAnalytics() {
     if (count >= 9 && count < 10) return `${runner.name} is 1 race from 10 Races Completed`;
     return null;
   }).find(Boolean);
-  const recentPRMarkup = prRows.length ? prRows.slice(0, 5).map((row) => `<div class="recognition-row"><span class="recognition-icon">★</span><span class="recognition-main"><strong>${escapeHtml(row.runner.name)}</strong><small>${escapeHtml(row.race.distance)} · ${escapeHtml(row.race.name)}</small></span><span class="time-mono">${escapeHtml(displayFinishTime(row.reg))}</span></div>`).join("") : `<p class="analytics-copy">PRs will appear here automatically after results are logged.</p>`;
+  const recentPRMarkup = prRows.length ? prRows.slice(0, 5).map((row) => `<div class="recognition-row"><span class="recognition-icon">★</span><span class="recognition-main"><strong>${escapeHtml(row.runner.name)}</strong><small>${escapeHtml(registrationDistance(row.reg, row.race))} · ${escapeHtml(row.race.name)}</small></span><span class="time-mono">${escapeHtml(displayFinishTime(row.reg))}</span></div>`).join("") : `<p class="analytics-copy">PRs will appear here automatically after results are logged.</p>`;
   const distanceOrder = ["5K", "7.5K", "10K", "15K", "Half Marathon", "Marathon", "Ultra", "Other"];
   const distanceRows = [...new Set([...distanceOrder, ...Object.keys(prDistanceCounts)])]
     .filter((distance) => prDistanceCounts[distance] || Object.keys(prDistanceCounts).length === 0)
@@ -2741,6 +2768,7 @@ function renderRegistrations() {
       <tr>
         <td>${escapeHtml(runner?.name || "Unknown")}</td>
         <td>${escapeHtml(marathon?.name || "Unknown")}</td>
+        <td>${escapeHtml(registrationDistance(r, marathon))}</td>
         <td>${marathon ? formatDate(marathon.race_date) : "—"}</td>
         <td>${statusBadge(r.status)}</td>
         <td><div class="actions">
@@ -2853,6 +2881,7 @@ function renderResults() {
           ${renderProfileAvatar(runner, runner?.name || "Unknown", runner?.id || r.runner_id)}
           <span>${escapeHtml(runner?.name || "Unknown")}</span>
         </div></td>
+        <td>${escapeHtml(registrationDistance(r, marathon))}</td>
         <td>${statusBadge(r.status)}</td>
         <td class="time-mono">${r.gun_time ? escapeHtml(r.gun_time) : "—"}</td>
         <td class="time-mono time-best">${r.chip_time ? escapeHtml(r.chip_time) : "—"}</td>
@@ -2906,8 +2935,8 @@ function getRunnerPRs(runnerId) {
   regsForRunner(runnerId).forEach((reg) => {
     const marathon = getMarathon(reg.marathon_id);
     const seconds = bestFinishSeconds(reg);
-    const distance = normalizeDistanceLabel(marathon?.distance);
-    const km = DISTANCE_KM[distance];
+    const distance = registrationDistance(reg, marathon);
+    const km = getDistanceKmValue(distance);
     if (!marathon || seconds == null || km == null) return;
     const current = byDistance.get(distance);
     if (!current || seconds < Number(current.time_seconds)) {
@@ -2941,7 +2970,7 @@ function computeRunnerStats(runnerId) {
     if (!marathon) continue;
     const seconds = bestFinishSeconds(r);
     if (seconds == null) continue;
-    const km = DISTANCE_KM[marathon.distance];
+    const km = getDistanceKmValue(registrationDistance(r, marathon));
     if (km == null) continue;
     const date = new Date(String(marathon.race_date).slice(0, 10) + "T12:00:00");
     timed.push({ reg: r, marathon, seconds, km, date });
@@ -3110,7 +3139,7 @@ function computeBadges(runnerId) {
 
   const legacyTotalKm = legacyTimed.reduce((sum, r) => {
     const m = getMarathon(r.marathon_id);
-    const km = DISTANCE_KM[m?.distance];
+    const km = getDistanceKmValue(registrationDistance(r, m));
     return sum + (km || 0);
   }, 0);
   if (totalKm >= 1000) badges.push({ key: "1000km", label: "1000 km Club", icon: "🏅" });
@@ -3180,7 +3209,7 @@ function getProfileTimedResults(runnerId) {
     .map((reg) => {
       const marathon = getMarathon(reg.marathon_id);
       const seconds = bestFinishSeconds(reg);
-      const km = marathon ? DISTANCE_KM[marathon.distance] : null;
+      const km = marathon ? getDistanceKmValue(registrationDistance(reg, marathon)) : null;
       if (!marathon || seconds == null || km == null) return null;
       const date = new Date(`${String(marathon.race_date || "").slice(0, 10)}T12:00:00`);
       return { reg, marathon, seconds, km, date, pace: seconds / km };
@@ -3223,7 +3252,7 @@ function renderProfileAnalytics(runnerId) {
     const canonicalPRs = canonicalPRRegistrations();
     const prRows = results.filter((point) => point.reg.is_pr || canonicalPRs.has(point.reg.id));
     const grouped = {};
-    prRows.forEach((point) => { (grouped[point.marathon.distance] ||= []).push(point); });
+    prRows.forEach((point) => { (grouped[registrationDistance(point.reg, point.marathon)] ||= []).push(point); });
     const distances = Object.keys(grouped);
     progression.innerHTML = distances.length ? distances.map((distance) => {
       const points = grouped[distance].slice(-5);
@@ -3241,7 +3270,7 @@ function renderProfileAnalytics(runnerId) {
   if (mix) {
     const counts = {};
     results.forEach((point) => {
-      const distance = normalizeDistanceLabel(point.marathon.distance);
+      const distance = registrationDistance(point.reg, point.marathon);
       counts[distance] = (counts[distance] || 0) + 1;
     });
     const preferredOrder = ["5K", "7.5K", "10K", "15K", "Half Marathon", "Marathon", "Ultra", "Other"];
@@ -3255,7 +3284,7 @@ function renderProfileAnalytics(runnerId) {
   const recent = document.getElementById("profile-recent-form");
   if (recent) {
     const points = results.slice(-5).reverse();
-    recent.innerHTML = points.length ? points.map((point) => `<div class="profile-form-row"><span class="profile-form-race" title="${escapeHtml(point.marathon.name)}">${escapeHtml(point.marathon.name)}</span><span class="profile-form-meta">${escapeHtml(point.marathon.distance)} · ${escapeHtml(monthShortYear(point.marathon.race_date))}</span><span class="profile-form-time">${escapeHtml(displayFinishTime(point.reg) || "—")}</span></div>`).join("") : `<p class="profile-chart-empty">Your recent finishes will appear here.</p>`;
+    recent.innerHTML = points.length ? points.map((point) => `<div class="profile-form-row"><span class="profile-form-race" title="${escapeHtml(point.marathon.name)}">${escapeHtml(point.marathon.name)}</span><span class="profile-form-meta">${escapeHtml(registrationDistance(point.reg, point.marathon))} · ${escapeHtml(monthShortYear(point.marathon.race_date))}</span><span class="profile-form-time">${escapeHtml(displayFinishTime(point.reg) || "—")}</span></div>`).join("") : `<p class="profile-chart-empty">Your recent finishes will appear here.</p>`;
   }
 
   const monthly = document.getElementById("profile-monthly-activity");
@@ -3399,7 +3428,7 @@ function renderProfile() {
           <div class="list-item">
             <div class="list-item-main">
               <p class="list-item-title">${escapeHtml(marathon.name)}</p>
-              <p class="list-item-sub">${formatDate(marathon.race_date)} · ${escapeHtml(marathon.distance)}${pace ? ` · ${pace.perKm}/km` : ""}</p>
+              <p class="list-item-sub">${formatDate(marathon.race_date)} · ${escapeHtml(registrationDistance(r, marathon))}${pace ? ` · ${pace.perKm}/km` : ""}</p>
             </div>
             <div style="display:flex;gap:0.45rem;align-items:center">
               ${(r.is_pr || canonicalPRRegistrations().has(r.id)) ? `<span class="badge badge-pr">PR</span>` : ""}
@@ -4389,6 +4418,39 @@ function renderTeam() {
 
 // ─── Forms / CRUD ────────────────────────────────────────────────────────────
 
+function openDistanceManager(returnToMarathonId = null) {
+  if (!hasMinRole("admin")) return toast("Only admins can manage distances", "error");
+  const renderRows = () => (state.groupDistances || []).map((distance) => `
+    <div class="list-item" data-distance-row="${escapeHtml(distance.id)}">
+      <div class="list-item-main"><strong>${escapeHtml(distance.label)}</strong><span class="list-item-sub">${distance.distance_km} km</span></div>
+      <button type="button" class="btn btn-danger btn-sm" data-delete-distance="${escapeHtml(distance.id)}">Remove</button>
+    </div>`).join("");
+  openModal({
+    title: "Manage race distances",
+    bodyHtml: `<div class="form-grid"><p class="panel-hint" style="margin:0">These options are available when creating races and recording results.</p><div id="distance-manager-list" class="list">${renderRows() || `<div class="empty"><strong>No configured distances</strong></div>`}</div><div class="form-row"><div class="field"><label for="new-distance-label">Distance name</label><input class="input" id="new-distance-label" placeholder="e.g. 3K" /></div><div class="field"><label for="new-distance-km">Kilometres</label><input class="input" id="new-distance-km" type="number" min="0.01" step="0.001" placeholder="3" /></div></div></div>`,
+    footerHtml: `<button class="btn btn-ghost" id="distance-manager-close">Done</button><button class="btn btn-primary" id="distance-manager-add">Add distance</button>`,
+    onMount() {
+      document.getElementById("distance-manager-close").onclick = () => { closeModal(); openMarathonForm(returnToMarathonId); };
+      document.getElementById("distance-manager-add").onclick = async () => {
+        const label = document.getElementById("new-distance-label").value.trim();
+        const km = Number(document.getElementById("new-distance-km").value);
+        if (!label || !Number.isFinite(km) || km <= 0) return toast("Enter a distance name and positive kilometre value", "error");
+        const { data, error } = await sb.from("group_distances").insert({ group_id: group.id, label, distance_km: km }).select().single();
+        if (error) return toast(error.message || "Could not add distance", "error");
+        state.groupDistances.push(data); closeModal(); openDistanceManager(returnToMarathonId);
+      };
+      document.querySelectorAll("[data-delete-distance]").forEach((button) => {
+        button.onclick = async () => {
+          const { error } = await sb.from("group_distances").delete().eq("id", button.dataset.deleteDistance);
+          if (error) return toast(error.message || "Could not remove distance", "error");
+          state.groupDistances = state.groupDistances.filter((item) => item.id !== button.dataset.deleteDistance);
+          closeModal(); openDistanceManager(returnToMarathonId);
+        };
+      });
+    },
+  });
+}
+
 function openMarathonForm(id) {
   const existing = id ? getMarathon(id) : null;
 
@@ -4396,9 +4458,7 @@ function openMarathonForm(id) {
   if (existing && !canEdit()) return toast("Only moderators can edit marathons", "error");
   if (!existing && !canWrite()) return toast("No permission", "error");
 
-  const distanceOptions = DISTANCES.map(
-    (d) => `<option value="${d}" ${existing?.distance === d ? "selected" : ""}>${d}</option>`
-  ).join("");
+  const distanceOptions = configuredDistanceOptions(existing?.distance || "");
 
   openModal({
     title: existing ? "Edit marathon" : "Add marathon",
@@ -4432,6 +4492,7 @@ function openMarathonForm(id) {
         <div class="field">
           <label for="m-distance">Distance</label>
           <select class="select full" id="m-distance">${distanceOptions}</select>
+          ${hasMinRole("admin") ? `<button type="button" class="btn btn-ghost btn-sm" id="m-manage-distances" style="margin-top:0.45rem">Manage distances</button>` : ""}
         </div>
         <div class="field">
           <label for="m-location">Location</label>
@@ -4464,6 +4525,10 @@ function openMarathonForm(id) {
       <button class="btn btn-ghost" type="button" id="mf-cancel">Cancel</button>
       <button class="btn btn-primary" type="button" id="mf-save">${existing ? "Save changes" : "Create race"}</button>`,
     onMount() {
+      document.getElementById("m-manage-distances")?.addEventListener("click", () => {
+        closeModal();
+        openDistanceManager(id || null);
+      });
       // Scrape from URL functionality
       const scrapeBtn = document.getElementById("m-scrape-btn")
       const scrapeUrlInput = document.getElementById("m-scrape-url")
@@ -4893,6 +4958,8 @@ function openRegistrationForm(id, defaults = {}) {
   const statusOpts = regStatuses.map(
     (s) => `<option value="${s.value}" ${defaultStatus === s.value ? "selected" : ""}>${s.label}</option>`
   ).join("");
+  const selectedMarathon = getMarathon(existing?.marathon_id || defaults.marathonId || state.marathons[0]?.id);
+  const registrationDistanceValue = existing?.race_distance || defaults.raceDistance || selectedMarathon?.distance || "";
 
   openModal({
     title: existing ? "Edit registration" : "Add registration",
@@ -4906,6 +4973,11 @@ function openRegistrationForm(id, defaults = {}) {
         <div class="field">
           <label for="r-marathon">Marathon *</label>
           <select class="select full" id="r-marathon">${marathonOpts}</select>
+        </div>
+        <div class="field">
+          <label for="r-distance">Distance completed *</label>
+          <select class="select full" id="r-distance">${configuredDistanceOptions(registrationDistanceValue)}</select>
+          <p class="panel-hint" style="margin:0.35rem 0 0">Different runners can record different distances for the same marathon event.</p>
         </div>
         <div class="form-row">
           <div class="field">
@@ -4927,12 +4999,18 @@ function openRegistrationForm(id, defaults = {}) {
       <button class="btn btn-primary" id="rf-save">${existing ? "Save changes" : "Register runner"}</button>`,
     onMount() {
       document.getElementById("rf-cancel").onclick = closeModal;
+      document.getElementById("r-marathon")?.addEventListener("change", (event) => {
+        const marathon = getMarathon(event.target.value);
+        const distance = document.getElementById("r-distance");
+        if (distance && marathon) distance.innerHTML = configuredDistanceOptions(marathon.distance);
+      });
       document.getElementById("rf-save").onclick = async () => {
         const saveButton = document.getElementById("rf-save");
         const payload = {
           group_id: group.id,
           runner_id: document.getElementById("r-runner").value,
           marathon_id: document.getElementById("r-marathon").value,
+          race_distance: document.getElementById("r-distance").value,
           status: document.getElementById("r-status").value,
           bib: document.getElementById("r-bib").value.trim(),
           notes: document.getElementById("r-notes").value.trim(),
@@ -4941,6 +5019,7 @@ function openRegistrationForm(id, defaults = {}) {
         if (!payload.runner_id || !payload.marathon_id) {
           return toast("Runner and marathon are required", "error");
         }
+        if (!payload.race_distance) return toast("Distance is required", "error");
 
         const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Registering runner…");
         try {
@@ -5015,6 +5094,11 @@ function openResultForm(registrationId, defaults = {}) {
           <select class="select full" id="res-reg" ${existing ? "disabled" : ""}></select>
         </div>
         <div class="field">
+          <label for="res-distance">Distance completed *</label>
+          <select class="select full" id="res-distance">${configuredDistanceOptions(existing?.race_distance || getMarathon(existing?.marathon_id)?.distance || "")}</select>
+          <p class="panel-hint" style="margin:0.35rem 0 0">A race may contain participants running different distances.</p>
+        </div>
+        <div class="field">
           <label for="res-status">Status</label>
           <select class="select full" id="res-status">
             ${resultStatuses.map((s) => `<option value="${s.value}" ${defaultStatus === s.value ? "selected" : ""}>${s.label}</option>`).join("")}
@@ -5077,17 +5161,28 @@ function openResultForm(registrationId, defaults = {}) {
           const hasTime = displayFinishTime(r) ? " · has time" : "";
           return `<option value="${r.id}" ${r.id === prefer ? "selected" : ""}>${escapeHtml(runner?.name || "Runner")}${hasTime}</option>`;
         }).join("");
+        const selectedReg = regs.find((r) => r.id === regSel.value) || existing;
+        const distance = document.getElementById("res-distance");
+        const race = getMarathon(mid);
+        if (distance && race) distance.innerHTML = configuredDistanceOptions(selectedReg?.race_distance || race.distance);
       };
 
       fillRunners();
       if (!existing) marathonSel.addEventListener("change", fillRunners);
+      regSel.addEventListener("change", () => {
+        const selectedReg = state.registrations.find((r) => r.id === regSel.value);
+        const race = getMarathon(marathonSel.value);
+        const distance = document.getElementById("res-distance");
+        if (distance && race) distance.innerHTML = configuredDistanceOptions(selectedReg?.race_distance || race.distance);
+      });
 
       const updatePace = () => {
         const reg = state.registrations.find((r) => r.id === regSel.value) || existing;
         const marathon = getMarathon(marathonSel.value || reg?.marathon_id);
         const pace = paceForRegistration(
           { chip_time: document.getElementById("res-chip").value, gun_time: document.getElementById("res-gun").value },
-          marathon
+          marathon,
+          document.getElementById("res-distance").value
         );
         document.getElementById("res-pace-preview").textContent = pace ? `Pace: ${pace.label}` : "";
       };
@@ -5124,6 +5219,7 @@ function openResultForm(registrationId, defaults = {}) {
           status,
           gun_time,
           chip_time,
+          race_distance: document.getElementById("res-distance").value,
           place_overall: document.getElementById("res-place").value.trim(),
           place_gender: document.getElementById("res-place-g").value.trim(),
           place_age_group: document.getElementById("res-place-ag").value.trim(),

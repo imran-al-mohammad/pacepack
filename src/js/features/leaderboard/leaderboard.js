@@ -54,7 +54,7 @@ export function createLeaderboardFeature({
     for (const registration of getState().registrations) {
       const marathon = getMarathon(registration.marathon_id);
       const seconds = bestFinishSeconds(registration);
-      const km = getDistanceKm(marathon?.distance);
+      const km = getDistanceKm(registration.race_distance || marathon?.distance);
       if (seconds == null || !km) continue;
       const pace = seconds / km;
       const current = byRunner.get(registration.runner_id) || {
