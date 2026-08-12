@@ -257,6 +257,27 @@ scrapers/
 └── README.md               # This file
 ```
 
+## Race results importer
+
+`results_scraper.py` imports finish results from a results page, rather than
+creating a race. It uses the same safe workflow as `example_usage.py`:
+
+```bash
+cd scrapers
+python results_scraper.py https://example.com/results --group-id YOUR_GROUP_UUID --json reviewed-results.json
+```
+
+The script scrapes first, prints a review summary, and asks for confirmation.
+With `SUPABASE_URL`, `SUPABASE_KEY`, and a group ID it matches an exact race and
+runner names, then updates existing registrations or inserts new ones only
+after confirmation. Unmatched or ambiguous runners are skipped. Without a
+database context, confirmation only permits exporting the reviewed JSON.
+
+Supported result fields include runner name, finish time, calculated pace,
+gender/category and placements, bib, status, race linkage, and source URL.
+The importer stores the source URL in `registrations.result_notes` and uses
+the existing registration uniqueness rule for idempotent updates.
+
 ## Dependencies
 
 ### Required
