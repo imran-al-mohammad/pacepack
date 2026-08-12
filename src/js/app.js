@@ -1928,7 +1928,8 @@ function renderTopbarActions() {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-reg">+ Add registration</button>`;
     document.getElementById("btn-add-reg").onclick = () => openRegistrationForm();
   } else if (currentView === "results") {
-    el.innerHTML = `<button class="btn btn-primary" id="btn-add-result">+ Enter result</button>`;
+    el.innerHTML = `<button class="btn btn-secondary" id="btn-import-results">Import results</button><button class="btn btn-primary" id="btn-add-result">+ Enter result</button>`;
+    document.getElementById("btn-import-results").onclick = () => openResultsImport();
     document.getElementById("btn-add-result").onclick = () => openResultForm();
   } else if (currentView === "dashboard") {
     el.innerHTML = `
@@ -2141,6 +2142,79 @@ function renderCompactDashboardAnalytics() {
   const active = leaderboardFeature.computeLeaderboard().slice(0, 5);
   const activeList = document.getElementById("leaderboard-list");
   if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
+}
+
+function resultsNameKey(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(Boolean).sort().join(" ");
+}
+
+function openResultsImport() {
+  if (!canWrite()) return toast("No permission", "error");
+  if (!state.marathons.length) return toast("Add a marathon first", "error");
+  openModal({
+    title: "Import race results",
+    wide: true,
+    bodyHtml: `<div class="form-grid">
+      <div class="field" style="grid-column:1/-1">
+        <label for="ri-url">Results page URL *</label>
+        <div class="form-row"><input class="input" id="ri-url" type="url" placeholder="https://example.com/race-results" style="flex:1" /><button type="button" class="btn btn-secondary" id="ri-scrape">Scrape results</button></div>
+        <p class="panel-hint" style="margin:0.35rem 0 0">Nothing is saved while scraping or reviewing.</p>
+      </div>
+      <div id="ri-preview" class="panel" style="grid-column:1/-1;display:none"></div>
+    </div>`,
+    footerHtml: `<button class="btn btn-ghost" id="ri-cancel">Cancel</button><button class="btn btn-primary" id="ri-save" disabled>Confirm and input results</button>`,
+    onMount() {
+      let imported = null;
+      const preview = document.getElementById("ri-preview");
+      const scrape = document.getElementById("ri-scrape");
+      const save = document.getElementById("ri-save");
+      document.getElementById("ri-cancel").onclick = closeModal;
+      scrape.onclick = async () => {
+        const url = document.getElementById("ri-url").value.trim();
+        if (!/^https?:\/\//i.test(url)) return toast("Enter a valid http:// or https:// results URL", "error");
+        const restore = setButtonBusy(scrape, "Scraping…");
+        try {
+          const { data, error } = await sb.functions.invoke("scrape-results", { body: { url } });
+          if (error) throw new Error(data?.error || error.message || "Could not scrape results");
+          if (data?.error) throw new Error(data.error);
+          imported = data?.data;
+          if (!imported?.results?.length) throw new Error("No result rows were found on that page");
+          const selectedRace = getMarathon(document.getElementById("results-marathon")?.value);
+          const race = state.marathons.find((m) => resultsNameKey(m.name) === resultsNameKey(imported.race_name)) || selectedRace;
+          imported.marathon_id = race?.id || "";
+          imported.results = imported.results.map((row) => {
+            const matches = state.runners.filter((runner) => resultsNameKey(runner.name) === resultsNameKey(row.runner_name));
+            const registration = matches.length === 1 && race ? state.registrations.find((r) => r.marathon_id === race.id && r.runner_id === matches[0].id) : null;
+            return { ...row, runner_id: matches.length === 1 ? matches[0].id : "", registration_id: registration?.id || "", match_note: registration ? "Matched to registered runner" : matches.length === 1 ? "Runner found, but not registered for this race" : "Unmatched or ambiguous runner" };
+          });
+          const matched = imported.results.filter((row) => row.registration_id).length;
+          preview.style.display = "block";
+          preview.innerHTML = `<strong>Review before input</strong><p class="panel-hint">Race: ${escapeHtml(imported.race_name || "Unknown race")} · ${imported.results.length} rows · ${matched} will be entered · ${imported.results.length - matched} skipped</p><p class="panel-hint">Scrape source: <a href="${escapeHtml(imported.source_url || "#")}" target="_blank" rel="noopener">${escapeHtml(imported.source_url || "—")}</a></p><div class="table-wrap"><table class="data-table"><thead><tr><th>Runner</th><th>Time</th><th>Place</th><th>Status</th><th>Match</th></tr></thead><tbody>${imported.results.slice(0, 12).map((row) => `<tr><td>${escapeHtml(row.runner_name || "—")}</td><td>${escapeHtml(row.finish_time || "—")}</td><td>${escapeHtml(row.overall_place || "—")}</td><td>${escapeHtml(row.status || "completed")}</td><td>${escapeHtml(row.match_note)}</td></tr>`).join("")}</tbody></table></div>${imported.results.length > 12 ? `<p class="panel-hint">Showing first 12 rows.</p>` : ""}<p class="panel-hint">Confirming will input only rows matched to an existing registered runner. Unmatched rows will not be saved.</p>`;
+          save.disabled = matched === 0;
+        } catch (error) {
+          toast(error?.message || "Failed to scrape results", "error");
+        } finally { restore(); }
+      };
+      save.onclick = async () => {
+        if (!imported) return;
+        const rows = imported.results.filter((row) => row.registration_id);
+        if (!rows.length) return toast("There are no matched registered runners to input", "error");
+        const restore = setButtonBusy(save, "Inputting results…");
+        try {
+          for (const row of rows) {
+            const status = ["dns", "dnf"].includes(row.status) ? row.status : row.finish_time ? "completed" : "registered";
+            const { error } = await sb.from("registrations").update({ status, chip_time: row.finish_time || "", gun_time: row.finish_time || "", place_overall: row.overall_place || "", place_gender: row.gender_place || "", place_age_group: row.category_place || row.age_category || "", bib: row.bib || "", result_notes: `Imported from ${imported.source_url}` }).eq("id", row.registration_id);
+            if (error) throw error;
+          }
+          closeModal();
+          toast(`${rows.length} result${rows.length === 1 ? "" : "s"} entered successfully.`);
+          await loadGroupData();
+          render();
+        } catch (error) { operationFailed("Inputting race results", error); }
+        finally { restore(); }
+      };
+    },
+  });
 }
 
 function findImprovementSpotlight() {

@@ -13,6 +13,7 @@ A full-featured, multi-user web app for running clubs to track marathons, runner
 - **Marathon tracking** — add races with dates, registration links, images, and race times
 - **Runner roster** — one runner per app member per group, with pace groups, join dates, and public profiles
 - **Registration & results** — track who's signed up, waitlisted, completed, or DNS/DNF; record finish times and age-group placements
+- **Results URL import** — scrape a results page, review matched rows, and confirm before bulk input
 - **Personal records** — store best times per distance with pace calculations
 - **Achievement badges** — award badges like "First Marathon", "Sub-4", "1000 km Club"
 - **Analytics dashboard** — participation rates, PR rates, busiest races, distance mix, and improvement tracking
