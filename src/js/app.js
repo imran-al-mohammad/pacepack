@@ -2926,12 +2926,8 @@ function canViewRunnerProfile(runner) {
 /** System-owned PRs. Race results are recalculated by the database trigger/RPC. */
 function getRunnerPRs(runnerId) {
   const byDistance = new Map();
-  state.personalRecords.filter((pr) => pr.runner_id === runnerId).forEach((pr) => {
-    const distance = normalizeDistanceLabel(pr.distance);
-    byDistance.set(distance, { ...pr, distance });
-  });
-  // Compatibility fallback for historical projects where the SQL backfill has
-  // not been run yet, or where legacy runners were not linked to a user.
+  // Registrations/results are the canonical source.  The stored PR table is a
+  // derived cache and may be empty or stale for older runners.
   regsForRunner(runnerId).forEach((reg) => {
     const marathon = getMarathon(reg.marathon_id);
     const seconds = bestFinishSeconds(reg);
@@ -2939,7 +2935,10 @@ function getRunnerPRs(runnerId) {
     const km = getDistanceKmValue(distance);
     if (!marathon || seconds == null || km == null) return;
     const current = byDistance.get(distance);
-    if (!current || seconds < Number(current.time_seconds)) {
+    const raceDate = String(marathon.race_date || "9999-12-31");
+    const currentDate = String(current?.race_date || "9999-12-31");
+    if (!current || seconds < Number(current.time_seconds) ||
+        (seconds === Number(current.time_seconds) && raceDate < currentDate)) {
       byDistance.set(distance, {
         id: `derived-${reg.id}`,
         runner_id: runnerId,
@@ -2953,6 +2952,13 @@ function getRunnerPRs(runnerId) {
         derived: true,
       });
     }
+  });
+
+  // Preserve manually recorded PRs only for distances that have no timed
+  // result yet. Historical results always win when they exist.
+  state.personalRecords.filter((pr) => pr.runner_id === runnerId).forEach((pr) => {
+    const distance = normalizeDistanceLabel(pr.distance);
+    if (!byDistance.has(distance)) byDistance.set(distance, { ...pr, distance });
   });
   return [...byDistance.values()].sort((a, b) => String(a.distance).localeCompare(String(b.distance)));
 }
@@ -3094,8 +3100,9 @@ function computeBadges(runnerId) {
     earned.add(key);
   };
   if (finished.length) add("first_race");
-  if (regs.some((reg) => reg.is_pr)) add("new_personal_record");
-  const distances = new Set(finished.map((reg) => normalizeDistanceLabel(getMarathon(reg.marathon_id)?.distance)));
+  const canonicalPRs = new Set(canonicalPRRegistrations());
+  if (finished.some((reg) => canonicalPRs.has(reg.id) || reg.is_pr)) add("new_personal_record");
+  const distances = new Set(finished.map((reg) => registrationDistance(reg, getMarathon(reg.marathon_id))));
   if (distances.has("10K")) add("first_10k");
   if (distances.has("Half Marathon")) add("first_half_marathon");
   if (distances.has("Marathon")) add("first_marathon");
@@ -3104,7 +3111,7 @@ function computeBadges(runnerId) {
   if (marathonPR?.time_seconds < 14400) add("sub_4_marathon");
   if (finished.length >= 5) add("five_races");
   if (finished.length >= 10) add("ten_races");
-  const totalKm = finished.reduce((total, reg) => total + (DISTANCE_KM[normalizeDistanceLabel(getMarathon(reg.marathon_id)?.distance)] || 0), 0);
+  const totalKm = finished.reduce((total, reg) => total + (getDistanceKmValue(registrationDistance(reg, getMarathon(reg.marathon_id))) || 0), 0);
   if (totalKm >= 1000) add("1000km");
   return storedBadges;
 
@@ -3418,7 +3425,7 @@ function renderProfile() {
     const races = regsForRunner(myRunner?.id)
       .map((r) => ({ r, marathon: getMarathon(r.marathon_id) }))
       .filter((x) => x.marathon)
-      .sort((a, b) => String(b.marathon.race_date).localeCompare(String(a.marathon.race_date)));
+      .sort((a, b) => String(b.marathon.race_date || "").localeCompare(String(a.marathon.race_date || "")) || String(b.r.id).localeCompare(String(a.r.id)));
     if (!races.length) {
       historyEl.innerHTML = `<div class="empty"><strong>No race history yet</strong>Log a result to see it here.</div>`;
     } else {

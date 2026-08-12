@@ -127,18 +127,18 @@ begin
   insert into public.personal_records
     (group_id, runner_id, distance, time_seconds, pace_seconds_per_km,
      race_date, race_name, location, is_new_pr)
-  select distinct on (public.pp_distance_label(coalesce(r.race_distance, m.distance)))
-    r.group_id, r.runner_id, public.pp_distance_label(coalesce(r.race_distance, m.distance)),
+  select distinct on (public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance)))
+    r.group_id, r.runner_id, public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance)),
     coalesce(public.pp_time_seconds(r.chip_time), public.pp_time_seconds(r.gun_time)),
     coalesce(public.pp_time_seconds(r.chip_time), public.pp_time_seconds(r.gun_time))
-      / nullif(public.pp_distance_km(coalesce(r.race_distance, m.distance)), 0),
+      / nullif(public.pp_distance_km(coalesce(nullif(btrim(r.race_distance), ''), m.distance)), 0),
     m.race_date, m.name, m.location, true
   from public.registrations r
   join public.marathons m on m.id = r.marathon_id
   where r.runner_id = p_runner_id
     and (r.status in ('completed','dnf') or public.pp_time_seconds(r.chip_time) is not null or public.pp_time_seconds(r.gun_time) is not null)
     and coalesce(public.pp_time_seconds(r.chip_time), public.pp_time_seconds(r.gun_time)) is not null
-  order by public.pp_distance_label(coalesce(r.race_distance, m.distance)),
+  order by public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance)),
     coalesce(public.pp_time_seconds(r.chip_time), public.pp_time_seconds(r.gun_time)),
     m.race_date, r.id;
 
@@ -154,7 +154,7 @@ begin
       select 1 from public.registrations earlier
       join public.marathons em on em.id = earlier.marathon_id
       where earlier.runner_id = r.runner_id
-        and public.pp_distance_label(coalesce(earlier.race_distance, em.distance)) = public.pp_distance_label(coalesce(r.race_distance, m.distance))
+        and public.pp_distance_label(coalesce(nullif(btrim(earlier.race_distance), ''), em.distance)) = public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance))
         and (earlier.status in ('completed','dnf') or public.pp_time_seconds(earlier.chip_time) is not null or public.pp_time_seconds(earlier.gun_time) is not null)
         and coalesce(public.pp_time_seconds(earlier.chip_time), public.pp_time_seconds(earlier.gun_time)) is not null
         and (em.race_date, earlier.id) < (m.race_date, r.id)
@@ -170,16 +170,16 @@ begin
   insert into public.runner_badges (group_id, runner_id, badge_key)
   select v_group_id, p_runner_id, badge_key
   from (
-    select 'first_race' badge_key where exists (select 1 from public.registrations where runner_id = p_runner_id and is_pr)
-    union all select 'new_personal_record' where exists (select 1 from public.registrations where runner_id = p_runner_id and is_pr)
-    union all select 'first_10k' where exists (select 1 from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and public.pp_distance_label(coalesce(r.race_distance, m.distance))='10K' and r.is_pr)
-    union all select 'first_half_marathon' where exists (select 1 from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and public.pp_distance_label(coalesce(r.race_distance, m.distance))='Half Marathon' and r.is_pr)
-    union all select 'first_marathon' where exists (select 1 from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and public.pp_distance_label(coalesce(r.race_distance, m.distance))='Marathon' and r.is_pr)
+    select 'first_race' badge_key where exists (select 1 from public.registrations where runner_id = p_runner_id and (status in ('completed','dnf') or public.pp_time_seconds(chip_time) is not null or public.pp_time_seconds(gun_time) is not null))
+    union all select 'new_personal_record' where exists (select 1 from public.registrations where runner_id = p_runner_id and (status in ('completed','dnf') or public.pp_time_seconds(chip_time) is not null or public.pp_time_seconds(gun_time) is not null))
+    union all select 'first_10k' where exists (select 1 from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance))='10K' and (r.status in ('completed','dnf') or public.pp_time_seconds(r.chip_time) is not null or public.pp_time_seconds(r.gun_time) is not null))
+    union all select 'first_half_marathon' where exists (select 1 from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance))='Half Marathon' and (r.status in ('completed','dnf') or public.pp_time_seconds(r.chip_time) is not null or public.pp_time_seconds(r.gun_time) is not null))
+    union all select 'first_marathon' where exists (select 1 from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and public.pp_distance_label(coalesce(nullif(btrim(r.race_distance), ''), m.distance))='Marathon' and (r.status in ('completed','dnf') or public.pp_time_seconds(r.chip_time) is not null or public.pp_time_seconds(r.gun_time) is not null))
     union all select 'sub_5_marathon' where exists (select 1 from public.personal_records where runner_id=p_runner_id and distance='Marathon' and time_seconds < 18000)
     union all select 'sub_4_marathon' where exists (select 1 from public.personal_records where runner_id=p_runner_id and distance='Marathon' and time_seconds < 14400)
     union all select 'five_races' where (select count(*) from public.registrations where runner_id=p_runner_id and (status in ('completed','dnf') or public.pp_time_seconds(chip_time) is not null or public.pp_time_seconds(gun_time) is not null)) >= 5
     union all select 'ten_races' where (select count(*) from public.registrations where runner_id=p_runner_id and (status in ('completed','dnf') or public.pp_time_seconds(chip_time) is not null or public.pp_time_seconds(gun_time) is not null)) >= 10
-    union all select '1000km' where (select coalesce(sum(public.pp_distance_km(coalesce(r.race_distance, m.distance))),0) from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and (r.status in ('completed','dnf') or public.pp_time_seconds(r.chip_time) is not null or public.pp_time_seconds(r.gun_time) is not null)) >= 1000
+    union all select '1000km' where (select coalesce(sum(public.pp_distance_km(coalesce(nullif(btrim(r.race_distance), ''), m.distance))),0) from public.registrations r join public.marathons m on m.id=r.marathon_id where r.runner_id=p_runner_id and (r.status in ('completed','dnf') or public.pp_time_seconds(r.chip_time) is not null or public.pp_time_seconds(r.gun_time) is not null)) >= 1000
   ) awards
   on conflict (runner_id, badge_key) do nothing;
 end;
