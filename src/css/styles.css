@@ -240,6 +240,16 @@ button {
   max-width: 100%;
 }
 
+/* Installed PWA on phone/tablet widths: logo only */
+@media (max-width: 900px) and (display-mode: standalone),
+       (max-width: 900px) and (display-mode: fullscreen),
+       (max-width: 900px) and (display-mode: minimal-ui) {
+  .top-nav-brand h1,
+  .top-nav-brand #brand-title {
+    display: none;
+  }
+}
+
 .top-nav-user {
   display: flex;
   align-items: center;
@@ -2309,8 +2319,14 @@ button {
     padding: 0.55rem 1rem;
   }
 
-  .top-nav-brand h1 {
-    font-size: 0.95rem;
+  /* Mobile / compact layout: logo only (group name takes too much space) */
+  .top-nav-brand h1,
+  .top-nav-brand #brand-title {
+    display: none;
+  }
+
+  .top-nav-brand {
+    gap: 0.5rem;
   }
 
   .top-nav-brand .sidebar-toggle-mobile {
