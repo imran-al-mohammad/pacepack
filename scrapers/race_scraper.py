@@ -560,36 +560,169 @@ def scrape_race(url: str) -> dict:
     return scraper.scrape_race(url)
 
 
+# ─── Confirmation / Summary Helpers ────────────────────────────────────────────
+
+def _display_value(value: Any, missing: str = "— not found —") -> str:
+    """
+    Format a single field for terminal display.
+    Missing / empty values show a clear placeholder instead of crashing.
+    """
+    if value is None:
+        return missing
+    if isinstance(value, list):
+        if not value:
+            return missing
+        return ", ".join(str(v) for v in value if v)
+    text = str(value).strip()
+    return text if text else missing
+
+
+def format_race_summary(race_data: Dict[str, Any], max_description_len: int = 280) -> str:
+    """
+    Build a clean, human-readable summary of scraped race data.
+
+    Includes (when present):
+      name, date, start time, location, distances, registration URL,
+      registration deadline, organizer, entry fee, short description.
+
+    Args:
+        race_data: Dict from scrape_race() / RaceData.to_dict()
+        max_description_len: Truncate long descriptions for the terminal
+
+    Returns:
+        Multi-line string ready to print
+    """
+    data = race_data or {}
+
+    description = data.get("description")
+    if isinstance(description, str) and len(description) > max_description_len:
+        description = description[: max_description_len - 1].rstrip() + "…"
+
+    # Prefer registration_url, fall back to source_url
+    reg_url = data.get("registration_url") or data.get("source_url")
+
+    rows = [
+        ("🏁 Race Name", data.get("name")),
+        ("📅 Date", data.get("date")),
+        ("⏰ Start Time", data.get("start_time")),
+        ("📍 Location", data.get("location")),
+        ("🏃 Distances", data.get("distances")),
+        ("🔗 Registration URL", reg_url),
+        ("📆 Registration Deadline", data.get("registration_deadline")),
+        ("🏢 Organizer", data.get("organizer")),
+        ("💰 Entry Fee", data.get("entry_fee")),
+        ("📝 Description", description),
+    ]
+
+    width = 70
+    lines = [
+        "",
+        "╔" + "═" * (width - 2) + "╗",
+        "║" + " SCRAPED RACE SUMMARY ".center(width - 2) + "║",
+        "╚" + "═" * (width - 2) + "╝",
+        "",
+    ]
+
+    for label, value in rows:
+        display = _display_value(value)
+        # Put long descriptions on following indented lines
+        if label.startswith("📝") and len(display) > 48:
+            lines.append(f"  {label}:")
+            chunk_size = width - 6
+            for i in range(0, len(display), chunk_size):
+                lines.append("    " + display[i : i + chunk_size])
+        else:
+            lines.append(f"  {label}: {display}")
+
+    lines.append("")
+    lines.append("─" * width)
+    return "\n".join(lines)
+
+
+def print_race_summary(race_data: Dict[str, Any]) -> None:
+    """Print the scraped race summary to the terminal."""
+    print(format_race_summary(race_data))
+
+
+def confirm_save(
+    prompt: str = "Do you want to save this race? (y/n): ",
+    *,
+    default_no: bool = True,
+) -> bool:
+    """
+    Ask the user for yes/no confirmation before saving.
+
+    Accepts: y, yes (case-insensitive) → True
+             n, no, empty (if default_no) → False
+
+    Args:
+        prompt: Question shown in the terminal
+        default_no: If True, empty input means cancel (safer for DB writes)
+
+    Returns:
+        True if the user confirmed save, False if cancelled
+    """
+    try:
+        raw = input(prompt).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        # Non-interactive or Ctrl+C → treat as cancel
+        print()
+        return False
+
+    if not raw:
+        return not default_no
+
+    if raw in ("y", "yes"):
+        return True
+    if raw in ("n", "no"):
+        return False
+
+    # Unclear answer — ask once more
+    print("  Please answer with y/yes or n/no.")
+    try:
+        raw = input(prompt).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+    return raw in ("y", "yes")
+
+
 # ─── CLI Interface ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) < 2:
         print("Usage: python race_scraper.py <url>")
         print("\nExample:")
         print("  python race_scraper.py https://example.com/race-signup")
+        print("\nFlow: scrape → show summary → confirm → save JSON (only if yes)")
         sys.exit(1)
-    
+
     url = sys.argv[1]
-    
+
     try:
-        print(f"Scraping: {url}\n")
+        # 1) Scrape (existing logic — no side effects)
+        print(f"🔍 Scraping: {url}\n")
         data = scrape_race(url)
-        
-        print("=" * 60)
-        print("EXTRACTED RACE DATA")
-        print("=" * 60)
-        print(json.dumps(data, indent=2, ensure_ascii=False))
-        print("=" * 60)
-        
-        # Save to file
+        print("✅ Scraping complete.")
+
+        # 2) Show summary — do NOT save yet
+        print_race_summary(data)
+
+        # 3) Confirmation gate
+        if not confirm_save("💾 Do you want to save this race to race_data.json? (y/n): "):
+            print("\n🚫 Cancelled. Data was not saved.")
+            sys.exit(0)
+
+        # 4) Save only after explicit yes
         output_file = "race_data.json"
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        
-        print(f"\n✓ Data saved to: {output_file}")
-        
+
+        print(f"\n✅ Data saved to: {output_file}")
+
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"❌ Error: {e}", file=sys.stderr)
         sys.exit(1)
