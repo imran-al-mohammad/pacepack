@@ -3016,7 +3016,7 @@ function renderProfile() {
   const prTbody = document.getElementById("profile-pr-tbody");
   if (prTbody) {
     if (!prs.length) {
-      prTbody.innerHTML = `<tr><td colspan="6"><div class="empty" style="border:none;margin:0.5rem"><strong>No PRs yet</strong>Add a PR or log a race result.</div></td></tr>`;
+      prTbody.innerHTML = `<tr><td colspan="6"><div class="empty" style="border:none;margin:0.5rem"><strong>No PRs yet</strong>Complete a race and your best time will appear here automatically.</div></td></tr>`;
     } else {
       const fastest = prs.reduce((a, b) =>
         (b.pace_seconds_per_km != null && (a.pace_seconds_per_km == null || b.pace_seconds_per_km < a.pace_seconds_per_km)) ? b : a
@@ -3033,11 +3033,6 @@ function renderProfile() {
             <td>${escapeHtml(pr.race_name || "—")}${pr.location ? ` <span class="text-dim">· ${escapeHtml(pr.location)}</span>` : ""}</td>
             <td>
               ${isNew ? `<span class="badge badge-pr">New PR</span>` : ""}
-              ${canEditRunnerProfile(myRunner) ? `
-                <div class="actions">
-                  <button class="btn btn-ghost btn-sm" data-action="edit-pr" data-id="${pr.id}">Edit</button>
-                  ${pr.derived ? "" : `<button class="btn btn-danger btn-sm" data-action="delete-pr" data-id="${pr.id}">Delete</button>`}
-                </div>` : ""}
             </td>
           </tr>`;
       }).join("");
@@ -5171,19 +5166,9 @@ function wireAppUi() {
     document.getElementById(id)?.addEventListener("change", () => renderResults());
   });
 
-  // Profile: share link + public toggle + add PR
+  // Profile: share link + public toggle. PRs are result-derived.
   document.getElementById("btn-copy-share-link")?.addEventListener("click", copyShareLink);
   document.getElementById("profile-public-toggle")?.addEventListener("change", togglePublicProfile);
-  document.getElementById("btn-add-pr")?.addEventListener("click", () => openPrForm());
-
-  // PR table actions (delegated)
-  document.getElementById("profile-pr-tbody")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-action]");
-    if (!btn) return;
-    const id = btn.dataset.id;
-    if (btn.dataset.action === "edit-pr") openPrForm(id);
-    if (btn.dataset.action === "delete-pr") deletePr(id);
-  });
 
   // Notification settings form
   document.getElementById("form-notification-settings")?.addEventListener("submit", async (e) => {

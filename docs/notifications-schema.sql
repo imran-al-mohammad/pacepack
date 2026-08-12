@@ -31,7 +31,7 @@ create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   group_id uuid not null references public.groups (id) on delete cascade,
-  type text not null check (type in ('new_marathon', 'result_added', 'race_reminder')),
+  type text not null check (type in ('new_marathon', 'result_added', 'race_reminder', 'pr_detected', 'badge_earned')),
   title text not null,
   body text not null default '',
   data jsonb not null default '{}'::jsonb,
