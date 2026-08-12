@@ -46,6 +46,8 @@ A full-featured, multi-user web app for running clubs to track marathons, runner
 
 Run `docs/MIGRATE-ALL.sql` in the SQL Editor to add all missing columns, tables, functions, indexes, and RLS policies. This script is idempotent and safe to re-run.
 
+Then run `docs/automated-analytics.sql`. It backfills system PRs, historical PR flags, earned badges, and runner join dates from registrations and race dates. It also installs the registration trigger and the authenticated `recalculate_group_analytics(group_id)` RPC for future recalculation. Re-running it is safe; automated PR rows are rebuilt from canonical results and unknown/manual badge keys are preserved.
+
 ### 5. Configure the App
 
 Edit `config.js` with your Supabase URL and anon key:

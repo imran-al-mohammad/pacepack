@@ -2064,6 +2064,7 @@ function renderCompactDashboardAnalytics() {
   const smartInsights = [];
   if (zeroSignupRaces.length) smartInsights.push(`${zeroSignupRaces.length} race${zeroSignupRaces.length === 1 ? "" : "s"} still have zero signups`);
   if (fastest) smartInsights.push(`${fastest.name} is currently fastest at ${fastest.best_pace_display}/km`);
+  if (state.runnerBadges.length) smartInsights.push(`${state.runnerBadges.length} achievement${state.runnerBadges.length === 1 ? "" : "s"} earned across the club`);
   if (popularRace?.count) smartInsights.push(`Most popular race: ${popularRace.race.name} with ${popularRace.count} signup${popularRace.count === 1 ? "" : "s"}`);
   const waitlisted = state.registrations.filter((r) => r.status === "waitlisted").length;
   if (waitlisted) smartInsights.push(`${waitlisted} runner${waitlisted === 1 ? "" : "s"} on the waitlist need follow-up`);
@@ -2850,36 +2851,11 @@ function canViewRunnerProfile(runner) {
   return !!runner.public_profile_enabled;
 }
 
-/** PRs for a runner: from personal_records, plus derived from race results (is_pr). */
+/** System-owned PRs. Race results are recalculated by the database trigger/RPC. */
 function getRunnerPRs(runnerId) {
-  const stored = state.personalRecords.filter((pr) => pr.runner_id === runnerId) || [];
-  // Derive PRs from race results flagged as PRs
-  const derived = [];
-  const seenDistances = new Set(stored.map((pr) => pr.distance));
-  for (const r of state.registrations) {
-    if (r.runner_id !== runnerId || !r.is_pr) continue;
-    const marathon = getMarathon(r.marathon_id);
-    if (!marathon) continue;
-    const seconds = bestFinishSeconds(r);
-    if (seconds == null) continue;
-    const km = DISTANCE_KM[marathon.distance];
-    if (km == null) continue;
-    if (seenDistances.has(marathon.distance)) continue;
-    seenDistances.add(marathon.distance);
-    derived.push({
-      id: `derived-${r.id}`,
-      runner_id: runnerId,
-      distance: marathon.distance,
-      time_seconds: seconds,
-      pace_seconds_per_km: seconds / km,
-      race_date: marathon.race_date,
-      race_name: marathon.name,
-      location: marathon.location,
-      is_new_pr: true,
-      derived: true,
-    });
-  }
-  return [...derived, ...stored];
+  return state.personalRecords
+    .filter((pr) => pr.runner_id === runnerId)
+    .sort((a, b) => String(a.distance).localeCompare(String(b.distance)));
 }
 
 /** Compute performance stats for a runner from race results + PRs. */
@@ -2986,6 +2962,27 @@ function derivePaceGroup(prs) {
 
 /** Compute badges for a runner. */
 function computeBadges(runnerId) {
+  // Badge awards are system-owned. The database backfill/trigger is the
+  // source of truth; do not re-award browser-only badges from partial state.
+  const systemLabels = {
+    first_race: ["First Race", "🏁"],
+    new_personal_record: ["New Personal Record", "🏅"],
+    first_10k: ["First 10K", "🏃"],
+    first_half_marathon: ["First Half Marathon", "🎖"],
+    first_marathon: ["First Marathon", "🎖"],
+    sub_5_marathon: ["Sub-5:00 Marathon", "⚡"],
+    sub_4_marathon: ["Sub-4:00 Marathon", "⚡"],
+    five_races: ["5 Races Completed", "🏁"],
+    ten_races: ["10 Races Completed", "🏆"],
+    "1000km": ["1000 km Club", "🏅"],
+  };
+  return state.runnerBadges
+    .filter((badge) => badge.runner_id === runnerId)
+    .map((badge) => {
+      const [label, icon] = systemLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "🏅"];
+      return { key: badge.badge_key, label, icon, awardedAt: badge.awarded_at };
+    });
+
   const badges = [];
   const regs = regsForRunner(runnerId);
   const timed = regs.filter((r) => displayFinishTime(r));
@@ -5009,11 +5006,6 @@ function openResultForm(registrationId, defaults = {}) {
           place_overall: document.getElementById("res-place").value.trim(),
           place_gender: document.getElementById("res-place-g").value.trim(),
           place_age_group: document.getElementById("res-place-ag").value.trim(),
-          is_pr: computePersonalRecord({
-            ...reg,
-            gun_time,
-            chip_time,
-          }, marathon),
           result_notes: document.getElementById("res-notes").value.trim(),
         };
 
@@ -5040,7 +5032,6 @@ async function saveProfile() {
   const imageUrl = document.getElementById("profile-image-url").value.trim();
   const newPass = document.getElementById("profile-password").value;
   const confirmPass = document.getElementById("profile-password-confirm").value;
-  const joinDate = document.getElementById("profile-join-date")?.value || null;
   const paceGroup = document.getElementById("profile-pace-group")?.value || "";
   const errEl = document.getElementById("profile-error");
   errEl.hidden = true;
@@ -5099,9 +5090,8 @@ async function saveProfile() {
       name,
       email: session.user.email || linked.email || "",
     });
-    // Save join date + pace group on the runner
+    // Join date is system-owned and comes from the runner's earliest race.
     const runnerPatch = {};
-    if (joinDate && linked.join_date !== joinDate) runnerPatch.join_date = joinDate;
     if (paceGroup && linked.pace_group !== paceGroup) runnerPatch.pace_group = paceGroup;
     if (Object.keys(runnerPatch).length) {
       const { error } = await sb.from("runners").update(runnerPatch).eq("id", linked.id);

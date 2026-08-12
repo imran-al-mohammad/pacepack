@@ -5,6 +5,12 @@ Actions, or a local admin machine. They do not run a web server.
 
 ## Achievement sync
 
+For the primary Supabase path, apply `docs/automated-analytics.sql`. Its
+database trigger recalculates PRs, historical `is_pr` flags, badges, and join
+dates whenever a result changes, and its final statement performs the initial
+all-runner backfill. The script below remains useful for protected scheduled
+notification/community announcements and snapshot dry-runs.
+
 The job reads runners, races, registrations, existing PRs/badges, memberships,
 posts, and notifications. It then detects faster finishes, upserts PRs, awards
 eligible badges, and creates short posts/notifications. Re-running it is safe:
