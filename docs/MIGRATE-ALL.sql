@@ -71,6 +71,24 @@ create table if not exists public.runner_badges (
 create index if not exists runner_badges_group_idx on public.runner_badges (group_id);
 create index if not exists runner_badges_runner_idx on public.runner_badges (runner_id);
 
+-- Community Posts table (topics + replies)
+create table if not exists public.community_posts (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  runner_id uuid references public.runners (id) on delete set null,
+  title text,
+  content text not null,
+  parent_id uuid references public.community_posts (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists community_posts_group_idx on public.community_posts (group_id);
+create index if not exists community_posts_parent_idx on public.community_posts (parent_id);
+create index if not exists community_posts_user_idx on public.community_posts (user_id);
+create index if not exists community_posts_created_idx on public.community_posts (group_id, created_at desc);
+
 -- =============================================================================
 -- 3. CREATE UNIQUE INDEXES
 -- =============================================================================
@@ -103,6 +121,10 @@ $$;
 -- updated_at triggers for new tables
 drop trigger if exists personal_records_updated on public.personal_records;
 create trigger personal_records_updated before update on public.personal_records
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists community_posts_updated on public.community_posts;
+create trigger community_posts_updated before update on public.community_posts
   for each row execute function public.set_updated_at();
 
 -- updated_at triggers for existing tables (safe to re-run)
@@ -161,6 +183,7 @@ grant execute on function public.get_vapid_public_key() to authenticated;
 
 alter table public.personal_records enable row level security;
 alter table public.runner_badges enable row level security;
+alter table public.community_posts enable row level security;
 
 -- =============================================================================
 -- 7. CREATE RLS POLICIES FOR NEW TABLES
@@ -223,12 +246,32 @@ create policy runner_badges_insert on public.runner_badges for insert to authent
 create policy runner_badges_delete on public.runner_badges for delete to authenticated
   using (public.has_min_role(group_id, 'moderator'));
 
+-- Community Posts policies
+drop policy if exists community_posts_select on public.community_posts;
+drop policy if exists community_posts_insert on public.community_posts;
+drop policy if exists community_posts_update on public.community_posts;
+drop policy if exists community_posts_delete on public.community_posts;
+
+create policy community_posts_select on public.community_posts for select to authenticated
+  using (public.is_group_member(group_id));
+
+create policy community_posts_insert on public.community_posts for insert to authenticated
+  with check (public.has_min_role(group_id, 'member'));
+
+create policy community_posts_update on public.community_posts for update to authenticated
+  using (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'))
+  with check (public.has_min_role(group_id, 'member'));
+
+create policy community_posts_delete on public.community_posts for delete to authenticated
+  using (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'));
+
 -- =============================================================================
 -- 8. GRANT PERMISSIONS
 -- =============================================================================
 
 grant select, insert, update, delete on public.personal_records to authenticated;
 grant select, insert, update, delete on public.runner_badges to authenticated;
+grant select, insert, update, delete on public.community_posts to authenticated;
 
 -- =============================================================================
 -- 9. ENABLE REALTIME FOR NEW TABLES
@@ -236,6 +279,7 @@ grant select, insert, update, delete on public.runner_badges to authenticated;
 
 alter table public.personal_records replica identity full;
 alter table public.runner_badges replica identity full;
+alter table public.community_posts replica identity full;
 
 do $$
 begin
@@ -245,6 +289,10 @@ begin
   end;
   begin
     alter publication supabase_realtime add table public.runner_badges;
+  exception when duplicate_object then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.community_posts;
   exception when duplicate_object then null;
   end;
 end $$;

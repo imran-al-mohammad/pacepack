@@ -133,7 +133,7 @@
           <label for="gate-password-confirm">Confirm password *</label>
           <input class="input" id="gate-password-confirm" type="password" required minlength="6" autocomplete="new-password" />
         </div>
-        <button class="btn btn-primary btn-block" type="submit" id="btn-password-gate">Save &amp; continue</button>
+        <button class="btn btn-primary btn-block" type="submit" id="btn-password-gate">Save & continue</button>
       </form>
       <p class="auth-error" id="password-gate-error" hidden></p>
       <button type="button" class="btn btn-ghost" id="btn-signout-password-gate">Sign out</button>
@@ -193,8 +193,10 @@
         <button class="nav-item" data-view="marathons" title="Marathons"><span class="nav-icon">◎</span><span class="nav-label">Marathons</span></button>
         <button class="nav-item" data-view="members" title="Runners"><span class="nav-icon">◉</span><span class="nav-label">Runners</span></button>
         <button class="nav-item" data-view="registrations" title="Registrations"><span class="nav-icon">✓</span><span class="nav-label">Registrations</span></button>
-        <button class="nav-item" data-view="results" title="Results &amp; Times"><span class="nav-icon">⏱</span><span class="nav-label">Results &amp; Times</span></button>
-        <button class="nav-item" data-view="team" title="Team &amp; Access"><span class="nav-icon">⚙</span><span class="nav-label">Team &amp; Access</span></button>
+        <button class="nav-item" data-view="results" title="Results & Times"><span class="nav-icon">⏱</span><span class="nav-label">Results & Times</span></button>
+        <button class="nav-item" data-view="team" title="Team & Access"><span class="nav-icon">⚙</span><span class="nav-label">Team & Access</span></button>
+        <button class="nav-item" data-view="notifications" title="Notifications"><span class="nav-icon">🔔</span><span class="nav-label">Notifications</span></button>
+        <button class="nav-item" data-view="community" title="Community"><span class="nav-icon">??</span><span class="nav-label">Community</span></button>
         <button class="nav-item" data-view="profile" title="My Profile"><span class="nav-icon">☺</span><span class="nav-label">My Profile</span></button>
       </nav>
 
@@ -236,7 +238,7 @@
         <section class="analytics-visuals" id="analytics-visuals" aria-label="Visual analytics"></section>
         <div class="panel insights-panel">
           <div class="panel-header">
-            <h3>Analytics &amp; Insights</h3>
+            <h3>Analytics & Insights</h3>
             <p class="panel-hint">Generated from live group data</p>
           </div>
           <div id="insights-metrics" class="insights-metrics"></div>
@@ -363,6 +365,50 @@
             </thead>
             <tbody id="results-tbody"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-notifications">
+        <div class="share-layout team-layout">
+          <div class="panel" id="notification-settings-panel" hidden>
+            <div class="panel-header">
+              <h3>Notification Settings</h3>
+              <p class="panel-hint">Admins can configure which notifications are sent and how often. Changes apply immediately.</p>
+            </div>
+            <form id="form-notification-settings" class="form-grid">
+              <div class="notification-channel-list" id="notification-channel-list"></div>
+              <p class="form-section-title">Reminder Cadence</p>
+              <p class="panel-hint" style="margin:0">Add scheduled reminder points. Each row fires a notification at that offset before the race.</p>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Channel</th>
+                      <th>Days before</th>
+                      <th>Hour</th>
+                      <th>Frequency</th>
+                      <th>Relative to</th>
+                      <th>Enabled</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="notification-schedule-tbody"></tbody>
+                </table>
+              </div>
+              <div class="room-actions">
+                <button class="btn btn-secondary btn-sm" type="button" id="btn-add-schedule">+ Add schedule point</button>
+                <button class="btn btn-primary" type="submit" id="btn-save-notification-settings">Save settings</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel" id="notification-readonly-panel" hidden>
+            <div class="panel-header">
+              <h3>Notifications</h3>
+              <p class="panel-hint">Only admins can configure notification settings. Ask an admin to adjust the cadence.</p>
+            </div>
+            <div class="notification-readonly-summary" id="notification-readonly-summary"></div>
+          </div>
         </div>
       </section>
 
@@ -563,8 +609,8 @@
             <div class="panel-header">
               <h3>Team Roles</h3>
               <p class="panel-hint">
-                <strong>Admin</strong> — full control, create users &amp; roles ·
-                <strong>Moderator</strong> — manage races &amp; delete ·
+                <strong>Admin</strong> — full control, create users & roles ·
+                <strong>Moderator</strong> — manage races & delete ·
                 <strong>Member</strong> — add/update runners, races, results
               </p>
             </div>

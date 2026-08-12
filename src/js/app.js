@@ -37,6 +37,7 @@ const VIEW_META = {
   registrations: { title: "Registrations", desc: "Who is signed up for which race" },
   results: { title: "Results & Times", desc: "Finish times for registered runners only" },
   team: { title: "Team & Access", desc: "Create users, logo, roles, and permissions" },
+  notifications: { title: "Notifications", desc: "Configure notification channels and reminder cadence" },
   profile: { title: "My Profile", desc: "Photo, display name, and password" },
 };
 
@@ -66,6 +67,8 @@ let state = {
   unreadCount: 0,
   personalRecords: [],
   runnerBadges: [],
+  notificationSettings: null,
+  notificationSchedules: [],
 };
 
 let currentView = "dashboard";
@@ -126,6 +129,10 @@ function canAddRunners() {
 
 function canWrite() {
   return hasMinRole("member");
+}
+
+function canEdit() {
+  return hasMinRole("moderator");
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -497,6 +504,90 @@ function brandLogoHtml(url) {
   return DEFAULT_BRAND_SVG;
 }
 
+function updateFavicon(url) {
+  const src = (url || "").trim();
+  if (!src) return;
+  
+  // Update shortcut icon
+  let shortcutIcon = document.querySelector('link[rel="shortcut icon"]');
+  if (!shortcutIcon) {
+    shortcutIcon = document.createElement('link');
+    shortcutIcon.rel = 'shortcut icon';
+    document.head.appendChild(shortcutIcon);
+  }
+  shortcutIcon.href = src;
+  shortcutIcon.type = 'image/png';
+  
+  // Update standard favicon
+  let favicon = document.querySelector('link[rel="icon"]');
+  if (!favicon) {
+    favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    document.head.appendChild(favicon);
+  }
+  favicon.href = src;
+  favicon.type = 'image/png';
+  
+  // Update apple-touch-icons to use group logo
+  const appleIconSizes = ['48x48', '72x72', '96x96', '120x120', '144x144', '152x152', '167x167', '180x180', '192x192', '512x512'];
+  appleIconSizes.forEach(size => {
+    let appleIcon = document.querySelector(`link[rel="apple-touch-icon"][sizes="${size}"]`);
+    if (!appleIcon) {
+      appleIcon = document.createElement('link');
+      appleIcon.rel = 'apple-touch-icon';
+      appleIcon.setAttribute('sizes', size);
+      document.head.appendChild(appleIcon);
+    }
+    appleIcon.href = src;
+  });
+}
+
+function updateManifestIcons(url) {
+  const src = (url || "").trim();
+  if (!src) return;
+  
+  // Update the manifest to use group logo for all icons
+  const iconSizes = [
+    { sizes: '48x48', type: 'image/png' },
+    { sizes: '72x72', type: 'image/png' },
+    { sizes: '96x96', type: 'image/png' },
+    { sizes: '120x120', type: 'image/png' },
+    { sizes: '144x144', type: 'image/png' },
+    { sizes: '152x152', type: 'image/png' },
+    { sizes: '167x167', type: 'image/png' },
+    { sizes: '180x180', type: 'image/png' },
+    { sizes: '192x192', type: 'image/png' },
+    { sizes: '384x384', type: 'image/png' },
+    { sizes: '512x512', type: 'image/png' }
+  ];
+  
+  const manifest = {
+    name: document.querySelector('meta[name="application-name"]')?.content || "PacePack",
+    short_name: "PacePack",
+    description: "Online group race tracker for running clubs. Track marathons, runners, registrations, and results in real time.",
+    start_url: "./?source=pwa",
+    scope: "./",
+    display: "standalone",
+    display_override: ["window-controls", "minimal-ui"],
+    background_color: "#151515",
+    theme_color: "#151515",
+    orientation: "portrait-primary",
+    icons: iconSizes.map(icon => ({
+      src: src,
+      sizes: icon.sizes,
+      type: icon.type
+    }))
+  };
+  
+  // Update the manifest link
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  if (manifestLink) {
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const manifestUrl = URL.createObjectURL(blob);
+    manifestLink.href = manifestUrl;
+  }
+}
+
 function applyBrandLogo() {
   const cached = getBrandCache();
   const url = group?.logo_url || cached?.logo_url || "";
@@ -509,6 +600,10 @@ function applyBrandLogo() {
   document.querySelectorAll("[data-brand-title]").forEach((el) => {
     el.textContent = name;
   });
+  
+  // Update favicon and PWA icons with group logo
+  updateFavicon(url);
+  updateManifestIcons(url);
 }
 
 function cacheBrandFromGroup(g) {
@@ -615,7 +710,7 @@ async function loadGroupData() {
   if (!group) return;
   const gid = group.id;
 
-  const [m, r, reg, mem, pr, badges] = await Promise.all([
+  const [m, r, reg, mem, pr, badges, notifSettings, notifSchedules] = await Promise.all([
     sb.from("marathons").select("*").eq("group_id", gid).order("race_date"),
     sb.from("runners").select("*").eq("group_id", gid).order("name"),
     sb.from("registrations").select("*").eq("group_id", gid),
@@ -625,6 +720,8 @@ async function loadGroupData() {
       .eq("group_id", gid),
     sb.from("personal_records").select("*").eq("group_id", gid),
     sb.from("runner_badges").select("*").eq("group_id", gid),
+    sb.from("group_notification_settings").select("*").eq("group_id", gid).maybeSingle(),
+    sb.from("notification_schedules").select("*").eq("group_id", gid).order("channel").order("days_before"),
   ]);
 
   if (m.error) throw m.error;
@@ -639,6 +736,8 @@ async function loadGroupData() {
   state.registrations = reg.data || [];
   state.personalRecords = pr.data || [];
   state.runnerBadges = badges.data || [];
+  state.notificationSettings = notifSettings.data || null;
+  state.notificationSchedules = notifSchedules.data || [];
 
   const memberships = mem.data || [];
   const userIds = [...new Set(memberships.map((row) => row.user_id).filter(Boolean))];
@@ -699,7 +798,7 @@ function subscribeRealtime() {
     }
   };
 
-  ["marathons", "runners", "registrations", "group_memberships", "personal_records", "runner_badges"].forEach((table) => {
+  ["marathons", "runners", "registrations", "group_memberships", "personal_records", "runner_badges", "group_notification_settings", "notification_schedules"].forEach((table) => {
     const ch = sb
       .channel(`pp-${table}-${gid}`)
       .on(
@@ -1558,6 +1657,7 @@ function render() {
   if (currentView === "registrations") renderRegistrations();
   if (currentView === "results") renderResults();
   if (currentView === "team") renderTeam();
+  if (currentView === "notifications") renderNotifications();
   if (currentView === "profile") renderProfile();
 }
 
@@ -2108,7 +2208,7 @@ function renderMarathons() {
           <div class="card-actions">
             ${regButton}
             <button class="btn btn-ghost btn-sm" data-action="results" data-id="${m.id}">Results</button>
-            ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
+            ${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
             ${delBtn}
           </div>
         </div>
@@ -2169,7 +2269,7 @@ function renderRunners() {
           <span class="badge badge-count">${finishes.length} result${finishes.length === 1 ? "" : "s"}${prs ? ` · ${prs} PR` : ""}</span>
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" data-action="profile" data-id="${m.id}">View Profile</button>
-            ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
+            ${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
             ${delBtn}
           </div>
         </div>
@@ -2235,7 +2335,7 @@ function renderRegistrations() {
         <td>${marathon ? formatDate(marathon.race_date) : "—"}</td>
         <td>${statusBadge(r.status)}</td>
         <td><div class="actions">
-          ${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}
+          ${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}
           ${delBtn}
         </div></td>
       </tr>`;
@@ -2350,7 +2450,7 @@ function renderResults() {
         <td>${pace ? escapeHtml(pace.perKm) + "/km" : "—"}</td>
         <td>${r.place_overall ? escapeHtml(r.place_overall) : "—"}</td>
         <td>${r.place_gender ? escapeHtml(r.place_gender) : "—"}</td>
-        <td>${canWrite() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}</td>
+        <td>${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}</td>
       </tr>`;
   }).join("");
 
@@ -3042,6 +3142,202 @@ function openCompareModal(runnerId) {
   });
 }
 
+const NOTIFICATION_CHANNELS = [
+  { key: "enable_new_marathon", label: "New race added", desc: "Notify all members when a new race is added", icon: "🏁" },
+  { key: "enable_result_added", label: "Result logged", desc: "Notify all members when a result is entered", icon: "⏱" },
+  { key: "enable_race_reminders", label: "Race reminders", desc: "Remind registered runners before race start", icon: "🔔" },
+  { key: "enable_registration_nudge", label: "Registration nudge", desc: "Remind registered runners to confirm entry", icon: "📝" },
+  { key: "enable_race_announcement", label: "Race announcement", desc: "Announce upcoming races to all members", icon: "📣" },
+];
+
+const SCHEDULE_CHANNEL_LABELS = {
+  race_reminder: "Race reminder",
+  registration_nudge: "Registration nudge",
+  race_announcement: "Race announcement",
+};
+
+function renderNotifications() {
+  const settingsPanel = document.getElementById("notification-settings-panel");
+  const readonlyPanel = document.getElementById("notification-readonly-panel");
+  if (!settingsPanel || !readonlyPanel) return;
+
+  const isAdmin = canManageRoles();
+  settingsPanel.hidden = !isAdmin;
+  readonlyPanel.hidden = isAdmin;
+
+  if (isAdmin) {
+    renderNotificationSettingsForm();
+  } else {
+    renderNotificationReadonlySummary();
+  }
+}
+
+function renderNotificationSettingsForm() {
+  const channelList = document.getElementById("notification-channel-list");
+  const tbody = document.getElementById("notification-schedule-tbody");
+  if (!channelList || !tbody) return;
+
+  const settings = state.notificationSettings || {};
+  channelList.innerHTML = NOTIFICATION_CHANNELS.map((ch) => `
+    <label class="notification-channel-item">
+      <span class="notification-channel-icon">${ch.icon}</span>
+      <span class="notification-channel-text">
+        <strong>${escapeHtml(ch.label)}</strong>
+        <small>${escapeHtml(ch.desc)}</small>
+      </span>
+      <input type="checkbox" class="notification-channel-toggle" data-channel="${ch.key}" ${settings[ch.key] !== false ? "checked" : ""} />
+    </label>
+  `).join("");
+
+  const schedules = state.notificationSchedules || [];
+  if (!schedules.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty" style="border:none;margin:0.5rem"><strong>No schedule points yet</strong>Add one below.</div></td></tr>`;
+  } else {
+    tbody.innerHTML = schedules.map((s) => `
+      <tr data-schedule-id="${s.id}">
+        <td>
+          <select class="select" data-field="channel">
+            ${Object.entries(SCHEDULE_CHANNEL_LABELS).map(([val, label]) => `<option value="${val}" ${s.channel === val ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </td>
+        <td><input class="input" type="number" min="0" max="365" data-field="days_before" value="${s.days_before}" style="width:80px" /></td>
+        <td><input class="input" type="number" min="0" max="23" data-field="hours_before" value="${s.hours_before}" style="width:80px" /></td>
+        <td>
+          <select class="select" data-field="frequency">
+            <option value="once" ${s.frequency === "once" ? "selected" : ""}>Once</option>
+            <option value="daily" ${s.frequency === "daily" ? "selected" : ""}>Daily</option>
+          </select>
+        </td>
+        <td>
+          <select class="select" data-field="relative_to">
+            <option value="race_start" ${s.relative_to === "race_start" ? "selected" : ""}>Race start</option>
+            <option value="registration_deadline" ${s.relative_to === "registration_deadline" ? "selected" : ""}>Reg deadline</option>
+          </select>
+        </td>
+        <td><input type="checkbox" class="notification-channel-toggle" data-field="enabled" ${s.enabled ? "checked" : ""} /></td>
+        <td><button class="btn btn-danger btn-sm" data-action="delete-schedule" data-id="${s.id}">Remove</button></td>
+      </tr>
+    `).join("");
+  }
+
+  // Wire up delete buttons
+  tbody.querySelectorAll("[data-action='delete-schedule']").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Remove this schedule point?")) return;
+      try {
+        const { error } = await sb.from("notification_schedules").delete().eq("id", btn.dataset.id);
+        if (error) throw error;
+        toast("Schedule point removed");
+        await loadGroupData();
+        renderNotifications();
+      } catch (e) {
+        toast(errMsg(e), "error");
+      }
+    });
+  });
+}
+
+function renderNotificationReadonlySummary() {
+  const summary = document.getElementById("notification-readonly-summary");
+  if (!summary) return;
+
+  const settings = state.notificationSettings || {};
+  const enabled = NOTIFICATION_CHANNELS.filter((ch) => settings[ch.key] !== false);
+  const schedules = state.notificationSchedules || [];
+
+  summary.innerHTML = `
+    <div class="notification-readonly-list">
+      <p class="panel-hint" style="margin:0 0 0.75rem"><strong>Enabled channels:</strong></p>
+      <ul>
+        ${enabled.length ? enabled.map((ch) => `<li>${ch.icon} ${escapeHtml(ch.label)}</li>`).join("") : `<li>No channels enabled</li>`}
+      </ul>
+      ${schedules.length ? `
+        <p class="panel-hint" style="margin:1rem 0 0.75rem"><strong>Reminder cadence:</strong></p>
+        <ul>
+          ${schedules.map((s) => `<li>${escapeHtml(SCHEDULE_CHANNEL_LABELS[s.channel] || s.channel)} — ${s.days_before}d before at ${String(s.hours_before).padStart(2, "0")}:00 (${s.frequency})</li>`).join("")}
+        </ul>
+      ` : ""}
+    </div>`;
+}
+
+async function saveNotificationSettings() {
+  if (!canManageRoles()) return toast("Only admins can change notification settings", "error");
+  if (!group?.id) return toast("No group loaded", "error");
+
+  const settings = {};
+  NOTIFICATION_CHANNELS.forEach((ch) => {
+    const toggle = document.querySelector(`[data-channel="${ch.key}"]`);
+    settings[ch.key] = toggle ? toggle.checked : true;
+  });
+
+  try {
+    const { error } = await sb
+      .from("group_notification_settings")
+      .upsert({ group_id: group.id, ...settings });
+    if (error) throw error;
+
+    // Save schedule rows
+    const tbody = document.getElementById("notification-schedule-tbody");
+    if (tbody) {
+      const rows = tbody.querySelectorAll("tr[data-schedule-id]");
+      for (const row of rows) {
+        const id = row.dataset.scheduleId;
+        const payload = {
+          channel: row.querySelector('[data-field="channel"]').value,
+          days_before: parseInt(row.querySelector('[data-field="days_before"]').value, 10) || 0,
+          hours_before: parseInt(row.querySelector('[data-field="hours_before"]').value, 10) || 0,
+          frequency: row.querySelector('[data-field="frequency"]').value,
+          relative_to: row.querySelector('[data-field="relative_to"]').value,
+          enabled: row.querySelector('[data-field="enabled"]').checked,
+        };
+        const { error: sErr } = await sb.from("notification_schedules").update(payload).eq("id", id);
+        if (sErr) throw sErr;
+      }
+    }
+
+    toast("Notification settings saved");
+    await loadGroupData();
+    renderNotifications();
+  } catch (e) {
+    toast(errMsg(e), "error");
+  }
+}
+
+function addScheduleRow() {
+  const tbody = document.getElementById("notification-schedule-tbody");
+  if (!tbody) return;
+  const row = document.createElement("tr");
+  row.dataset.scheduleId = "new";
+  row.innerHTML = `
+    <td>
+      <select class="select" data-field="channel">
+        ${Object.entries(SCHEDULE_CHANNEL_LABELS).map(([val, label]) => `<option value="${val}">${label}</option>`).join("")}
+      </select>
+    </td>
+    <td><input class="input" type="number" min="0" max="365" data-field="days_before" value="1" style="width:80px" /></td>
+    <td><input class="input" type="number" min="0" max="23" data-field="hours_before" value="9" style="width:80px" /></td>
+    <td>
+      <select class="select" data-field="frequency">
+        <option value="once">Once</option>
+        <option value="daily">Daily</option>
+      </select>
+    </td>
+    <td>
+      <select class="select" data-field="relative_to">
+        <option value="race_start">Race start</option>
+        <option value="registration_deadline">Reg deadline</option>
+      </select>
+    </td>
+    <td><input type="checkbox" class="notification-channel-toggle" data-field="enabled" checked /></td>
+    <td><button class="btn btn-danger btn-sm" data-action="delete-schedule" data-id="new">Remove</button></td>
+  `;
+  tbody.appendChild(row);
+
+  row.querySelector("[data-action='delete-schedule']").addEventListener("click", () => {
+    row.remove();
+  });
+}
+
 function renderTeam() {
   const createPanel = document.getElementById("create-user-panel");
   if (createPanel) {
@@ -3140,8 +3436,12 @@ function renderTeam() {
 // ─── Forms / CRUD ────────────────────────────────────────────────────────────
 
 function openMarathonForm(id) {
-  if (!canWrite()) return toast("No permission", "error");
   const existing = id ? getMarathon(id) : null;
+
+  // Members can add marathons, moderators can edit
+  if (existing && !canEdit()) return toast("Only moderators can edit marathons", "error");
+  if (!existing && !canWrite()) return toast("No permission", "error");
+
   const distanceOptions = DISTANCES.map(
     (d) => `<option value="${d}" ${existing?.distance === d ? "selected" : ""}>${d}</option>`
   ).join("");
@@ -3150,6 +3450,16 @@ function openMarathonForm(id) {
     title: existing ? "Edit marathon" : "Add marathon",
     bodyHtml: `
       <form class="form-grid">
+        ${!existing ? `
+        <div class="field" style="grid-column: 1 / -1;">
+          <label for="m-scrape-url">Import from URL (optional)</label>
+          <div class="form-row">
+            <input class="input" id="m-scrape-url" type="url" placeholder="https://example.com/race-signup" style="flex:1" />
+            <button type="button" class="btn btn-secondary" id="m-scrape-btn">Scrape</button>
+          </div>
+          <p class="panel-hint" style="margin:0.35rem 0 0">Paste a race registration link to auto-fill the form</p>
+        </div>
+        ` : ""}
         <div class="field">
           <label for="m-name">Race name *</label>
           <input class="input" id="m-name" required value="${escapeHtml(existing?.name || "")}" />
@@ -3200,6 +3510,54 @@ function openMarathonForm(id) {
       <button class="btn btn-ghost" type="button" id="mf-cancel">Cancel</button>
       <button class="btn btn-primary" type="button" id="mf-save">Save</button>`,
     onMount() {
+      // Scrape from URL functionality
+      const scrapeBtn = document.getElementById("m-scrape-btn")
+      const scrapeUrlInput = document.getElementById("m-scrape-url")
+      
+      if (scrapeBtn && scrapeUrlInput) {
+        scrapeBtn.onclick = async () => {
+          const url = scrapeUrlInput.value.trim()
+          if (!url) {
+            return toast("Please enter a URL", "error")
+          }
+          
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            return toast("URL must start with http:// or https://", "error")
+          }
+          
+          scrapeBtn.disabled = true
+          scrapeBtn.textContent = "Scraping..."
+          
+          try {
+            // Call the scrape-race edge function
+            const { data, error } = await sb.functions.invoke('scrape-race', {
+              body: { url }
+            })
+            
+            if (error) {
+              throw error
+            }
+            
+            if (data?.error) {
+              throw new Error(data.error)
+            }
+            
+            if (data?.data) {
+              // Show confirmation dialog
+              showScrapeConfirmation(data.data)
+            } else {
+              throw new Error("No data received from scraper")
+            }
+          } catch (e) {
+            console.error("Scraping error:", e)
+            toast(e.message || "Failed to scrape race data", "error")
+          } finally {
+            scrapeBtn.disabled = false
+            scrapeBtn.textContent = "Scrape"
+          }
+        }
+      }
+      
       document.getElementById("mf-cancel").onclick = closeModal;
       document.getElementById("mf-save").onclick = async () => {
         const raceTimeRaw = document.getElementById("m-time").value.trim();
@@ -3283,12 +3641,123 @@ function confirmDeleteMarathon(id) {
   });
 }
 
-function openRunnerForm(id) {
-  if (!canWrite()) return toast("No permission", "error");
-  const existing = id ? getRunner(id) : null;
-  if (!existing && !canAddRunners()) {
-    return toast("Only moderators and admins can add runners", "error");
+/**
+ * Show confirmation dialog with scraped data and allow user to edit before saving
+ */
+function showScrapeConfirmation(data) {
+  const distanceOptions = DISTANCES.map(
+    (d) => `<option value="${d}">${d}</option>`
+  ).join("");
+  
+  // Find best matching distance
+  let selectedDistance = "Marathon";
+  if (data.distances && data.distances.length > 0) {
+    const match = DISTANCES.find(d => data.distances.includes(d));
+    if (match) selectedDistance = match;
   }
+
+  openModal({
+    title: "Confirm Scraped Data",
+    wide: true,
+    bodyHtml: `
+      <div class="scrape-preview">
+        <p class="panel-hint" style="margin:0 0 1rem">Review the scraped data below. Edit any field if needed, then click "Use This Data" to fill the form.</p>
+        
+        <form class="form-grid" id="scrape-confirm-form">
+          <div class="field">
+            <label for="sc-name">Race Name *</label>
+            <input class="input" id="sc-name" value="${escapeHtml(data.name || "")}" required />
+          </div>
+          
+          <div class="form-row">
+            <div class="field">
+              <label for="sc-date">Date *</label>
+              <input class="input" type="date" id="sc-date" value="${escapeHtml(data.date || "")}" required />
+            </div>
+            <div class="field">
+              <label for="sc-time">Start Time</label>
+              <input class="input" type="time" id="sc-time" value="${escapeHtml(data.start_time || "09:00")}" />
+            </div>
+          </div>
+          
+          <div class="field">
+            <label for="sc-distance">Distance</label>
+            <select class="select full" id="sc-distance">
+              ${distanceOptions}
+            </select>
+          </div>
+          
+          <div class="field">
+            <label for="sc-location">Location</label>
+            <input class="input" id="sc-location" value="${escapeHtml(data.location || "")}" />
+          </div>
+          
+          <div class="form-row">
+            <div class="field">
+              <label for="sc-deadline">Registration Deadline</label>
+              <input class="input" type="date" id="sc-deadline" value="${escapeHtml(data.registration_deadline || "")}" />
+            </div>
+            <div class="field">
+              <label for="sc-fee">Entry Fee</label>
+              <input class="input" id="sc-fee" value="${escapeHtml(data.entry_fee || "")}" />
+            </div>
+          </div>
+          
+          <div class="field">
+            <label for="sc-organizer">Organizer</label>
+            <input class="input" id="sc-organizer" value="${escapeHtml(data.organizer || "")}" />
+          </div>
+          
+          <div class="field">
+            <label for="sc-reg-link">Registration URL</label>
+            <input class="input" type="url" id="sc-reg-link" value="${escapeHtml(data.registration_url || "")}" />
+          </div>
+          
+          <div class="field">
+            <label for="sc-notes">Description / Notes</label>
+            <textarea class="textarea" id="sc-notes">${escapeHtml(data.description || "")}</textarea>
+          </div>
+        </form>
+      </div>`,
+    footerHtml: `
+      <button class="btn btn-ghost" id="sc-cancel">Cancel</button>
+      <button class="btn btn-primary" id="sc-confirm">Use This Data</button>`,
+    onMount() {
+      // Set the distance dropdown
+      const distanceSelect = document.getElementById("sc-distance")
+      if (distanceSelect && selectedDistance) {
+        distanceSelect.value = selectedDistance
+      }
+      
+      document.getElementById("sc-cancel").onclick = closeModal;
+      document.getElementById("sc-confirm").onclick = () => {
+        // Fill the main marathon form with the confirmed data
+        document.getElementById("m-name").value = document.getElementById("sc-name").value
+        document.getElementById("m-date").value = document.getElementById("sc-date").value
+        document.getElementById("m-time").value = document.getElementById("sc-time").value
+        document.getElementById("m-distance").value = document.getElementById("sc-distance").value
+        document.getElementById("m-location").value = document.getElementById("sc-location").value
+        document.getElementById("m-close-date").value = document.getElementById("sc-deadline").value
+        document.getElementById("m-notes").value = document.getElementById("sc-notes").value
+        document.getElementById("m-reg-link").value = document.getElementById("sc-reg-link").value
+        
+        // Close confirmation dialog
+        closeModal()
+        
+        // Show success message
+        toast("Data imported! Review and save the form.")
+      }
+    },
+  });
+}
+
+function openRunnerForm(id) {
+  const existing = id ? getRunner(id) : null;
+
+  // Moderators can add/edit runners
+  if (!canAddRunners()) return toast("Only moderators and admins can add runners", "error");
+  if (existing && !canEdit()) return toast("Only moderators can edit runners", "error");
+
   openModal({
     title: existing ? "Edit runner" : "Add runner",
     bodyHtml: `
@@ -3393,11 +3862,14 @@ function confirmDeleteRunner(id) {
 }
 
 function openRegistrationForm(id, defaults = {}) {
-  if (!canWrite()) return toast("No permission", "error");
+  const existing = id ? state.registrations.find((r) => r.id === id) : null;
+
+  // Members can add registrations, moderators can edit
+  if (existing && !canEdit()) return toast("Only moderators can edit registrations", "error");
+  if (!existing && !canWrite()) return toast("No permission", "error");
   if (!state.runners.length) return toast("Add a runner first", "error");
   if (!state.marathons.length) return toast("Add a marathon first", "error");
 
-  const existing = id ? state.registrations.find((r) => r.id === id) : null;
   // Registration form: entry statuses only (results use openResultForm)
   const regStatuses = STATUSES.filter((s) =>
     ["interested", "registered", "waitlisted"].includes(s.value)
@@ -3484,14 +3956,17 @@ function openRegistrationForm(id, defaults = {}) {
 
 /**
  * Enter / edit race results. Only works for runners already registered for the race.
+ * Members can add results, moderators can edit.
  */
 function openResultForm(registrationId, defaults = {}) {
-  if (!canWrite()) return toast("No permission", "error");
-  if (!state.marathons.length) return toast("Add a marathon first", "error");
-
   const existing = registrationId
     ? state.registrations.find((r) => r.id === registrationId)
     : null;
+
+  // Members can add results, moderators can edit
+  if (existing && !canEdit()) return toast("Only moderators can edit results", "error");
+  if (!existing && !canWrite()) return toast("No permission", "error");
+  if (!state.marathons.length) return toast("Add a marathon first", "error");
 
   const registeredEntries = state.registrations.filter((r) =>
     ["interested", "registered", "waitlisted", "completed", "dns", "dnf"].includes(r.status)
@@ -4031,6 +4506,13 @@ function wireAppUi() {
     if (btn.dataset.action === "edit-pr") openPrForm(id);
     if (btn.dataset.action === "delete-pr") deletePr(id);
   });
+
+  // Notification settings form
+  document.getElementById("form-notification-settings")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await saveNotificationSettings();
+  });
+  document.getElementById("btn-add-schedule")?.addEventListener("click", addScheduleRow);
 }
 
 // ─── Boot ────────────────────────────────────────────────────────────────────

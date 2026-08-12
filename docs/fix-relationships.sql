@@ -503,8 +503,8 @@ create policy runners_select on public.runners for select to authenticated
 create policy runners_insert on public.runners for insert to authenticated
   with check (public.has_min_role(group_id, 'moderator'));
 create policy runners_update on public.runners for update to authenticated
-  using (public.has_min_role(group_id, 'member'))
-  with check (public.has_min_role(group_id, 'member'));
+  using (public.has_min_role(group_id, 'moderator'))
+  with check (public.has_min_role(group_id, 'moderator'));
 create policy runners_delete on public.runners for delete to authenticated
   using (public.has_min_role(group_id, 'moderator'));
 
@@ -517,8 +517,8 @@ create policy marathons_select on public.marathons for select to authenticated
 create policy marathons_insert on public.marathons for insert to authenticated
   with check (public.has_min_role(group_id, 'member'));
 create policy marathons_update on public.marathons for update to authenticated
-  using (public.has_min_role(group_id, 'member'))
-  with check (public.has_min_role(group_id, 'member'));
+  using (public.has_min_role(group_id, 'moderator'))
+  with check (public.has_min_role(group_id, 'moderator'));
 create policy marathons_delete on public.marathons for delete to authenticated
   using (public.has_min_role(group_id, 'moderator'));
 
@@ -531,8 +531,8 @@ create policy registrations_select on public.registrations for select to authent
 create policy registrations_insert on public.registrations for insert to authenticated
   with check (public.has_min_role(group_id, 'member'));
 create policy registrations_update on public.registrations for update to authenticated
-  using (public.has_min_role(group_id, 'member'))
-  with check (public.has_min_role(group_id, 'member'));
+  using (public.has_min_role(group_id, 'moderator'))
+  with check (public.has_min_role(group_id, 'moderator'));
 create policy registrations_delete on public.registrations for delete to authenticated
   using (public.has_min_role(group_id, 'moderator'));
 
