@@ -12,8 +12,8 @@
  * It also shows how to invalidate specific cache keys when data is updated.
  *
  * Usage:
- *   <script src="cache.js"></script>
- *   <script src="cache-examples.js"></script>
+ *   <script src="../services/cache.js"></script>
+ *   <script src="./cache-examples.js"></script>
  *
  *   // Then call the example functions:
  *   const profile = await fetchUserProfile("user-uuid");

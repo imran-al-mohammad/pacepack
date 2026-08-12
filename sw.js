@@ -7,7 +7,7 @@
 // ─── Version: increment when assets change ─────────────────────────────────────
 // Update this string (or use a build step) whenever STATIC_ASSETS changes.
 // Must be declared BEFORE CACHE_NAME (const is not hoisted for use).
-const CACHE_VERSION = "20260813d";
+const CACHE_VERSION = "20260813i";
 const CACHE_NAME = `pacepack-v2-${CACHE_VERSION}`;
 const OFFLINE_PAGE = "offline.html";
 
@@ -19,9 +19,9 @@ const STATIC_ASSETS = [
   "./src/css/styles.css?v=20260813-profile-menu",
   "./src/js/app.js?v=20260813-profile-menu",
   "./config.js",
-  "./src/js/cache.js",
-  "./src/js/cache-examples.js",
-  "./src/js/insights.js",
+  "./src/js/services/cache.js",
+  "./src/js/dev/cache-examples.js",
+  "./src/js/analytics/insights.js",
   "./src/js/app.js",
   "./manifest.webmanifest",
   "./offline.html",
@@ -39,7 +39,7 @@ const STATIC_ASSETS = [
   // Supabase JS client (CDN)
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
   // Google Fonts
-  "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&display=swap",
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap",
 ];
 
 // ─── Install: pre-cache app shell ─────────────────────────────────────────────
@@ -108,8 +108,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "PacePack";
   const options = {
     body: data.body || "",
-    icon: data.icon || "/public/icons/icon-192.png",
-    badge: data.badge || "/public/icons/icon-72.png",
+    icon: data.icon || "./public/icons/icon-192.png",
+    badge: data.badge || "./public/icons/icon-72.png",
     data: data.data || {},
     tag: data.tag || `pp-${Date.now()}`,
     renotify: data.renotify !== false,

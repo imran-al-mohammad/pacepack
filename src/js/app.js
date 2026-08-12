@@ -2003,6 +2003,53 @@ function renderInsights() {
   }
 }
 
+function renderCompactDashboardAnalytics() {
+  const metricsEl = document.getElementById("insights-metrics");
+  const listEl = document.getElementById("insights-list");
+  const fastestSection = document.getElementById("fastest-runners-section");
+  if (!metricsEl || !listEl) return;
+
+  const report = typeof window.PacePackAnalytics?.analyze === "function"
+    ? window.PacePackAnalytics.analyze({ runners: state.runners, marathons: state.marathons, registrations: state.registrations })
+    : { metrics: {}, insights: [] };
+  const m = report.metrics || {};
+  const totalRegistrations = state.registrations.length;
+  const finished = state.registrations.filter((r) => r.status === "completed" || displayFinishTime(r)).length;
+  const completion = totalRegistrations ? Math.round((finished / totalRegistrations) * 100) : null;
+  const value = (v) => v == null ? "—" : v;
+
+  metricsEl.innerHTML = `
+    <div class="insight-metric"><p class="insight-metric-label">Participation rate</p><p class="insight-metric-value">${value(m.participation_rate_pct)}${m.participation_rate_pct != null ? "%" : ""}</p><p class="insight-metric-hint">Runners with at least one entry</p></div>
+    <div class="insight-metric"><p class="insight-metric-label">Results completion</p><p class="insight-metric-value">${value(completion)}${completion != null ? "%" : ""}</p><p class="insight-metric-hint">${finished} of ${totalRegistrations} registrations timed</p></div>
+    <div class="insight-metric"><p class="insight-metric-label">Avg signups / race</p><p class="insight-metric-value">${value(m.avg_signups_per_race)}</p><p class="insight-metric-hint">Average entries per marathon</p></div>
+    <div class="insight-metric"><p class="insight-metric-label">Group median finish</p><p class="insight-metric-value time-mono">${escapeHtml(m.median_finish_display || "—")}</p><p class="insight-metric-hint">Across all timed results</p></div>`;
+
+  const zeroSignupRaces = state.marathons.filter((race) => regsForMarathon(race.id).length === 0);
+  const popularRace = sortMarathons(state.marathons)
+    .map((race) => ({ race, count: regsForMarathon(race.id).length }))
+    .sort((a, b) => b.count - a.count)[0];
+  const fastest = m.fastest_runners?.[0];
+  const smartInsights = [];
+  if (zeroSignupRaces.length) smartInsights.push(`${zeroSignupRaces.length} race${zeroSignupRaces.length === 1 ? "" : "s"} still have zero signups`);
+  if (fastest) smartInsights.push(`${fastest.name} is currently fastest at ${fastest.best_pace_display}/km`);
+  if (popularRace?.count) smartInsights.push(`Most popular race: ${popularRace.race.name} with ${popularRace.count} signup${popularRace.count === 1 ? "" : "s"}`);
+  const waitlisted = state.registrations.filter((r) => r.status === "waitlisted").length;
+  if (waitlisted) smartInsights.push(`${waitlisted} runner${waitlisted === 1 ? "" : "s"} on the waitlist need follow-up`);
+  if (!smartInsights.length && !state.runners.length) smartInsights.push("Add runners and races to unlock group insights");
+  listEl.innerHTML = smartInsights.slice(0, 4).map((text) => `<li class="insight-item">${escapeHtml(text)}</li>`).join("");
+
+  const fastestRunners = (m.fastest_runners || []).slice(0, 5);
+  if (fastestSection) {
+    fastestSection.hidden = fastestRunners.length === 0;
+    const list = fastestSection.querySelector(".fastest-runners-list");
+    if (list) list.innerHTML = fastestRunners.map((runner, index) => `<div class="fastest-runner-item"><span class="fastest-runner-rank">${index + 1}</span><span class="fastest-runner-name">${escapeHtml(runner.name)}</span><span class="fastest-runner-pace time-mono">${escapeHtml(runner.best_pace_display)}/km</span><span class="fastest-runner-races">${runner.races} race${runner.races === 1 ? "" : "s"}</span></div>`).join("");
+  }
+
+  const active = computeLeaderboard().slice(0, 5);
+  const activeList = document.getElementById("leaderboard-list");
+  if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
+}
+
 function renderVisualAnalytics() {
   const container = document.getElementById("analytics-visuals");
   if (!container) return;
@@ -2026,10 +2073,6 @@ function renderVisualAnalytics() {
   const mixStyle = segments.length ? `background:conic-gradient(${segments.join(",")})` : "background:var(--bg-hover)";
 
   container.innerHTML = `
-    <div class="analytics-card analytics-completion-card">
-      <div class="analytics-card-head"><span class="analytics-eyebrow">Race outcomes</span><span class="analytics-trend">Live</span></div>
-      <div class="completion-content"><div class="completion-ring" style="--completion:${finishRate}%" role="img" aria-label="${finishRate}% of registrations have a logged result"><div><strong>${finishRate}%</strong><span>logged</span></div></div><div><p class="analytics-value">${finished}<span> / ${total}</span></p><p class="analytics-copy">Results recorded across the group</p></div></div>
-    </div>
     <div class="analytics-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Entry mix</span><span class="analytics-mini-total">${total} entries</span></div>
       <div class="status-donut-row"><div class="status-donut" style="${mixStyle}" role="img" aria-label="Registration status breakdown"><span>${total}</span></div><div class="status-legend">${activeStatuses.length ? activeStatuses.map((status) => `<div class="status-legend-item"><i style="background:${statusColors[status]}"></i><span>${escapeHtml(statusLabel(status))}</span><strong>${statusCounts[status]}</strong></div>`).join("") : `<p class="analytics-copy">Add registrations to see the mix.</p>`}</div></div>
@@ -2047,9 +2090,8 @@ function renderDashboard() {
   const completed = state.registrations.filter((r) => r.status === "completed").length;
   const withTimes = state.registrations.filter((r) => displayFinishTime(r)).length;
 
-  renderInsights();
+  renderCompactDashboardAnalytics();
   renderVisualAnalytics();
-  renderLeaderboardChart(computeLeaderboard());
 
   document.getElementById("stats-grid").innerHTML = `
     <div class="stat-card" style="--stat-color: var(--accent)">

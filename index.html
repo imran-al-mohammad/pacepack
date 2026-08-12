@@ -27,13 +27,13 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="src/css/styles.css?v=20260813-profile-menu" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="src/js/cache.js"></script>
-  <script src="src/js/cache-examples.js"></script>
-  <script src="src/js/insights.js?v=2"></script>
+  <script src="src/js/services/cache.js"></script>
+  <script src="src/js/dev/cache-examples.js"></script>
+  <script src="src/js/analytics/insights.js?v=2"></script>
 </head>
 <body>
   <!-- Loading -->
@@ -243,29 +243,32 @@
           </div>
         </div>
         <div class="stats-grid" id="stats-grid"></div>
-        <section class="analytics-visuals" id="analytics-visuals" aria-label="Visual analytics"></section>
         <div class="panel insights-panel">
           <div class="panel-header">
             <h3>Analytics & Insights</h3>
-            <p class="panel-hint">Generated from live group data</p>
+            <p class="panel-hint">Key group metrics and actionable signals</p>
           </div>
           <div id="insights-metrics" class="insights-metrics"></div>
           <ul id="insights-list" class="insights-list"></ul>
         </div>
+        <section class="analytics-visuals" id="analytics-visuals" aria-label="Visual analytics"></section>
+        <div class="dashboard-leaderboards">
         <div class="panel fastest-runners-panel" id="fastest-runners-section" hidden>
           <div class="panel-header">
             <h3>Fastest Runners</h3>
-            <p class="panel-hint">Top 10 by best race pace (seconds per km)</p>
+            <p class="panel-hint">Top 5 by best race pace</p>
           </div>
           <div class="fastest-runners-list"></div>
+          <button type="button" class="analytics-view-link" data-view="members">View full leaderboard</button>
         </div>
         <div class="panel leaderboard-panel">
           <div class="panel-header">
-            <h3>Runner Leaderboard</h3>
-            <p class="panel-hint">Score = finishes × 1 + PRs × 2 · Chart updates with live results</p>
+            <h3>Most Active / Top Contributors</h3>
+            <p class="panel-hint">Top 5 by finishes and consistency</p>
           </div>
-          <div id="leaderboard-chart" class="leaderboard-chart" aria-live="polite"></div>
           <div id="leaderboard-list" class="leaderboard-list"></div>
+          <button type="button" class="analytics-view-link" data-view="members">View full leaderboard</button>
+        </div>
         </div>
         <div class="dashboard-grid">
           <div class="panel">

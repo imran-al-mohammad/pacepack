@@ -11,7 +11,7 @@
  *   - Graceful degradation when localStorage is unavailable (SSR, private mode)
  *
  * Usage:
- *   <script src="cache.js"></script>
+ *   <script src="./services/cache.js"></script>
  *   <script>
  *     window.PacePackCache.setPrefix("myapp_");
  *     window.PacePackCache.setCache("user:123", { name: "Alex" }, 10 * 60);

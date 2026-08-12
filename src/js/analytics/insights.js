@@ -383,7 +383,7 @@
     });
 
     runnerPaces.sort((a, b) => a.best_pace_seconds - b.best_pace_seconds);
-    const fastestRunners = runnerPaces.slice(0, 10);
+    const fastestRunners = runnerPaces.slice(0, 5);
 
     metrics.fastest_runners = fastestRunners;
 

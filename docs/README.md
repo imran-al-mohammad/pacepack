@@ -142,7 +142,11 @@ pacepack/
 
 ## Analytics
 
-The analytics engine lives in `analytics/insights.py` and is exported to `src/js/insights.js` via `analytics/export_js.py`. The dashboard calls `PacePackAnalytics.analyze({ runners, marathons, registrations })` on every render.
+The analytics engine lives in `analytics/insights.py` and is exported to `src/js/analytics/insights.js` via `analytics/export_js.py`. The dashboard calls `PacePackAnalytics.analyze({ runners, marathons, registrations })` on every render.
+
+### Source layout
+
+Runtime JavaScript is grouped by responsibility: `src/js/services/` contains reusable browser services, `src/js/analytics/` contains the generated analytics client, and `src/js/dev/` contains optional development examples. The static entry points remain at the repository root for GitHub Pages compatibility.
 
 **Metrics include:**
 
