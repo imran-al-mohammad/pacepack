@@ -86,6 +86,7 @@ create table if not exists public.community_posts (
 );
 
 alter table public.community_posts add column if not exists is_pinned boolean not null default false;
+alter table public.community_posts add column if not exists post_type text not null default 'board';
 
 create index if not exists community_posts_group_idx on public.community_posts (group_id);
 create index if not exists community_posts_parent_idx on public.community_posts (parent_id);
@@ -259,14 +260,14 @@ create policy community_posts_select on public.community_posts for select to aut
   using (public.is_group_member(group_id));
 
 create policy community_posts_insert on public.community_posts for insert to authenticated
-  with check (public.has_min_role(group_id, 'member'));
+  with check (public.has_min_role(group_id, 'member') and (parent_id is not null or coalesce(post_type, 'board') = 'board'));
 
 create policy community_posts_update on public.community_posts for update to authenticated
-  using (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'))
-  with check (public.has_min_role(group_id, 'member'));
+  using ((coalesce(post_type, 'board') = 'announcement' and public.has_min_role(group_id, 'admin')) or (coalesce(post_type, 'board') <> 'announcement' and (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'))))
+  with check ((coalesce(post_type, 'board') = 'announcement' and public.has_min_role(group_id, 'admin')) or (coalesce(post_type, 'board') <> 'announcement' and public.has_min_role(group_id, 'member')));
 
 create policy community_posts_delete on public.community_posts for delete to authenticated
-  using (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'));
+  using ((coalesce(post_type, 'board') = 'announcement' and public.has_min_role(group_id, 'admin')) or (coalesce(post_type, 'board') <> 'announcement' and (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'))));
 
 -- =============================================================================
 -- 8. GRANT PERMISSIONS

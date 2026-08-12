@@ -52,6 +52,8 @@ Then run `docs/automated-analytics.sql`. It backfills system PRs, historical PR 
 
 Run `docs/race-distance-config.sql` after the migrations to enable admin-managed distance options and per-runner distances within the same race. Existing registrations inherit the race default; new or edited registrations/results can select a different configured distance.
 
+Run `docs/community-access-control.sql` after `community-schema.sql` to enforce that announcements are system-only. Members can comment on announcements and create community-board topics; only admins can edit or delete system announcements.
+
 Edit `config.js` with your Supabase URL and anon key:
 
 ```js

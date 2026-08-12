@@ -46,18 +46,30 @@ create policy community_posts_select on public.community_posts for select to aut
 -- Members can create posts (topics or replies)
 drop policy if exists community_posts_insert on public.community_posts;
 create policy community_posts_insert on public.community_posts for insert to authenticated
-  with check (public.has_min_role(group_id, 'member'));
+  with check (
+    public.has_min_role(group_id, 'member')
+    and (parent_id is not null or (coalesce(post_type, 'board') = 'board'))
+  );
 
 -- Authors can edit their own posts; moderators+ can edit any
 drop policy if exists community_posts_update on public.community_posts;
 create policy community_posts_update on public.community_posts for update to authenticated
-  using (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'))
-  with check (public.has_min_role(group_id, 'member'));
+  using (
+    (coalesce(post_type, 'board') = 'announcement' and public.has_min_role(group_id, 'admin'))
+    or (coalesce(post_type, 'board') <> 'announcement' and (user_id = auth.uid() or public.has_min_role(group_id, 'moderator')))
+  )
+  with check (
+    (coalesce(post_type, 'board') = 'announcement' and public.has_min_role(group_id, 'admin'))
+    or (coalesce(post_type, 'board') <> 'announcement' and public.has_min_role(group_id, 'member'))
+  );
 
 -- Authors can delete their own posts; moderators+ can delete any
 drop policy if exists community_posts_delete on public.community_posts;
 create policy community_posts_delete on public.community_posts for delete to authenticated
-  using (user_id = auth.uid() or public.has_min_role(group_id, 'moderator'));
+  using (
+    (coalesce(post_type, 'board') = 'announcement' and public.has_min_role(group_id, 'admin'))
+    or (coalesce(post_type, 'board') <> 'announcement' and (user_id = auth.uid() or public.has_min_role(group_id, 'moderator')))
+  );
 
 -- ─── Grants ───────────────────────────────────────────────────────────────────
 
