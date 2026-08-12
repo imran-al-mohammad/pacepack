@@ -3868,6 +3868,17 @@ function openMarathonForm(id) {
               )
             }
 
+            // Detect the default Supabase "Hello World" stub (not our scraper)
+            if (
+              typeof data?.message === "string" &&
+              /^Hello\b/i.test(data.message) &&
+              !data?.data
+            ) {
+              throw new Error(
+                'Wrong function deployed: still the "Hello World" template. Replace scrape-race with the code from supabase/functions/scrape-race/index.ts and redeploy.',
+              )
+            }
+
             if (data?.error) {
               throw new Error(data.error)
             }

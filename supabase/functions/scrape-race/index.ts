@@ -1,10 +1,13 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// PacePack race scraper — deploy THIS file (not the Hello World template)
+// Dashboard: Edge Functions → scrape-race → replace all code → Deploy
+// CLI: supabase functions deploy scrape-race --project-ref pzpsjifvlrpmxojyfkyh
+
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.45/deno-dom-wasm.ts"
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, prefer",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
@@ -15,10 +18,27 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-serve(async (req) => {
-  // Handle CORS preflight
+/** Parse JSON body without throwing on empty / non-JSON requests */
+async function readJsonBody(req: Request): Promise<Record<string, unknown>> {
+  const text = await req.text()
+  if (!text || !text.trim()) {
+    return {}
+  }
+  try {
+    const parsed = JSON.parse(text)
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+    return {}
+  } catch {
+    throw new Error("Invalid JSON body")
+  }
+}
+
+Deno.serve(async (req) => {
+  // CORS preflight — never read body here
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response("ok", { status: 200, headers: corsHeaders })
   }
 
   if (req.method !== "POST") {
@@ -26,17 +46,26 @@ serve(async (req) => {
   }
 
   try {
-    let payload: { url?: string }
+    let payload: Record<string, unknown>
     try {
-      payload = await req.json()
-    } catch {
-      return jsonResponse({ error: "Invalid JSON body" }, 400)
+      payload = await readJsonBody(req)
+    } catch (e) {
+      return jsonResponse(
+        { error: e instanceof Error ? e.message : "Invalid JSON body" },
+        400,
+      )
     }
 
     const url = typeof payload.url === "string" ? payload.url.trim() : ""
 
     if (!url) {
-      return jsonResponse({ error: "URL is required" }, 400)
+      return jsonResponse(
+        {
+          error: "URL is required",
+          details: 'POST JSON body: { "url": "https://example.com/race" }',
+        },
+        400,
+      )
     }
 
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -46,7 +75,7 @@ serve(async (req) => {
       )
     }
 
-    // Basic SSRF guard: only http(s), no localhost / private IPs
+    // Basic SSRF guard
     try {
       const parsed = new URL(url)
       const host = parsed.hostname.toLowerCase()
@@ -54,6 +83,7 @@ serve(async (req) => {
         host === "localhost" ||
         host === "127.0.0.1" ||
         host === "0.0.0.0" ||
+        host === "::1" ||
         host.endsWith(".local") ||
         host.startsWith("10.") ||
         host.startsWith("192.168.") ||
@@ -67,7 +97,6 @@ serve(async (req) => {
     }
 
     const raceData = await scrapeRaceData(url)
-
     return jsonResponse({ success: true, data: raceData })
   } catch (error) {
     console.error("Scraping error:", error)
@@ -84,9 +113,6 @@ serve(async (req) => {
   }
 })
 
-/**
- * Scrape race data from a registration / event page.
- */
 async function scrapeRaceData(url: string): Promise<Record<string, unknown>> {
   const response = await fetch(url, {
     headers: {
@@ -95,7 +121,6 @@ async function scrapeRaceData(url: string): Promise<Record<string, unknown>> {
       Accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
-      // Avoid advertising a referrer policy that some sites mishandle
       Referer: new URL(url).origin + "/",
     },
     redirect: "follow",
@@ -166,7 +191,6 @@ function extractName(doc: Doc): string | null {
 }
 
 function extractDate(doc: Doc): string | null {
-  // Prefer structured data / meta when available
   const eventTime =
     metaContent(doc, 'meta[property="event:start_time"]') ||
     metaContent(doc, 'meta[itemprop="startDate"]')
