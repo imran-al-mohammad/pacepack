@@ -457,6 +457,21 @@ function toast(message, type = "success") {
   }, 2800);
 }
 
+function setButtonBusy(button, pendingLabel) {
+  if (!button) return () => {};
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = pendingLabel;
+  return () => {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  };
+}
+
+function operationFailed(action, error) {
+  toast(`${action} failed: ${errMsg(error)}`, "error");
+}
+
 function openModal({ title, bodyHtml, footerHtml, onMount, wide }) {
   document.getElementById("modal-title").textContent = title;
   document.getElementById("modal-body").innerHTML = bodyHtml;
@@ -3702,14 +3717,17 @@ function renderNotificationSettingsForm() {
   tbody.querySelectorAll("[data-action='delete-schedule']").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Remove this schedule point?")) return;
+      const restoreButton = setButtonBusy(btn, "Removing…");
       try {
         const { error } = await sb.from("notification_schedules").delete().eq("id", btn.dataset.id);
         if (error) throw error;
-        toast("Schedule point removed");
+        toast("Reminder schedule removed successfully.");
         await loadGroupData();
         renderNotifications();
       } catch (e) {
-        toast(errMsg(e), "error");
+        operationFailed("Removing reminder schedule", e);
+      } finally {
+        restoreButton();
       }
     });
   });
@@ -3781,11 +3799,11 @@ async function saveNotificationSettings() {
       }
     }
 
-    toast("Notification settings saved");
+    toast("Notification settings updated successfully.");
     await loadGroupData();
     renderNotifications();
   } catch (e) {
-    toast(errMsg(e), "error");
+    operationFailed("Saving notification settings", e);
   }
 }
 
@@ -3990,10 +4008,19 @@ async function toggleCommunityPostPin(postId) {
   if (!hasMinRole("moderator")) return toast("Moderators can pin community posts", "error");
   const post = (state.communityPosts || []).find((item) => item.id === postId);
   if (!post) return;
-  const { error } = await sb.from("community_posts").update({ is_pinned: !post.is_pinned }).eq("id", postId);
-  if (error) return toast(errMsg(error), "error");
-  post.is_pinned = !post.is_pinned;
-  renderCommunity();
+  const button = document.querySelector(`[data-action='toggle-pin'][data-id='${postId}']`);
+  const restoreButton = setButtonBusy(button, post.is_pinned ? "Unpinning…" : "Pinning…");
+  try {
+    const { error } = await sb.from("community_posts").update({ is_pinned: !post.is_pinned }).eq("id", postId);
+    if (error) throw error;
+    post.is_pinned = !post.is_pinned;
+    toast(post.is_pinned ? "Topic pinned successfully." : "Topic unpinned successfully.");
+    renderCommunity();
+  } catch (error) {
+    operationFailed(post.is_pinned ? "Unpinning topic" : "Pinning topic", error);
+  } finally {
+    restoreButton();
+  }
 }
 
 async function createCommunityTopic() {
@@ -4008,7 +4035,7 @@ async function createCommunityTopic() {
 
   const myRunner = getMyRunner();
   const btn = document.getElementById("btn-post-topic");
-  if (btn) btn.disabled = true;
+  const restoreButton = setButtonBusy(btn, "Posting topic…");
 
   try {
     const { data, error } = await sb
@@ -4031,22 +4058,23 @@ async function createCommunityTopic() {
     }
     if (titleEl) titleEl.value = "";
     if (contentEl) contentEl.value = "";
-    toast("Topic posted");
+    toast("Topic posted successfully.");
     renderCommunity();
   } catch (e) {
-    toast(errMsg(e), "error");
+    operationFailed("Posting topic", e);
   } finally {
-    if (btn) btn.disabled = false;
+    restoreButton();
   }
 }
 
-async function createCommunityReply(parentId, content) {
+async function createCommunityReply(parentId, content, submitButton) {
   if (!canWrite()) return toast("You need to be a group member to reply", "error");
   if (!group?.id || !session?.user?.id) return toast("Not signed in", "error");
   const text = String(content || "").trim();
   if (!parentId || !text) return toast("Write a reply first", "error");
 
   const myRunner = getMyRunner();
+  const restoreButton = setButtonBusy(submitButton, "Posting reply…");
   try {
     const { data, error } = await sb
       .from("community_posts")
@@ -4064,10 +4092,12 @@ async function createCommunityReply(parentId, content) {
 
     if (data) state.communityPosts.unshift(data);
     selectedCommunityTopicId = parentId;
-    toast("Reply posted");
+    toast("Reply posted successfully.");
     renderCommunity();
   } catch (e) {
-    toast(errMsg(e), "error");
+    operationFailed("Posting reply", e);
+  } finally {
+    restoreButton();
   }
 }
 
@@ -4079,6 +4109,7 @@ async function deleteCommunityPost(postId) {
   const label = post.parent_id ? "reply" : "topic";
   if (!confirm(`Delete this ${label}?`)) return;
 
+  const restoreButton = setButtonBusy(document.querySelector(`[data-action='delete-post'][data-id='${postId}']`), `Deleting ${label}…`);
   try {
     const { error } = await sb.from("community_posts").delete().eq("id", postId);
     if (error) throw error;
@@ -4088,10 +4119,12 @@ async function deleteCommunityPost(postId) {
       (p) => p.id !== postId && p.parent_id !== postId
     );
     if (selectedCommunityTopicId === postId) selectedCommunityTopicId = null;
-    toast(`${label[0].toUpperCase()}${label.slice(1)} deleted`);
+    toast(`${label[0].toUpperCase()}${label.slice(1)} deleted successfully.`);
     renderCommunity();
   } catch (e) {
-    toast(errMsg(e), "error");
+    operationFailed(`Deleting ${label}`, e);
+  } finally {
+    restoreButton();
   }
 }
 
@@ -4125,7 +4158,7 @@ function onCommunityFeedSubmit(e) {
   e.preventDefault();
   const parentId = form.dataset.parentId;
   const textarea = form.querySelector("textarea[name='reply']");
-  createCommunityReply(parentId, textarea?.value || "");
+  createCommunityReply(parentId, textarea?.value || "", form.querySelector("button[type='submit']"));
 }
 
 function onCommunityFeedKeydown(e) {
@@ -4203,7 +4236,7 @@ function renderTeam() {
           p_role: sel.value,
         });
         if (error) throw error;
-        toast("Role updated");
+        toast(`Role updated to ${sel.value}.`);
         await loadGroupData();
         renderTeam();
       } catch (e) {
@@ -4217,17 +4250,20 @@ function renderTeam() {
   tbody.querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Remove this person from app access?")) return;
+      const restoreButton = setButtonBusy(btn, "Removing member…");
       try {
         const { error } = await sb.rpc("remove_group_member", {
           p_group_id: group.id,
           p_user_id: btn.dataset.remove,
         });
         if (error) throw error;
-        toast("Member removed");
+        toast("Member removed from group access.");
         await loadGroupData();
         renderTeam();
       } catch (e) {
-        toast(errMsg(e), "error");
+        operationFailed("Removing member", e);
+      } finally {
+        restoreButton();
       }
     });
   });
@@ -4308,7 +4344,7 @@ function openMarathonForm(id) {
       </form>`,
     footerHtml: `
       <button class="btn btn-ghost" type="button" id="mf-cancel">Cancel</button>
-      <button class="btn btn-primary" type="button" id="mf-save">Save</button>`,
+      <button class="btn btn-primary" type="button" id="mf-save">${existing ? "Save changes" : "Create race"}</button>`,
     onMount() {
       // Scrape from URL functionality
       const scrapeBtn = document.getElementById("m-scrape-btn")
@@ -4397,6 +4433,7 @@ function openMarathonForm(id) {
       
       document.getElementById("mf-cancel").onclick = closeModal;
       document.getElementById("mf-save").onclick = async () => {
+        const saveButton = document.getElementById("mf-save");
         const raceTimeRaw = document.getElementById("m-time").value.trim();
         const rawRegLink = document.getElementById("m-reg-link").value.trim();
         const regLink = rawRegLink ? safeUrl(rawRegLink) : "";
@@ -4421,6 +4458,7 @@ function openMarathonForm(id) {
         if (payload.reg_open_date && payload.reg_close_date && payload.reg_close_date < payload.reg_open_date) {
           return toast("Registration close date must be on or after the open date", "error");
         }
+        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Creating race…");
         try {
           if (existing) {
             const { error } = await sb.from("marathons").update(payload).eq("id", existing.id);
@@ -4440,11 +4478,13 @@ function openMarathonForm(id) {
             }
           }
           closeModal();
-          toast("Marathon saved");
+          toast(existing ? "Race updated successfully." : "Race created successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed(existing ? "Updating race" : "Creating race", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -4463,15 +4503,19 @@ function confirmDeleteMarathon(id) {
     onMount() {
       document.getElementById("del-cancel").onclick = closeModal;
       document.getElementById("del-confirm").onclick = async () => {
+        const deleteButton = document.getElementById("del-confirm");
+        const restoreButton = setButtonBusy(deleteButton, "Deleting race…");
         try {
           const { error } = await sb.from("marathons").delete().eq("id", id);
           if (error) throw error;
           closeModal();
-          toast("Deleted");
+          toast("Race deleted successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed("Deleting race", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -4625,10 +4669,11 @@ function openRunnerForm(id) {
       </form>`,
     footerHtml: `
       <button class="btn btn-ghost" id="pf-cancel">Cancel</button>
-      <button class="btn btn-primary" id="pf-save">Save</button>`,
+      <button class="btn btn-primary" id="pf-save">${existing ? "Save changes" : "Create runner"}</button>`,
     onMount() {
       document.getElementById("pf-cancel").onclick = closeModal;
       document.getElementById("pf-save").onclick = async () => {
+        const saveButton = document.getElementById("pf-save");
         const payload = {
           group_id: group.id,
           name: document.getElementById("p-name").value.trim(),
@@ -4639,6 +4684,7 @@ function openRunnerForm(id) {
           created_by: session.user.id,
         };
         if (!payload.name) return toast("Name required", "error");
+        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Creating runner…");
         try {
           let savedRunner = existing;
           if (existing) {
@@ -4660,11 +4706,13 @@ function openRunnerForm(id) {
           }
 
           closeModal();
-          toast("Runner saved");
+          toast(existing ? "Runner updated successfully." : "Runner created successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed(existing ? "Updating runner" : "Creating runner", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -4683,15 +4731,19 @@ function confirmDeleteRunner(id) {
     onMount() {
       document.getElementById("del-cancel").onclick = closeModal;
       document.getElementById("del-confirm").onclick = async () => {
+        const deleteButton = document.getElementById("del-confirm");
+        const restoreButton = setButtonBusy(deleteButton, "Deleting runner…");
         try {
           const { error } = await sb.from("runners").delete().eq("id", id);
           if (error) throw error;
           closeModal();
-          toast("Deleted");
+          toast("Runner deleted successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed("Deleting runner", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -4754,10 +4806,11 @@ function openRegistrationForm(id, defaults = {}) {
       </form>`,
     footerHtml: `
       <button class="btn btn-ghost" id="rf-cancel">Cancel</button>
-      <button class="btn btn-primary" id="rf-save">Save</button>`,
+      <button class="btn btn-primary" id="rf-save">${existing ? "Save changes" : "Register runner"}</button>`,
     onMount() {
       document.getElementById("rf-cancel").onclick = closeModal;
       document.getElementById("rf-save").onclick = async () => {
+        const saveButton = document.getElementById("rf-save");
         const payload = {
           group_id: group.id,
           runner_id: document.getElementById("r-runner").value,
@@ -4771,6 +4824,7 @@ function openRegistrationForm(id, defaults = {}) {
           return toast("Runner and marathon are required", "error");
         }
 
+        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Registering runner…");
         try {
           if (existing) {
             const { error } = await sb.from("registrations").update(payload).eq("id", existing.id);
@@ -4780,11 +4834,13 @@ function openRegistrationForm(id, defaults = {}) {
             if (error) throw error;
           }
           closeModal();
-          toast("Registration saved");
+          toast(existing ? "Registration updated successfully." : "Runner registered successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed(existing ? "Updating registration" : "Creating registration", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -4926,6 +4982,7 @@ function openResultForm(registrationId, defaults = {}) {
 
       document.getElementById("res-cancel").onclick = closeModal;
       document.getElementById("res-save").onclick = async () => {
+        const saveButton = document.getElementById("res-save");
         const regId = existing?.id || regSel.value;
         if (!regId) return toast("Pick a registered runner", "error");
         const reg = state.registrations.find((r) => r.id === regId);
@@ -4960,15 +5017,18 @@ function openResultForm(registrationId, defaults = {}) {
           result_notes: document.getElementById("res-notes").value.trim(),
         };
 
+        const restoreButton = setButtonBusy(saveButton, "Saving result…");
         try {
           const { error } = await sb.from("registrations").update(payload).eq("id", regId);
           if (error) throw error;
           closeModal();
-          toast("Result saved");
+          toast(existing ? "Race result updated successfully." : "Race result saved successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed(existing ? "Updating race result" : "Saving race result", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -5076,15 +5136,19 @@ function confirmDeleteRegistration(id) {
     onMount() {
       document.getElementById("del-cancel").onclick = closeModal;
       document.getElementById("del-confirm").onclick = async () => {
+        const deleteButton = document.getElementById("del-confirm");
+        const restoreButton = setButtonBusy(deleteButton, "Deleting registration…");
         try {
           const { error } = await sb.from("registrations").delete().eq("id", id);
           if (error) throw error;
           closeModal();
-          toast("Deleted");
+          toast("Registration deleted successfully.");
           await loadGroupData();
           render();
         } catch (e) {
-          toast(errMsg(e), "error");
+          operationFailed("Deleting registration", e);
+        } finally {
+          restoreButton();
         }
       };
     },
@@ -5149,7 +5213,7 @@ function wireAuthUi() {
       const errEl = document.getElementById("create-user-error");
       const btn = document.getElementById("btn-create-user");
       errEl.hidden = true;
-      btn.disabled = true;
+      const restoreButton = setButtonBusy(btn, "Creating user…");
       try {
         const email = document.getElementById("new-user-email").value.trim();
         await adminCreateUser({
@@ -5160,14 +5224,15 @@ function wireAuthUi() {
         });
         createUserForm.reset();
         document.getElementById("new-user-role").value = "member";
-        toast(`User created and added to the roster — ${email} must set a new password on first sign-in`);
+        toast(`User ${email} created and added to the roster.`);
         await loadGroupData();
         renderTeam();
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
+        operationFailed("Creating user", err);
       } finally {
-        btn.disabled = false;
+        restoreButton();
       }
     });
   }
@@ -5212,27 +5277,37 @@ function wireAuthUi() {
     logoForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const errEl = document.getElementById("logo-error");
+      const saveButton = logoForm.querySelector("button[type='submit']");
+      const restoreButton = setButtonBusy(saveButton, "Saving logo…");
       errEl.hidden = true;
       try {
         await saveGroupLogo(document.getElementById("group-logo-url").value);
-        toast("Logo saved");
+        toast("Group logo saved successfully.");
         renderTeam();
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
+        operationFailed("Saving group logo", err);
+      } finally {
+        restoreButton();
       }
     });
     document.getElementById("btn-clear-logo")?.addEventListener("click", async () => {
       const errEl = document.getElementById("logo-error");
+      const clearButton = document.getElementById("btn-clear-logo");
+      const restoreButton = setButtonBusy(clearButton, "Restoring logo…");
       errEl.hidden = true;
       try {
         document.getElementById("group-logo-url").value = "";
         await saveGroupLogo("");
-        toast("Default logo restored");
+        toast("Default group logo restored successfully.");
         renderTeam();
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
+        operationFailed("Restoring default logo", err);
+      } finally {
+        restoreButton();
       }
     });
     document.getElementById("group-logo-url")?.addEventListener("input", (e) => {
@@ -5248,17 +5323,18 @@ function wireAuthUi() {
       const errEl = document.getElementById("profile-error");
       const btn = document.getElementById("btn-save-profile");
       errEl.hidden = true;
-      btn.disabled = true;
+      const restoreButton = setButtonBusy(btn, "Saving profile…");
       try {
         await saveProfile();
-        toast("Profile saved");
+        toast("Profile updated successfully.");
         document.getElementById("profile-password").value = "";
         document.getElementById("profile-password-confirm").value = "";
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
+        operationFailed("Updating profile", err);
       } finally {
-        btn.disabled = false;
+        restoreButton();
       }
     });
 
@@ -5423,7 +5499,14 @@ function wireAppUi() {
   // Notification settings form
   document.getElementById("form-notification-settings")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    await saveNotificationSettings();
+    const form = e.currentTarget;
+    const saveButton = form.querySelector("button[type='submit']");
+    const restoreButton = setButtonBusy(saveButton, "Saving settings…");
+    try {
+      await saveNotificationSettings();
+    } finally {
+      restoreButton();
+    }
   });
   document.getElementById("btn-add-schedule")?.addEventListener("click", addScheduleRow);
 
