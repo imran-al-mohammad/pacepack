@@ -38,6 +38,7 @@
   --font: "Inter", system-ui, sans-serif;
   --display: "Outfit", Inter, system-ui, sans-serif;
   --mono: "Inter", system-ui, sans-serif;
+  --top-nav-h: 60px;
   --sidebar-w: 240px;
   --sidebar-collapsed-w: 64px;
 }
@@ -199,6 +200,7 @@ button {
   grid-area: topnav;
   position: sticky;
   top: 0;
+  height: var(--top-nav-h);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -275,7 +277,7 @@ button {
 .sidebar {
   grid-area: sidebar;
   position: fixed;
-  top: 57px;
+  top: var(--top-nav-h);
   bottom: 0;
   left: 0;
   width: var(--sidebar-w);
@@ -2715,6 +2717,7 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   .top-nav {
     position: fixed;
     inset: 0 0 auto;
+    height: var(--top-nav-h);
     z-index: 100;
     padding: 0.55rem 1rem;
   }
@@ -2751,6 +2754,24 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
     box-shadow: 14px 0 40px rgba(0, 0, 0, 0.28);
     transition: transform 0.22s ease, visibility 0.22s ease;
     z-index: 110;
+  }
+
+  /* A collapsed desktop sidebar state must not make the mobile drawer unusable. */
+  .app.sidebar-collapsed .sidebar {
+    width: min(84vw, 320px);
+    align-items: stretch;
+    padding: 1rem;
+  }
+
+  .app.sidebar-collapsed .sidebar .nav-label,
+  .app.sidebar-collapsed .sidebar .sidebar-menu-title {
+    display: block;
+  }
+
+  .app.sidebar-collapsed .sidebar-top {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
   }
 
   .app.mobile-sidebar-open .sidebar {
@@ -2797,17 +2818,23 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   }
 
   .nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    flex: none;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    flex: 1;
+    min-height: 0;
   }
 
   .nav-item {
-    flex: 1 1 auto;
-    justify-content: center;
-    padding: 0.55rem 0.65rem;
-    font-size: 0.82rem;
-    max-width: 100%;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.9rem;
+    max-width: none;
+  }
+
+  .app.sidebar-collapsed .nav-item {
+    justify-content: flex-start;
+    padding: 0.65rem 0.75rem;
   }
 
   .sidebar-footer {
@@ -2816,7 +2843,7 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   }
 
   .main {
-    padding: calc(1.25rem + 58px) 1rem 2rem;
+    padding: calc(var(--top-nav-h) + 1.25rem) 1rem 2rem;
     max-width: 100%;
     overflow-x: hidden;
   }
