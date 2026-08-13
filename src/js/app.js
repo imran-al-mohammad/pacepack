@@ -650,8 +650,10 @@ function updateManifestIcons(url) {
     name: document.querySelector('meta[name="application-name"]')?.content || "PacePack",
     short_name: "PacePack",
     description: "Online group race tracker for running clubs. Track marathons, runners, registrations, and results in real time.",
-    start_url: "./?source=pwa",
-    scope: "./",
+    // Blob manifests cannot resolve relative start_url/scope values reliably.
+    // Resolve them against the live GitHub Pages document instead.
+    start_url: new URL("./?source=pwa", window.location.href).href,
+    scope: new URL("./", window.location.href).href,
     display: "standalone",
     display_override: ["window-controls", "minimal-ui"],
     background_color: "#151515",
@@ -1243,7 +1245,10 @@ async function subscribeToPushNotifications() {
 
     // Wait for an active SW (registration alone is not enough for push)
     const reg = await navigator.serviceWorker.ready;
-    if (!reg?.active && !reg?.pushManager) return;
+    if (!reg?.active || !reg?.pushManager) {
+      console.info("Push notifications unavailable: service worker is not active");
+      return;
+    }
 
     let existing = null;
     try {
@@ -1300,13 +1305,13 @@ async function subscribeToPushNotifications() {
           });
         } catch (retryErr) {
           // Push is optional — do not break the app
-          console.warn("push subscribe:", retryErr?.message || retryErr);
+          console.info("Push notifications unavailable:", retryErr?.message || retryErr);
           return;
         }
       } else if (name === "NotAllowedError") {
         return;
       } else {
-        console.warn("push subscribe:", msg);
+        console.info("Push notifications unavailable:", msg);
         return;
       }
     }
@@ -1319,7 +1324,7 @@ async function subscribeToPushNotifications() {
     }
   } catch (e) {
     // Optional feature — never surface as a hard app error
-    console.warn("push subscribe:", e?.message || e);
+    console.info("Push notifications unavailable:", e?.message || e);
   }
 }
 
@@ -3052,7 +3057,7 @@ function getRunnerPRs(runnerId) {
 
   // Preserve manually recorded PRs only for distances that have no timed
   // result yet. Historical results always win when they exist.
-  state.personalRecords.filter((pr) => pr.runner_id === runnerId).forEach((pr) => {
+  state.personalRecords.filter((pr) => pr && pr.runner_id === runnerId).forEach((pr) => {
     const distance = normalizeDistanceLabel(pr.distance);
     if (!byDistance.has(distance)) byDistance.set(distance, { ...pr, distance });
   });
@@ -3487,16 +3492,24 @@ function renderProfile() {
   renderProfileAnalytics(myRunner?.id);
 
   // PRs
-  const prs = getRunnerPRs(myRunner?.id);
+  const prs = getRunnerPRs(myRunner?.id).filter(Boolean);
   const prTbody = document.getElementById("profile-pr-tbody");
   if (prTbody) {
     if (!prs.length) {
       prTbody.innerHTML = `<tr><td colspan="6"><div class="empty" style="border:none;margin:0.5rem"><strong>No PRs yet</strong>Complete a race and your best time will appear here automatically.</div></td></tr>`;
     } else {
       const newestPrId = prs.slice().sort((a, b) => String(b.race_date || "").localeCompare(String(a.race_date || "")))[0]?.id;
-      const fastest = prs.reduce((a, b) =>
-        (b.pace_seconds_per_km != null && (a.pace_seconds_per_km == null || b.pace_seconds_per_km < a.pace_seconds_per_km)) ? b : a
-      , null);
+      // Imported/manual PR rows may be incomplete. Keep them visible, but
+      // only compare rows that have a numeric pace and never dereference the
+      // null accumulator used by reduce.
+      const fastest = prs
+        .filter((pr) => pr && Number.isFinite(Number(pr.pace_seconds_per_km)))
+        .reduce((fastestPr, pr) =>
+          !fastestPr || Number(pr.pace_seconds_per_km) < Number(fastestPr.pace_seconds_per_km)
+            ? pr
+            : fastestPr,
+          null
+        );
       prTbody.innerHTML = prs.map((pr) => {
         const isFastest = pr.id === fastest?.id;
         const isNew = pr.is_new_pr || pr.derived || pr.id === newestPrId;
