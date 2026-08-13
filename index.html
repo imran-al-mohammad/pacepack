@@ -423,8 +423,14 @@
         <div class="share-layout notifications-layout">
           <div class="panel notifications-full-panel" id="notification-settings-panel" hidden>
             <div class="panel-header">
-              <h3>Notification Settings</h3>
-              <p class="panel-hint">Admins can configure which notifications are sent and how often. Changes apply immediately.</p>
+              <div>
+                <h3>Notification Settings</h3>
+                <p class="panel-hint">Admins can configure which notifications are sent and how often. Changes apply immediately.</p>
+              </div>
+              <div class="push-settings-action">
+                <button class="btn btn-secondary btn-sm" type="button" data-enable-push>Enable push</button>
+                <span class="panel-hint" data-push-status>Optional device notifications</span>
+              </div>
             </div>
             <form id="form-notification-settings" class="form-grid">
               <div class="notification-channel-list" id="notification-channel-list"></div>
@@ -455,8 +461,14 @@
 
           <div class="panel notifications-full-panel" id="notification-readonly-panel" hidden>
             <div class="panel-header">
-              <h3>Notifications</h3>
-              <p class="panel-hint">Only admins can configure notification settings. Ask an admin to adjust the cadence.</p>
+              <div>
+                <h3>Notifications</h3>
+                <p class="panel-hint">Only admins can configure notification settings. Ask an admin to adjust the cadence.</p>
+              </div>
+              <div class="push-settings-action">
+                <button class="btn btn-secondary btn-sm" type="button" data-enable-push>Enable push</button>
+                <span class="panel-hint" data-push-status>Optional device notifications</span>
+              </div>
             </div>
             <div class="notification-readonly-summary" id="notification-readonly-summary"></div>
           </div>

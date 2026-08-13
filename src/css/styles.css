@@ -963,6 +963,15 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   width: 100%;
 }
 
+.push-settings-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  text-align: right;
+}
+
 /* Community board */
 .community-layout {
   display: grid;

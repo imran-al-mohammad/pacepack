@@ -1132,10 +1132,12 @@ function renderNotificationPanel() {
 
 let notificationPanelOpen = false;
 
-function toggleNotificationPanel() {
+async function toggleNotificationPanel() {
   const panel = document.getElementById("notification-panel");
   if (!panel) return;
   if (panel.hidden) {
+    // Re-fetch on open so the bell still works when Realtime is unavailable.
+    await loadNotifications();
     renderNotificationPanel();
     panel.hidden = false;
     notificationPanelOpen = true;
@@ -5838,7 +5840,25 @@ function wireAppUi() {
   document.getElementById("btn-notifications")?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeProfileDropdown();
-    toggleNotificationPanel();
+    toggleNotificationPanel().catch((err) => console.warn("open notifications:", err));
+  });
+  document.querySelectorAll("[data-enable-push]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const status = button.parentElement?.querySelector("[data-push-status]");
+      button.disabled = true;
+      if (status) status.textContent = "Requesting permission…";
+      try {
+        await subscribeToPushNotifications();
+        if (status) status.textContent = typeof Notification !== "undefined" && Notification.permission === "granted"
+          ? "Push notifications are enabled on this device."
+          : "Push permission was not granted.";
+      } catch (err) {
+        if (status) status.textContent = "Push notifications could not be enabled.";
+        console.warn("enable push:", err);
+      } finally {
+        button.disabled = false;
+      }
+    });
   });
   document.getElementById("btn-mark-all-read")?.addEventListener("click", async (e) => {
     e.stopPropagation();

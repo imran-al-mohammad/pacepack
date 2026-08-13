@@ -155,6 +155,7 @@ begin
     )
   from public.group_memberships gm
   where gm.group_id = new.group_id;
+  return new;
 end;
 $$;
 

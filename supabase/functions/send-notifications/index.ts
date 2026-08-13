@@ -12,6 +12,7 @@ interface PushSubscription {
 interface Notification {
   id: string;
   user_id: string;
+  type?: string;
   title: string;
   body: string;
   data: Record<string, unknown>;
@@ -39,7 +40,7 @@ Deno.serve(async (req) => {
   // 1. Fetch unsent notifications (batch of 100)
   const { data: notifications, error: notifErr } = await supabase
     .from("notifications")
-    .select("id, user_id, title, body, data, sent_push")
+    .select("id, user_id, type, title, body, data, sent_push")
     .eq("sent_push", false)
     .limit(100);
 
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
       body: notif.body || "",
       icon: "/public/icons/icon-192.png",
       badge: "/public/icons/icon-72.png",
-      data: notif.data || {},
+      data: { type: notif.type, ...(notif.data || {}) },
       tag: `pp-${notif.id}`,
       renotify: true,
       vibrate: [200, 100, 200],
