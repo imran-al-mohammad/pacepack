@@ -134,7 +134,6 @@ let enterAppInFlight = null;
 let lastHandledSessionUserId = null;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 const BRAND_CACHE_KEY = "pacepack_brand_cache";
-let dynamicManifestUrl = null;
 
 // ─── Config / client ─────────────────────────────────────────────────────────
 
@@ -438,11 +437,11 @@ function getMarathon(id) {
 }
 
 function regsForMarathon(id) {
-  return state.registrations.filter((r) => r.marathon_id === id);
+  return state.registrations.filter((r) => r && r.marathon_id === id);
 }
 
 function regsForRunner(id) {
-  return state.registrations.filter((r) => r.runner_id === id);
+  return state.registrations.filter((r) => r && r.runner_id === id);
 }
 
 function canonicalPRRegistrations() {
@@ -640,41 +639,11 @@ function updateFavicon(url) {
 }
 
 function updateManifestIcons(url) {
-  const src = (url || "").trim();
-  if (!src) return;
-  
-  // Update the manifest to use group logo for all icons
-  const iconSizes = ['48x48', '72x72', '96x96', '120x120', '144x144', '152x152', '167x167', '180x180', '192x192', '384x384', '512x512'];
-  
-  const manifest = {
-    name: document.querySelector('meta[name="application-name"]')?.content || "PacePack",
-    short_name: "PacePack",
-    description: "Online group race tracker for running clubs. Track marathons, runners, registrations, and results in real time.",
-    // Blob manifests cannot resolve relative start_url/scope values reliably.
-    // Resolve them against the live GitHub Pages document instead.
-    start_url: new URL("./?source=pwa", window.location.href).href,
-    scope: new URL("./", window.location.href).href,
-    display: "standalone",
-    display_override: ["window-controls", "minimal-ui"],
-    background_color: "#151515",
-    theme_color: "#151515",
-    orientation: "portrait-primary",
-    icons: iconSizes.map(sizes => ({
-      src: src,
-      sizes,
-      type: logoMimeType(src)
-    }))
-  };
-  
-  // Update the manifest link
-  const manifestLink = document.querySelector('link[rel="manifest"]');
-  if (manifestLink) {
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/manifest+json' });
-    const nextManifestUrl = URL.createObjectURL(blob);
-    if (dynamicManifestUrl) URL.revokeObjectURL(dynamicManifestUrl);
-    dynamicManifestUrl = nextManifestUrl;
-    manifestLink.href = nextManifestUrl;
-  }
+  // The installable PWA manifest must remain the static manifest served from
+  // /pacepack/manifest.webmanifest. Replacing it with a blob URL makes the
+  // manifest origin opaque and causes browsers to reject start_url/scope.
+  // updateFavicon() still applies the group logo to the browser chrome.
+  void url;
 }
 
 function applyBrandLogo() {
@@ -1273,10 +1242,10 @@ async function subscribeToPushNotifications() {
     try {
       applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
       // Uncompressed P-256 public keys are 65 bytes (0x04 || x || y)
-      if (applicationServerKey.byteLength !== 65) {
+      if (applicationServerKey.byteLength !== 65 || applicationServerKey[0] !== 4) {
         console.warn(
-          "push subscribe: unexpected VAPID key length",
-          applicationServerKey.byteLength
+          "push subscribe: invalid VAPID public key",
+          `length=${applicationServerKey.byteLength}`
         );
         return;
       }
@@ -1292,28 +1261,18 @@ async function subscribeToPushNotifications() {
         applicationServerKey,
       });
     } catch (subErr) {
-      // Common when an old subscription used a different VAPID key
       const name = subErr?.name || "";
       const msg = String(subErr?.message || subErr);
-      if (name === "AbortError" || /push service error|Registration failed/i.test(msg)) {
-        try {
-          const stale = await reg.pushManager.getSubscription();
-          if (stale) await stale.unsubscribe();
-          subscription = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey,
-          });
-        } catch (retryErr) {
-          // Push is optional — do not break the app
-          console.info("Push notifications unavailable:", retryErr?.message || retryErr);
-          return;
-        }
-      } else if (name === "NotAllowedError") {
-        return;
-      } else {
-        console.info("Push notifications unavailable:", msg);
+      if (name === "NotAllowedError") return;
+      if (name === "AbortError" || /push service error|registration failed/i.test(msg)) {
+        // This is a browser/vendor push-service failure, not an app failure.
+        // Retrying or unsubscribing repeats the failure and can discard a
+        // valid existing subscription, so leave the session untouched.
+        console.info("Push notifications unavailable in this browser:", msg);
         return;
       }
+      console.info("Push notifications unavailable:", msg);
+      return;
     }
 
     try {
@@ -3057,7 +3016,9 @@ function getRunnerPRs(runnerId) {
 
   // Preserve manually recorded PRs only for distances that have no timed
   // result yet. Historical results always win when they exist.
-  state.personalRecords.filter((pr) => pr && pr.runner_id === runnerId).forEach((pr) => {
+  state.personalRecords
+    .filter((pr) => pr && typeof pr === "object" && pr.runner_id === runnerId)
+    .forEach((pr) => {
     const distance = normalizeDistanceLabel(pr.distance);
     if (!byDistance.has(distance)) byDistance.set(distance, { ...pr, distance });
   });
@@ -3151,8 +3112,9 @@ function computeStreak(runnerId) {
 /** Auto-derive pace group from best PR pace. */
 function derivePaceGroup(prs) {
   const timed = prs
+    .filter((pr) => pr && typeof pr === "object")
     .map((pr) => ({ dist: pr.distance, pace: pr.pace_seconds_per_km }))
-    .filter((x) => x.pace != null)
+    .filter((x) => x.pace != null && Number.isFinite(Number(x.pace)) && Number(x.pace) >= 0)
     .sort((a, b) => a.pace - b.pace);
   if (!timed.length) return "";
   const best = timed[0].pace; // seconds per km
@@ -3492,7 +3454,7 @@ function renderProfile() {
   renderProfileAnalytics(myRunner?.id);
 
   // PRs
-  const prs = getRunnerPRs(myRunner?.id).filter(Boolean);
+  const prs = getRunnerPRs(myRunner?.id).filter((pr) => pr && typeof pr === "object");
   const prTbody = document.getElementById("profile-pr-tbody");
   if (prTbody) {
     if (!prs.length) {
@@ -3500,16 +3462,18 @@ function renderProfile() {
     } else {
       const newestPrId = prs.slice().sort((a, b) => String(b.race_date || "").localeCompare(String(a.race_date || "")))[0]?.id;
       // Imported/manual PR rows may be incomplete. Keep them visible, but
-      // only compare rows that have a numeric pace and never dereference the
-      // null accumulator used by reduce.
-      const fastest = prs
-        .filter((pr) => pr && Number.isFinite(Number(pr.pace_seconds_per_km)))
-        .reduce((fastestPr, pr) =>
-          !fastestPr || Number(pr.pace_seconds_per_km) < Number(fastestPr.pace_seconds_per_km)
-            ? pr
-            : fastestPr,
-          null
-        );
+      // Only compare rows that have a numeric pace. Incomplete rows remain
+      // visible with the normal fallback formatting.
+      const pacedPrs = prs.filter((pr) =>
+        pr.pace_seconds_per_km != null &&
+        Number.isFinite(Number(pr.pace_seconds_per_km)) &&
+        Number(pr.pace_seconds_per_km) >= 0
+      );
+      const fastest = pacedPrs.length
+        ? pacedPrs.reduce((fastestPr, pr) =>
+            Number(pr.pace_seconds_per_km) < Number(fastestPr.pace_seconds_per_km) ? pr : fastestPr
+          )
+        : null;
       prTbody.innerHTML = prs.map((pr) => {
         const isFastest = pr.id === fastest?.id;
         const isNew = pr.is_new_pr || pr.derived || pr.id === newestPrId;

@@ -7,7 +7,7 @@
 // ─── Version: increment when assets change ─────────────────────────────────────
 // Update this string (or use a build step) whenever STATIC_ASSETS changes.
 // Must be declared BEFORE CACHE_NAME (const is not hoisted for use).
-const CACHE_VERSION = "20260813k";
+const CACHE_VERSION = "20260813l";
 const CACHE_NAME = `pacepack-v2-${CACHE_VERSION}`;
 const OFFLINE_PAGE = "offline.html";
 
@@ -17,12 +17,11 @@ const STATIC_ASSETS = [
   "./index.html",
   "./src/css/styles.css",
   "./src/css/styles.css?v=20260813-profile-menu",
-  "./src/js/app.js?v=20260813-profile-history-fix",
+  "./src/js/app.js?v=20260813-profile-null-guard",
   "./config.js",
   "./src/js/services/cache.js",
   "./src/js/dev/cache-examples.js",
   "./src/js/analytics/insights.js",
-  "./src/js/app.js",
   "./manifest.webmanifest",
   "./offline.html",
   "./public/icons/icon-48.png",
