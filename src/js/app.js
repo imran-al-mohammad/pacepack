@@ -1928,8 +1928,7 @@ function renderTopbarActions() {
     el.innerHTML = `<button class="btn btn-primary" id="btn-add-reg">+ Add registration</button>`;
     document.getElementById("btn-add-reg").onclick = () => openRegistrationForm();
   } else if (currentView === "results") {
-    el.innerHTML = `<button class="btn btn-secondary" id="btn-import-results">Import results</button><button class="btn btn-primary" id="btn-add-result">+ Enter result</button>`;
-    document.getElementById("btn-import-results").onclick = () => openResultsImport();
+    el.innerHTML = `<button class="btn btn-primary" id="btn-add-result">+ Enter result</button>`;
     document.getElementById("btn-add-result").onclick = () => openResultForm();
   } else if (currentView === "dashboard") {
     el.innerHTML = `
@@ -5223,6 +5222,7 @@ function openResultForm(registrationId, defaults = {}) {
           <label for="res-reg">Registered runner *</label>
           <select class="select full" id="res-reg" ${existing ? "disabled" : ""}></select>
         </div>
+        ${!existing ? `<div class="field" style="grid-column:1/-1"><label for="res-scrape-url">Import this runner's result from URL (optional)</label><div class="form-row"><input class="input" id="res-scrape-url" type="url" placeholder="https://example.com/race-results" style="flex:1" /><button type="button" class="btn btn-secondary" id="res-scrape-btn">Scrape result</button></div><p class="panel-hint" style="margin:0.35rem 0 0">Select the runner first. The scraped row will be reviewed before it fills this form.</p><div class="panel" id="res-scrape-preview" hidden style="margin-top:0.65rem"></div></div>` : ""}
         <div class="field">
           <label for="res-distance">Distance completed *</label>
           <select class="select full" id="res-distance">${configuredDistanceOptions(existing?.race_distance || getMarathon(existing?.marathon_id)?.distance || "")}</select>
@@ -5305,6 +5305,45 @@ function openResultForm(registrationId, defaults = {}) {
         const distance = document.getElementById("res-distance");
         if (distance && race) distance.innerHTML = configuredDistanceOptions(selectedReg?.race_distance || race.distance);
       });
+
+      const scrapeResultButton = document.getElementById("res-scrape-btn");
+      const scrapeResultUrl = document.getElementById("res-scrape-url");
+      const scrapeResultPreview = document.getElementById("res-scrape-preview");
+      if (scrapeResultButton && scrapeResultUrl && scrapeResultPreview) {
+        scrapeResultButton.onclick = async () => {
+          const url = scrapeResultUrl.value.trim();
+          const selected = state.registrations.find((r) => r.id === regSel.value);
+          const runner = selected ? getRunner(selected.runner_id) : null;
+          if (!runner) return toast("Select a registered runner first", "error");
+          if (!/^https?:\/\//i.test(url)) return toast("Enter a valid http:// or https:// results URL", "error");
+          const restore = setButtonBusy(scrapeResultButton, "Scraping…");
+          try {
+            const { data, error } = await sb.functions.invoke("scrape-results", { body: { url } });
+            if (error) throw new Error(data?.error || error.message || "Could not scrape results");
+            if (data?.error) throw new Error(data.error);
+            const rows = data?.data?.results || [];
+            const runnerKey = resultsNameKey(runner.name);
+            const exact = rows.filter((row) => resultsNameKey(row.runner_name) === runnerKey);
+            if (exact.length !== 1) throw new Error(exact.length ? "More than one matching result was found for this runner" : `No result found for ${runner.name}`);
+            const row = exact[0];
+            scrapeResultPreview.hidden = false;
+            scrapeResultPreview.innerHTML = `<strong>Review scraped result</strong><p class="panel-hint">${escapeHtml(runner.name)} · ${escapeHtml(data.data.race_name || "Race")}</p><p>Time: <b>${escapeHtml(row.finish_time || "—")}</b> · Place: <b>${escapeHtml(row.overall_place || "—")}</b> · Status: <b>${escapeHtml(row.status || "completed")}</b></p><p class="panel-hint">Source: <a href="${escapeHtml(data.data.source_url || url)}" target="_blank" rel="noopener">${escapeHtml(data.data.source_url || url)}</a></p><button type="button" class="btn btn-secondary btn-sm" id="res-use-scraped">Use this result</button>`;
+            document.getElementById("res-use-scraped").onclick = () => {
+              document.getElementById("res-chip").value = row.finish_time || "";
+              document.getElementById("res-gun").value = row.finish_time || "";
+              document.getElementById("res-place").value = row.overall_place || "";
+              document.getElementById("res-place-g").value = row.gender_place || "";
+              document.getElementById("res-place-ag").value = row.category_place || row.age_category || "";
+              document.getElementById("res-status").value = ["dns", "dnf"].includes(row.status) ? row.status : row.finish_time ? "completed" : "registered";
+              const notes = document.getElementById("res-notes");
+              notes.value = [notes.value.trim(), `Imported from ${data.data.source_url || url}`].filter(Boolean).join("\n");
+              ["res-chip", "res-gun", "res-place", "res-place-g", "res-place-ag", "res-status"].forEach((id) => document.getElementById(id).dispatchEvent(new Event("input", { bubbles: true })));
+              scrapeResultPreview.innerHTML = `<strong>Result accepted for review</strong><p class="panel-hint">The fields below are filled but not saved. Review them, then click “Save result”.</p>`;
+            };
+          } catch (error) { toast(error?.message || "Failed to scrape this runner's result", "error"); }
+          finally { restore(); }
+        };
+      }
 
       const updatePace = () => {
         const reg = state.registrations.find((r) => r.id === regSel.value) || existing;
