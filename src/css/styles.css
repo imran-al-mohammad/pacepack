@@ -39,6 +39,7 @@
   --display: "Outfit", Inter, system-ui, sans-serif;
   --mono: "Inter", system-ui, sans-serif;
   --top-nav-h: 60px;
+  --top-nav-offset: calc(var(--top-nav-h) + env(safe-area-inset-top, 0px));
   --sidebar-w: 240px;
   --sidebar-collapsed-w: 64px;
 }
@@ -2726,7 +2727,8 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   .top-nav {
     position: fixed;
     inset: 0 0 auto;
-    height: var(--top-nav-h);
+    height: var(--top-nav-offset);
+    padding-top: calc(0.55rem + env(safe-area-inset-top, 0px));
     z-index: 100;
     padding: 0.55rem 1rem;
   }
@@ -2852,7 +2854,7 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   }
 
   .main {
-    padding: calc(var(--top-nav-h) + 1.25rem) 1rem 2rem;
+    padding: calc(var(--top-nav-offset) + 1.25rem) 1rem 2rem;
     max-width: 100%;
     overflow-x: hidden;
   }
@@ -2909,7 +2911,7 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   .analytics-visuals { grid-template-columns: 1fr; }
   .analytics-race-card { grid-column: auto; }
   .main {
-    padding: 1rem 0.75rem 1.5rem;
+    padding: calc(var(--top-nav-offset) + 1rem) 0.75rem 1.5rem;
   }
 
   .topbar {
