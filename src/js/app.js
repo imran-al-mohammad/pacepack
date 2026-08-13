@@ -1364,7 +1364,26 @@ function setSidebarCollapsed(collapsed) {
   });
 }
 
+function isMobileSidebarViewport() {
+  return window.matchMedia?.("(max-width: 800px)")?.matches === true;
+}
+
+function setMobileSidebarOpen(open) {
+  const shell = document.getElementById("app-shell");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  if (!shell) return;
+  shell.classList.toggle("mobile-sidebar-open", !!open);
+  if (backdrop) backdrop.hidden = !open;
+  document.body.classList.toggle("mobile-sidebar-open", !!open);
+  const button = document.getElementById("btn-sidebar-toggle-mobile");
+  button?.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
 function toggleSidebar() {
+  if (isMobileSidebarViewport()) {
+    setMobileSidebarOpen(!document.getElementById("app-shell")?.classList.contains("mobile-sidebar-open"));
+    return;
+  }
   setSidebarCollapsed(!document.getElementById("app-shell")?.classList.contains("sidebar-collapsed"));
 }
 
@@ -5784,9 +5803,16 @@ function wireAppUi() {
   setSidebarCollapsed(isSidebarCollapsed());
   document.getElementById("btn-sidebar-toggle")?.addEventListener("click", toggleSidebar);
   document.getElementById("btn-sidebar-toggle-mobile")?.addEventListener("click", toggleSidebar);
+  document.getElementById("sidebar-backdrop")?.addEventListener("click", () => setMobileSidebarOpen(false));
+  window.addEventListener("resize", () => {
+    if (!isMobileSidebarViewport()) setMobileSidebarOpen(false);
+  });
 
   document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.addEventListener("click", () => setView(btn.dataset.view));
+    btn.addEventListener("click", () => {
+      setView(btn.dataset.view);
+      setMobileSidebarOpen(false);
+    });
   });
   document.querySelectorAll(".analytics-view-link[data-leaderboard]").forEach((btn) => {
     btn.addEventListener("click", () => {

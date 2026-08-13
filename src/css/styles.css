@@ -389,6 +389,14 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   place-items: center;
 }
 
+.sidebar-backdrop {
+  display: none;
+}
+
+.sidebar-backdrop[hidden] {
+  display: none;
+}
+
 .top-nav-brand .sidebar-toggle-mobile {
   flex-shrink: 0;
 }
@@ -2700,14 +2708,14 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
 @media (max-width: 800px) {
   .app,
   .app.sidebar-collapsed {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "topnav"
-      "sidebar"
-      "main";
+    display: block;
+    min-height: 100vh;
   }
 
   .top-nav {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 100;
     padding: 0.55rem 1rem;
   }
 
@@ -2726,21 +2734,52 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   }
 
   .sidebar {
-    position: relative;
-    top: auto;
-    bottom: auto;
-    left: auto;
-    height: auto;
-    width: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+    position: fixed;
+    top: 0;
+    right: auto;
+    bottom: 0;
+    left: 0;
+    height: 100dvh;
+    width: min(84vw, 320px);
+    border-right: 1px solid var(--border);
+    border-bottom: none;
     padding: 1rem;
-    max-width: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transform: translateX(-105%);
+    visibility: hidden;
+    box-shadow: 14px 0 40px rgba(0, 0, 0, 0.28);
+    transition: transform 0.22s ease, visibility 0.22s ease;
+    z-index: 110;
+  }
+
+  .app.mobile-sidebar-open .sidebar {
+    transform: translateX(0);
+    visibility: visible;
   }
 
   .app.sidebar-collapsed .sidebar {
-    display: none;
+    display: flex;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    background: rgba(0, 0, 0, 0.52);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+
+  .app.mobile-sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.mobile-sidebar-open {
+    overflow: hidden;
   }
 
   .next-race-timer {
@@ -2777,7 +2816,7 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   }
 
   .main {
-    padding: 1.25rem 1rem 2rem;
+    padding: calc(1.25rem + 58px) 1rem 2rem;
     max-width: 100%;
     overflow-x: hidden;
   }
