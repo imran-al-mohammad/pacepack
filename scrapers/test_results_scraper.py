@@ -14,6 +14,13 @@ HTML = """
 </body></html>
 """
 
+FEIBOT_HTML = """
+<html><head><title>Public Race</title></head><body>
+<h3>Public Race</h3>
+<div x-data='{"scores":[{&quot;bib&quot;:&quot;101&quot;,&quot;name&quot;:&quot;Ada Lovelace&quot;,&quot;sex&quot;:&quot;F&quot;,&quot;age_group&quot;:&quot;F30-39&quot;,&quot;total_score&quot;:&quot;01:42:03&quot;,&quot;total_ranking&quot;:7,&quot;age_total_ranking&quot;:2,&quot;finisher&quot;:1,&quot;item&quot;:{&quot;title&quot;:&quot;21KM&quot;}},{&quot;bib&quot;:&quot;102&quot;,&quot;name&quot;:&quot;Grace Hopper&quot;,&quot;sex&quot;:&quot;F&quot;,&quot;total_score&quot;:&quot;02:01:11&quot;,&quot;total_ranking&quot;:12,&quot;finisher&quot;:1,&quot;item&quot;:{&quot;title&quot;:&quot;21KM&quot;}}]}'></div>
+</body></html>
+"""
+
 
 def test_extract_and_calculate():
     scraper = ResultsScraper()
@@ -23,6 +30,16 @@ def test_extract_and_calculate():
     assert data[0].finish_time == "00:42:00"
     assert data[1].status == "dnf"
     assert calculate_pace("00:42:00", "10K") == "4:12/km"
+
+
+def test_extract_feibot_embedded_scores():
+    scraper = ResultsScraper()
+    rows, distance = scraper._extract_feibot_scores(BeautifulSoup(FEIBOT_HTML, "html.parser"))
+    assert distance == "21KM"
+    assert len(rows) == 2
+    assert rows[0].runner_name == "Ada Lovelace"
+    assert rows[0].finish_time == "01:42:03"
+    assert rows[0].overall_place == "7"
 
 
 def test_match_is_conservative():

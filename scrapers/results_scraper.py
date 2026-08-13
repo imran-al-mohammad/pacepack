@@ -9,6 +9,7 @@ rows are reported and never silently attached to another runner.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import sys
@@ -123,6 +124,40 @@ def _status(value: Optional[str]) -> str:
     return "completed"
 
 
+def _json_array_after_marker(value: str, marker: str) -> Optional[List[Dict[str, Any]]]:
+    """Read a JSON array embedded in an Alpine x-data attribute."""
+    start = re.search(rf"\b{re.escape(marker)}\s*:\s*\[", value)
+    if not start:
+        return None
+    array_start = value.find("[", start.start())
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(array_start, len(value)):
+        char = value[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+            if depth == 0:
+                try:
+                    parsed = json.loads(value[array_start:index + 1])
+                except json.JSONDecodeError:
+                    return None
+                return parsed if isinstance(parsed, list) else None
+    return None
+
+
 class ResultsScraper:
     """Extract result tables from static pages, with the same JS fallback as RaceScraper."""
 
@@ -139,11 +174,16 @@ class ResultsScraper:
             soup = self.fetcher._fetch_dynamic(url)
         if not soup:
             raise RuntimeError(f"Failed to fetch page: {url}")
+        if soup.select_one("#login-form"):
+            raise ValueError("This Feibot URL is the admin login/query page. Use a public /display-score/{event_id}/{token} results URL.")
         title = clean((soup.find("meta", property="og:title") or {}).get("content")) if soup.find("meta", property="og:title") else None
         title = title or clean(soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else None) or clean(soup.title.get_text(" ", strip=True) if soup.title else None)
         page_text = soup.get_text(" ", strip=True)
         distance = clean(DISTANCE_RE.search(page_text).group(0)) if DISTANCE_RE.search(page_text) else None
         rows = self._extract_table_rows(soup)
+        if not rows:
+            rows, embedded_distance = self._extract_feibot_scores(soup)
+            distance = distance or embedded_distance
         data = ResultsData(title, distance, url, rows)
         self._annotate_quality(data)
         return data.to_dict()
@@ -170,6 +210,39 @@ class ResultsScraper:
                 parsed_rows.append(row)
             candidates.append((score * 100 + len(parsed_rows), parsed_rows))
         return max(candidates, default=(0, []), key=lambda item: item[0])[1]
+
+    def _extract_feibot_scores(self, soup: BeautifulSoup) -> Tuple[List[ResultRow], Optional[str]]:
+        for element in soup.find_all(attrs={"x-data": True}):
+            payload = _json_array_after_marker(html.unescape(element.get("x-data") or ""), "scores")
+            if not payload:
+                continue
+            rows: List[ResultRow] = []
+            distances: List[str] = []
+            for score in payload:
+                name = clean(score.get("name"))
+                if not name:
+                    continue
+                item = score.get("item") if isinstance(score.get("item"), dict) else {}
+                item_title = clean(item.get("title"))
+                if item_title and item_title not in distances:
+                    distances.append(item_title)
+                finish_time = normalize_time(score.get("total_score"))
+                invalid = clean(score.get("invalid"))
+                status = _status(invalid or ("completed" if score.get("finisher") else "DNF"))
+                rows.append(ResultRow(
+                    runner_name=name,
+                    finish_time=finish_time,
+                    gender=clean(score.get("sex")),
+                    age_category=clean(score.get("age_group")),
+                    overall_place=clean(score.get("total_ranking")),
+                    category_place=clean(score.get("age_total_ranking")),
+                    bib=clean(score.get("bib")),
+                    status=status,
+                    confidence="high" if finish_time or status != "completed" else "medium",
+                ))
+            if rows:
+                return rows, distances[0] if len(distances) == 1 else None
+        return [], None
 
     def _annotate_quality(self, data: ResultsData) -> None:
         # Pace is calculated after the page-level distance is known.
