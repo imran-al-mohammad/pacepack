@@ -3555,6 +3555,11 @@ function renderProfile() {
         </div>`).join("");
     }
   }
+
+  // Certificates (calls the renderCertificates function defined below)
+  if (myRunner?.id) {
+    renderCertificates(myRunner.id).catch((e) => console.warn("certificates:", e));
+  }
 }
 
 // ─── PR CRUD ─────────────────────────────────────────────────────────────────
@@ -6097,3 +6102,89 @@ init().catch((e) => {
   console.error(e);
   document.getElementById("boot-msg").textContent = errMsg(e);
 });
+
+// ─── Certificates ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch certificates for a runner from the user_certificates table.
+ * Falls back to deriving certificates from race results when the table
+ * is not yet populated (schema not applied).
+ */
+async function fetchRunnerCertificates(runnerId) {
+  if (!runnerId || !group?.id) return [];
+  try {
+    const { data, error } = await sb
+      .from("user_certificates")
+      .select("*")
+      .eq("runner_id", runnerId)
+      .eq("group_id", group.id)
+      .order("issued_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.warn("fetch certificates:", e);
+    return [];
+  }
+}
+
+/** Derive certificates from race results when the table is empty. */
+function deriveCertificatesFromResults(runnerId) {
+  const regs = regsForRunner(runnerId)
+    .map((r) => ({ r, marathon: getMarathon(r.marathon_id) }))
+    .filter((x) => x.marathon && (x.r.status === "completed" || displayFinishTime(x.r)))
+    .sort((a, b) => String(b.marathon.race_date || "").localeCompare(String(a.marathon.race_date || "")));
+  return regs.map(({ r, marathon }) => ({
+    id: `derived-${r.id}`,
+    runner_id: runnerId,
+    group_id: group?.id,
+    marathon_id: marathon.id,
+    marathon_name: marathon.name,
+    race_date: marathon.race_date,
+    distance: registrationDistance(r, marathon),
+    finish_time: displayFinishTime(r) || "",
+    place_overall: r.place_overall || "",
+    certificate_url: r.certificate_url || "",
+    issued_at: r.updated_at || r.created_at || null,
+    derived: true,
+  }));
+}
+
+/** Render the certificates section in the Race History tab. */
+async function renderCertificates(runnerId) {
+  const container = document.getElementById("profile-certificates");
+  if (!container) return;
+
+  let certs = await fetchRunnerCertificates(runnerId);
+  if (!certs.length) certs = deriveCertificatesFromResults(runnerId);
+
+  if (!certs.length) {
+    container.innerHTML = `<div class="empty"><strong>No certificates yet</strong>Finish a race to earn a certificate.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="certificates-grid">
+      ${certs.map((cert) => {
+        const url = safeUrl(cert.certificate_url);
+        return `
+          <div class="certificate-card">
+            <div class="certificate-card-head">
+              <span class="certificate-icon">🏅</span>
+              <div>
+                <strong>${escapeHtml(cert.marathon_name || "Race")}</strong>
+                <small>${escapeHtml(cert.distance || "")} · ${escapeHtml(formatDate(cert.race_date))}</small>
+              </div>
+            </div>
+            <div class="certificate-card-meta">
+              <span>Time: <b class="time-mono">${escapeHtml(cert.finish_time || "—")}</b></span>
+              ${cert.place_overall ? `<span>Place: <b>#${escapeHtml(cert.place_overall)}</b></span>` : ""}
+            </div>
+            <div class="certificate-card-actions">
+              ${url
+                ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View certificate</a>`
+                : `<span class="badge badge-count">Certificate available</span>`}
+            </div>
+          </div>`;
+      }).join("")}
+    </div>`;
+}
