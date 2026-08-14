@@ -6345,7 +6345,7 @@ function deriveCertificatesFromResults(runnerId) {
 }
 
 /** Render the certificates section in the Race History tab and Profile Certificates tab. */
-function renderCertificates(runnerId) {
+async function renderCertificates(runnerId) {
   const profileCertsContainer = document.getElementById("profile-certificates");
   const certificatesGrid = document.getElementById("profile-certificates-grid");
 

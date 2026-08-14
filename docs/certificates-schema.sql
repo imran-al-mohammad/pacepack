@@ -5,7 +5,8 @@
 
 -- 1) Add certificate_url column to registrations (if not exists)
 ALTER TABLE public.registrations
-  ADD COLUMN IF NOT EXISTS certificate_url TEXT;
+  ADD COLUMN IF NOT EXISTS certificate_url TEXT,
+  ADD COLUMN IF NOT EXISTS race_distance TEXT;
 
 -- 2) Create user_certificates table
 CREATE TABLE IF NOT EXISTS public.user_certificates (
@@ -23,6 +24,31 @@ CREATE TABLE IF NOT EXISTS public.user_certificates (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- The table may already have been created by docs/add-certificate-table.sql.
+-- Keep this migration safe to rerun and bring that older shape up to date.
+ALTER TABLE public.user_certificates
+  ADD COLUMN IF NOT EXISTS marathon_name TEXT,
+  ADD COLUMN IF NOT EXISTS race_date DATE,
+  ADD COLUMN IF NOT EXISTS distance TEXT,
+  ADD COLUMN IF NOT EXISTS finish_time TEXT,
+  ADD COLUMN IF NOT EXISTS place_overall TEXT,
+  ADD COLUMN IF NOT EXISTS certificate_url TEXT,
+  ADD COLUMN IF NOT EXISTS issued_at TIMESTAMPTZ DEFAULT now();
+
+-- The earlier table required user_id, but registrations are group/runner based.
+-- Existing rows are preserved while trigger-created rows remain insertable.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_certificates'
+      AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE public.user_certificates ALTER COLUMN user_id DROP NOT NULL;
+  END IF;
+END $$;
+
 -- 3) Indexes
 CREATE INDEX IF NOT EXISTS idx_user_certificates_runner ON public.user_certificates(runner_id);
 CREATE INDEX IF NOT EXISTS idx_user_certificates_group ON public.user_certificates(group_id);
@@ -31,6 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_user_certificates_group ON public.user_certificat
 ALTER TABLE public.user_certificates ENABLE ROW LEVEL SECURITY;
 
 -- 5) RLS policies
+DROP POLICY IF EXISTS "Members can view certificates" ON public.user_certificates;
 CREATE POLICY "Members can view certificates" ON public.user_certificates
   FOR SELECT USING (
     auth.uid() IN (
@@ -38,6 +65,7 @@ CREATE POLICY "Members can view certificates" ON public.user_certificates
     )
   );
 
+DROP POLICY IF EXISTS "Members can insert certificates" ON public.user_certificates;
 CREATE POLICY "Members can insert certificates" ON public.user_certificates
   FOR INSERT WITH CHECK (
     auth.uid() IN (
@@ -45,6 +73,7 @@ CREATE POLICY "Members can insert certificates" ON public.user_certificates
     )
   );
 
+DROP POLICY IF EXISTS "Moderators can update certificates" ON public.user_certificates;
 CREATE POLICY "Moderators can update certificates" ON public.user_certificates
   FOR UPDATE USING (
     auth.uid() IN (
@@ -53,6 +82,7 @@ CREATE POLICY "Moderators can update certificates" ON public.user_certificates
     )
   );
 
+DROP POLICY IF EXISTS "Moderators can delete certificates" ON public.user_certificates;
 CREATE POLICY "Moderators can delete certificates" ON public.user_certificates
   FOR DELETE USING (
     auth.uid() IN (
@@ -91,7 +121,12 @@ BEGIN
       now()
     FROM public.marathons m
     WHERE m.id = NEW.marathon_id
-    ON CONFLICT DO NOTHING;
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.user_certificates existing
+        WHERE existing.runner_id = NEW.runner_id
+          AND existing.marathon_id = NEW.marathon_id
+      );
   END IF;
   RETURN NEW;
 END;
