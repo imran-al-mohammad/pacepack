@@ -1,8 +1,8 @@
-import { createLeaderboardFeature } from "./features/leaderboard/leaderboard.js";
+﻿import { createLeaderboardFeature } from "./features/leaderboard/leaderboard.js";
 
 /**
- * PacePack — full online multi-user app
- * Roles: admin · moderator · member
+ * PacePack â€” full online multi-user app
+ * Roles: admin Â· moderator Â· member
  */
 
 const STATUSES = [
@@ -85,7 +85,7 @@ const DEFAULT_BRAND_SVG = `
     <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
 
-// ─── App state ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ App state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let sb = null;
 let session = null;
@@ -135,7 +135,7 @@ let lastHandledSessionUserId = null;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 const BRAND_CACHE_KEY = "pacepack_brand_cache";
 
-// ─── Config / client ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Config / client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getConfig() {
   const c = window.PACEPACK_CONFIG || {};
@@ -161,7 +161,7 @@ function createClient() {
   });
 }
 
-// ─── Permissions ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Permissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function hasMinRole(min) {
   return (ROLE_RANK[myRole] || 0) >= (ROLE_RANK[min] || 99);
@@ -191,14 +191,14 @@ function canEdit() {
   return hasMinRole("moderator");
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function formatDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "â€”";
   const d = new Date(String(iso).slice(0, 10) + "T12:00:00");
   return d.toLocaleDateString(undefined, {
     weekday: "short",
@@ -224,8 +224,8 @@ function formatRaceTime(t) {
 }
 
 function formatRaceDateTime(marathon) {
-  if (!marathon?.race_date) return "—";
-  return `${formatDate(marathon.race_date)} · ${formatRaceTime(marathon.race_time)}`;
+  if (!marathon?.race_date) return "â€”";
+  return `${formatDate(marathon.race_date)} Â· ${formatRaceTime(marathon.race_time)}`;
 }
 
 /**
@@ -323,7 +323,7 @@ function parseTimeToSeconds(input) {
 }
 
 function formatSeconds(total) {
-  if (total == null || Number.isNaN(total) || total < 0) return "—";
+  if (total == null || Number.isNaN(total) || total < 0) return "â€”";
   const s = Math.round(total);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -374,7 +374,7 @@ function paceForRegistration(reg, marathon, distanceOverride = "") {
   return {
     perKm: formatSeconds(seconds / km),
     perMi: formatSeconds(seconds / (km * 0.621371)),
-    label: `${formatSeconds(seconds / km)}/km · ${formatSeconds(seconds / (km * 0.621371))}/mi`,
+    label: `${formatSeconds(seconds / km)}/km Â· ${formatSeconds(seconds / (km * 0.621371))}/mi`,
   };
 }
 
@@ -489,7 +489,7 @@ function errMsg(err) {
   return err?.message || err?.error_description || String(err);
 }
 
-// ─── Toast / modal ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Toast / modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function toast(message, type = "success") {
   if (suppressToast && type === "success") return;
@@ -537,7 +537,7 @@ function closeModal() {
   document.getElementById("modal-footer").innerHTML = "";
 }
 
-// ─── Screen routing ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Screen routing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function showScreen(name) {
   document.getElementById("boot-screen").hidden = name !== "boot";
@@ -694,10 +694,10 @@ async function fetchGroupBranding() {
 
 function setBoot(msg) {
   showScreen("boot");
-  document.getElementById("boot-msg").textContent = msg || "Connecting…";
+  document.getElementById("boot-msg").textContent = msg || "Connectingâ€¦";
 }
 
-// ─── Data load ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Data load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function loadProfile() {
   const { data, error } = await sb
@@ -728,7 +728,7 @@ async function loadProfile() {
 }
 
 async function loadMembership() {
-  // No nested embeds — avoids "relationship not found" when FKs/schema cache differ
+  // No nested embeds â€” avoids "relationship not found" when FKs/schema cache differ
   const { data: membership, error } = await sb
     .from("group_memberships")
     .select("id, role, group_id, user_id, created_at")
@@ -844,7 +844,7 @@ async function loadGroupData() {
 /**
  * Remove a channel by short name or Realtime topic (`realtime:name`).
  * Safe to call even if the channel was already subscribed (avoids
- * "cannot add postgres_changes callbacks … after subscribe()").
+ * "cannot add postgres_changes callbacks â€¦ after subscribe()").
  */
 function removeChannelByName(name) {
   if (!sb || !name) return;
@@ -997,14 +997,14 @@ function subscribeNotificationsRealtime() {
   channels.push(ch);
 }
 
-// ─── Auth actions ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Auth actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function signIn(email, password) {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw error;
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function loadNotifications() {
   if (!session?.user?.id || !group?.id) return;
@@ -1020,7 +1020,7 @@ async function loadNotifications() {
     state.unreadCount = state.notifications.filter((n) => !n.is_read).length;
     renderNotificationBadge();
   } catch (e) {
-    // Table may not exist yet (notifications-schema.sql not run) — ignore silently
+    // Table may not exist yet (notifications-schema.sql not run) â€” ignore silently
     console.warn("load notifications:", e);
   }
 }
@@ -1038,11 +1038,11 @@ function renderNotificationBadge() {
 
 function notificationIcon(type) {
   const icons = {
-    new_marathon: "🏁",
-    result_added: "⏱",
-    race_reminder: "🔔",
+    new_marathon: "ðŸ",
+    result_added: "â±",
+    race_reminder: "ðŸ””",
   };
-  return icons[type] || "📬";
+  return icons[type] || "ðŸ“¬";
 }
 
 function formatNotificationTime(iso) {
@@ -1173,7 +1173,7 @@ async function markAllNotificationsRead() {
   }
 }
 
-// ─── Web Push subscription ────────────────────────────────────────────────────
+// â”€â”€â”€ Web Push subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function ensurePushSubscriptionStored(sub) {
   if (!session?.user?.id || !group?.id || !sub) return;
@@ -1284,7 +1284,7 @@ async function subscribeToPushNotifications() {
       console.warn("push store:", e?.message || e);
     }
   } catch (e) {
-    // Optional feature — never surface as a hard app error
+    // Optional feature â€” never surface as a hard app error
     console.info("Push notifications unavailable:", e?.message || e);
   }
 }
@@ -1483,9 +1483,9 @@ function updateRaceTimerDisplay(marathon) {
   if (location) location.textContent = marathon.location || "Location TBD";
   if (signups) signups.textContent = `${count} signed up`;
   if (parts.done) {
-    meta.textContent = `${marathon.name} · ${formatRaceDateTime(marathon)} · started · ${count} signed up`;
+    meta.textContent = `${marathon.name} Â· ${formatRaceDateTime(marathon)} Â· started Â· ${count} signed up`;
   } else {
-    meta.textContent = `${marathon.name} · ${formatRaceDateTime(marathon)} · ${marathon.location || "TBD"} · ${count} signed up`;
+    meta.textContent = `${marathon.name} Â· ${formatRaceDateTime(marathon)} Â· ${marathon.location || "TBD"} Â· ${count} signed up`;
   }
   meta.textContent = parts.done ? "This race has started" : "Get ready to run with the group";
   const map = { days: parts.days, hours: parts.hours, mins: parts.mins, secs: parts.secs };
@@ -1729,7 +1729,7 @@ async function enterApp() {
       showScreen("password-gate");
       return;
     }
-    setBoot("Loading group data…");
+    setBoot("Loading group dataâ€¦");
     await loadGroupData();
     // Realtime group + notifications (subscribeRealtime calls subscribeNotificationsRealtime)
     subscribeRealtime();
@@ -1836,7 +1836,7 @@ async function handleSession(newSession) {
   }
 
   try {
-    setBoot("Loading your profile…");
+    setBoot("Loading your profileâ€¦");
     await loadProfile();
     const hasGroup = await loadMembership();
 
@@ -1859,7 +1859,7 @@ async function handleSession(newSession) {
   }
 }
 
-// ─── Navigation ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function setView(view) {
   currentView = view;
@@ -1927,7 +1927,7 @@ function renderTopbarActions() {
   }
 }
 
-// ─── Render views ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Render views â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function render() {
   if (document.getElementById("app-shell").hidden) return;
@@ -1973,7 +1973,7 @@ function renderLeaderboardChart(entries) {
     const x = padL + i * (barW + gap);
     const y = padT + chartH - h;
     const color = i === 0 ? "var(--accent-hover)" : "var(--accent)";
-    const label = e.name.length > 10 ? `${e.name.slice(0, 9)}…` : e.name;
+    const label = e.name.length > 10 ? `${e.name.slice(0, 9)}â€¦` : e.name;
     return `
       <g class="lb-bar-group">
         <rect class="lb-bar" x="${x}" y="${y}" width="${barW}" height="${h}" rx="8" fill="${color}" opacity="0.9">
@@ -1999,8 +1999,8 @@ function renderLeaderboardChart(entries) {
           <span class="lb-rank"><small>Rank</small>#${i + 1}</span>
           <span class="lb-avatar">${renderProfileAvatar(e.runner, e.name, e.runnerId)}</span>
           <span class="lb-name" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>
-          <span class="lb-time"><small>Best</small><strong class="time-mono">${e.bestTime != null ? formatSeconds(e.bestTime) : "—"}</strong></span>
-          <span class="lb-meta">${e.finishes} finish${e.finishes === 1 ? "" : "es"} · ${e.prs} PR${e.prs === 1 ? "" : "s"}</span>
+          <span class="lb-time"><small>Best</small><strong class="time-mono">${e.bestTime != null ? formatSeconds(e.bestTime) : "â€”"}</strong></span>
+          <span class="lb-meta">${e.finishes} finish${e.finishes === 1 ? "" : "es"} Â· ${e.prs} PR${e.prs === 1 ? "" : "s"}</span>
           <span class="lb-score">${e.score}</span>
         </li>`).join("")}
     </ol>`;
@@ -2027,22 +2027,22 @@ function renderInsights() {
   metricsEl.innerHTML = `
     <div class="insight-metric">
       <p class="insight-metric-label">Participation</p>
-      <p class="insight-metric-value">${m.participation_rate_pct != null ? m.participation_rate_pct + "%" : "—"}</p>
+      <p class="insight-metric-value">${m.participation_rate_pct != null ? m.participation_rate_pct + "%" : "â€”"}</p>
       <p class="insight-metric-hint">${m.active_runners ?? 0}/${m.total_runners ?? 0} runners with entries</p>
     </div>
     <div class="insight-metric">
       <p class="insight-metric-label">Avg signups / race</p>
-      <p class="insight-metric-value">${m.avg_signups_per_race != null ? m.avg_signups_per_race : "—"}</p>
+      <p class="insight-metric-value">${m.avg_signups_per_race != null ? m.avg_signups_per_race : "â€”"}</p>
       <p class="insight-metric-hint">${m.total_registrations ?? 0} total registrations</p>
     </div>
     <div class="insight-metric">
       <p class="insight-metric-label">PR rate</p>
-      <p class="insight-metric-value">${m.pr_rate_pct != null ? m.pr_rate_pct + "%" : "—"}</p>
-      <p class="insight-metric-hint">${m.total_prs ?? 0} PRs · ${m.results_with_time ?? 0} timed results</p>
+      <p class="insight-metric-value">${m.pr_rate_pct != null ? m.pr_rate_pct + "%" : "â€”"}</p>
+      <p class="insight-metric-hint">${m.total_prs ?? 0} PRs Â· ${m.results_with_time ?? 0} timed results</p>
     </div>
     <div class="insight-metric">
       <p class="insight-metric-label">Group median finish</p>
-      <p class="insight-metric-value time-mono">${escapeHtml(m.median_finish_display || "—")}</p>
+      <p class="insight-metric-value time-mono">${escapeHtml(m.median_finish_display || "â€”")}</p>
       <p class="insight-metric-hint">${m.avg_finish_display ? "Avg " + escapeHtml(m.avg_finish_display) : "Need chip/gun times"}</p>
     </div>`;
 
@@ -2093,13 +2093,13 @@ function renderCompactDashboardAnalytics() {
   const totalRegistrations = state.registrations.length;
   const finished = state.registrations.filter((r) => r.status === "completed" || displayFinishTime(r)).length;
   const completion = totalRegistrations ? Math.round((finished / totalRegistrations) * 100) : null;
-  const value = (v) => v == null ? "—" : v;
+  const value = (v) => v == null ? "â€”" : v;
 
   metricsEl.innerHTML = `
     <div class="insight-metric"><p class="insight-metric-label">Participation rate</p><p class="insight-metric-value">${value(m.participation_rate_pct)}${m.participation_rate_pct != null ? "%" : ""}</p><p class="insight-metric-hint">Runners with at least one entry</p></div>
     <div class="insight-metric"><p class="insight-metric-label">Results completion</p><p class="insight-metric-value">${value(completion)}${completion != null ? "%" : ""}</p><p class="insight-metric-hint">${finished} of ${totalRegistrations} registrations timed</p></div>
     <div class="insight-metric"><p class="insight-metric-label">Avg signups / race</p><p class="insight-metric-value">${value(m.avg_signups_per_race)}</p><p class="insight-metric-hint">Average entries per marathon</p></div>
-    <div class="insight-metric"><p class="insight-metric-label">Group median finish</p><p class="insight-metric-value time-mono">${escapeHtml(m.median_finish_display || "—")}</p><p class="insight-metric-hint">Across all timed results</p></div>`;
+    <div class="insight-metric"><p class="insight-metric-label">Group median finish</p><p class="insight-metric-value time-mono">${escapeHtml(m.median_finish_display || "â€”")}</p><p class="insight-metric-hint">Across all timed results</p></div>`;
 
   const zeroSignupRaces = state.marathons.filter((race) => regsForMarathon(race.id).length === 0);
   const popularRace = sortMarathons(state.marathons)
@@ -2125,7 +2125,7 @@ function renderCompactDashboardAnalytics() {
 
   const active = leaderboardFeature.computeLeaderboard().slice(0, 5);
   const activeList = document.getElementById("leaderboard-list");
-  if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} · ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
+  if (activeList) activeList.innerHTML = active.length ? `<ol class="leaderboard-ranks compact-leaderboard">${active.map((entry, index) => `<li class="leaderboard-rank-item lb-rank-${index + 1}"><span class="lb-rank"><small>Rank</small>#${index + 1}</span><span class="lb-avatar">${renderProfileAvatar(entry.runner, entry.name, entry.runnerId)}</span><span class="lb-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span><span class="lb-meta">${entry.finishes} finish${entry.finishes === 1 ? "" : "es"} Â· ${entry.entries} entr${entry.entries === 1 ? "y" : "ies"}</span><span class="lb-score">${entry.score}</span></li>`).join("")}</ol>` : `<div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>`;
 }
 
 function resultsNameKey(value) {
@@ -2156,7 +2156,7 @@ function openResultsImport() {
       scrape.onclick = async () => {
         const url = document.getElementById("ri-url").value.trim();
         if (!/^https?:\/\//i.test(url)) return toast("Enter a valid http:// or https:// results URL", "error");
-        const restore = setButtonBusy(scrape, "Scraping…");
+        const restore = setButtonBusy(scrape, "Scrapingâ€¦");
         try {
           const { data, error } = await sb.functions.invoke("scrape-results", { body: { url } });
           if (error) throw new Error(data?.error || error.message || "Could not scrape results");
@@ -2173,7 +2173,7 @@ function openResultsImport() {
           });
           const matched = imported.results.filter((row) => row.registration_id).length;
           preview.style.display = "block";
-          preview.innerHTML = `<strong>Review before input</strong><p class="panel-hint">Race: ${escapeHtml(imported.race_name || "Unknown race")} · ${imported.results.length} rows · ${matched} will be entered · ${imported.results.length - matched} skipped</p><p class="panel-hint">Scrape source: <a href="${escapeHtml(imported.source_url || "#")}" target="_blank" rel="noopener">${escapeHtml(imported.source_url || "—")}</a></p><div class="table-wrap"><table class="data-table"><thead><tr><th>Runner</th><th>Time</th><th>Place</th><th>Status</th><th>Match</th></tr></thead><tbody>${imported.results.slice(0, 12).map((row) => `<tr><td>${escapeHtml(row.runner_name || "—")}</td><td>${escapeHtml(row.finish_time || "—")}</td><td>${escapeHtml(row.overall_place || "—")}</td><td>${escapeHtml(row.status || "completed")}</td><td>${escapeHtml(row.match_note)}</td></tr>`).join("")}</tbody></table></div>${imported.results.length > 12 ? `<p class="panel-hint">Showing first 12 rows.</p>` : ""}<p class="panel-hint">Confirming will input only rows matched to an existing registered runner. Unmatched rows will not be saved.</p>`;
+          preview.innerHTML = `<strong>Review before input</strong><p class="panel-hint">Race: ${escapeHtml(imported.race_name || "Unknown race")} Â· ${imported.results.length} rows Â· ${matched} will be entered Â· ${imported.results.length - matched} skipped</p><p class="panel-hint">Scrape source: <a href="${escapeHtml(imported.source_url || "#")}" target="_blank" rel="noopener">${escapeHtml(imported.source_url || "â€”")}</a></p><div class="table-wrap"><table class="data-table"><thead><tr><th>Runner</th><th>Time</th><th>Place</th><th>Status</th><th>Match</th></tr></thead><tbody>${imported.results.slice(0, 12).map((row) => `<tr><td>${escapeHtml(row.runner_name || "â€”")}</td><td>${escapeHtml(row.finish_time || "â€”")}</td><td>${escapeHtml(row.overall_place || "â€”")}</td><td>${escapeHtml(row.status || "completed")}</td><td>${escapeHtml(row.match_note)}</td></tr>`).join("")}</tbody></table></div>${imported.results.length > 12 ? `<p class="panel-hint">Showing first 12 rows.</p>` : ""}<p class="panel-hint">Confirming will input only rows matched to an existing registered runner. Unmatched rows will not be saved.</p>`;
           save.disabled = matched === 0;
         } catch (error) {
           toast(error?.message || "Failed to scrape results", "error");
@@ -2183,7 +2183,7 @@ function openResultsImport() {
         if (!imported) return;
         const rows = imported.results.filter((row) => row.registration_id);
         if (!rows.length) return toast("There are no matched registered runners to input", "error");
-        const restore = setButtonBusy(save, "Inputting results…");
+        const restore = setButtonBusy(save, "Inputting resultsâ€¦");
         try {
           for (const row of rows) {
             const status = ["dns", "dnf"].includes(row.status) ? row.status : row.finish_time ? "completed" : "registered";
@@ -2273,7 +2273,7 @@ function renderVisualAnalytics() {
     if (count >= 9 && count < 10) return `${runner.name} is 1 race from 10 Races Completed`;
     return null;
   }).find(Boolean);
-  const recentPRMarkup = prRows.length ? prRows.slice(0, 5).map((row) => `<div class="recognition-row"><span class="recognition-icon">★</span><span class="recognition-main"><strong>${escapeHtml(row.runner.name)}</strong><small>${escapeHtml(registrationDistance(row.reg, row.race))} · ${escapeHtml(row.race.name)}</small></span><span class="time-mono">${escapeHtml(displayFinishTime(row.reg))}</span></div>`).join("") : `<p class="analytics-copy">PRs will appear here automatically after results are logged.</p>`;
+  const recentPRMarkup = prRows.length ? prRows.slice(0, 5).map((row) => `<div class="recognition-row"><span class="recognition-icon">â˜…</span><span class="recognition-main"><strong>${escapeHtml(row.runner.name)}</strong><small>${escapeHtml(registrationDistance(row.reg, row.race))} Â· ${escapeHtml(row.race.name)}</small></span><span class="time-mono">${escapeHtml(displayFinishTime(row.reg))}</span></div>`).join("") : `<p class="analytics-copy">PRs will appear here automatically after results are logged.</p>`;
   const distanceOrder = ["5K", "7.5K", "10K", "15K", "Half Marathon", "Marathon", "Ultra", "Other"];
   const distanceRows = [...new Set([...distanceOrder, ...Object.keys(prDistanceCounts)])]
     .filter((distance) => prDistanceCounts[distance] || Object.keys(prDistanceCounts).length === 0)
@@ -2322,13 +2322,13 @@ function renderVisualAnalytics() {
     </div>
     <div class="analytics-card recognition-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Achievement momentum</span><span class="analytics-trend">${monthBadges.length} earned this month</span></div>
-      <div class="recognition-list">${topBadges.length ? topBadges.map(([key, count]) => `<div class="recognition-row"><span class="recognition-icon">◆</span><span class="recognition-main"><strong>${escapeHtml(badgeLabel(key))}</strong><small>${count} runner${count === 1 ? "" : "s"} earned it</small></span><span class="badge badge-count">${count}</span></div>`).join("") : `<p class="analytics-copy">Badges will be awarded automatically from race results.</p>`}</div>
+      <div class="recognition-list">${topBadges.length ? topBadges.map(([key, count]) => `<div class="recognition-row"><span class="recognition-icon">â—†</span><span class="recognition-main"><strong>${escapeHtml(badgeLabel(key))}</strong><small>${count} runner${count === 1 ? "" : "s"} earned it</small></span><span class="badge badge-count">${count}</span></div>`).join("") : `<p class="analytics-copy">Badges will be awarded automatically from race results.</p>`}</div>
       ${closestBadge ? `<p class="analytics-copy">Closest to next badge: ${escapeHtml(closestBadge)}.</p>` : ""}
-      ${badgeLeaderboard.length ? `<p class="analytics-copy">Badge leaders: ${badgeLeaderboard.map((entry) => `${escapeHtml(entry.name)} (${entry.count})`).join(" · ")}</p>` : ""}
+      ${badgeLeaderboard.length ? `<p class="analytics-copy">Badge leaders: ${badgeLeaderboard.map((entry) => `${escapeHtml(entry.name)} (${entry.count})`).join(" Â· ")}</p>` : ""}
     </div>
     <div class="analytics-card recognition-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Improvement spotlight</span><span class="analytics-mini-total">Biggest drop</span></div>
-      ${improvement ? `<div class="recognition-feature"><strong>${escapeHtml(improvement.name)}</strong><span>${escapeHtml(improvement.distance)} improved by <b>${formatSeconds(improvement.drop)}</b></span><small>${formatSeconds(improvement.from)} → ${formatSeconds(improvement.to)}</small></div>` : `<p class="analytics-copy">Two results at the same distance unlock the improvement spotlight.</p>`}
+      ${improvement ? `<div class="recognition-feature"><strong>${escapeHtml(improvement.name)}</strong><span>${escapeHtml(improvement.distance)} improved by <b>${formatSeconds(improvement.drop)}</b></span><small>${formatSeconds(improvement.from)} â†’ ${formatSeconds(improvement.to)}</small></div>` : `<p class="analytics-copy">Two results at the same distance unlock the improvement spotlight.</p>`}
     </div>
     <div class="analytics-card recognition-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Race readiness</span><span class="analytics-mini-total">Next race</span></div>
@@ -2336,7 +2336,7 @@ function renderVisualAnalytics() {
     </div>
     <div class="analytics-card recognition-card analytics-trend-card">
       <div class="analytics-card-head"><span class="analytics-eyebrow">Progress trend</span><span class="analytics-mini-total">Last ${progressTrend.length} races</span></div>
-      ${progressTrend.length ? `<div class="group-trend-chart">${progressTrend.map((item) => `<div class="group-trend-item" title="${escapeHtml(item.race.name)}"><span class="group-trend-value">${item.completion}%</span><span class="group-trend-bar" style="height:${Math.max(8, item.completion)}%"></span><small>${escapeHtml(item.race.name.slice(0, 10))}</small><em>${item.median != null ? escapeHtml(formatSeconds(item.median)) : "—"}</em></div>`).join("")}</div><p class="analytics-copy">Bars show result completion; labels show median finish.</p>` : `<p class="analytics-copy">Complete races to build a progress trend.</p>`}
+      ${progressTrend.length ? `<div class="group-trend-chart">${progressTrend.map((item) => `<div class="group-trend-item" title="${escapeHtml(item.race.name)}"><span class="group-trend-value">${item.completion}%</span><span class="group-trend-bar" style="height:${Math.max(8, item.completion)}%"></span><small>${escapeHtml(item.race.name.slice(0, 10))}</small><em>${item.median != null ? escapeHtml(formatSeconds(item.median)) : "â€”"}</em></div>`).join("")}</div><p class="analytics-copy">Bars show result completion; labels show median finish.</p>` : `<p class="analytics-copy">Complete races to build a progress trend.</p>`}
     </div>`;
 }
 
@@ -2385,7 +2385,7 @@ function renderDashboard() {
         <div class="list-item">
           <div class="list-item-main">
             <p class="list-item-title">${escapeHtml(m.name)}</p>
-            <p class="list-item-sub">${formatRaceDateTime(m)} · ${escapeHtml(m.location || "TBD")} · ${escapeHtml(m.distance)}</p>
+            <p class="list-item-sub">${formatRaceDateTime(m)} Â· ${escapeHtml(m.location || "TBD")} Â· ${escapeHtml(m.distance)}</p>
           </div>
           <div style="display:flex;gap:0.5rem;align-items:center">
             <span class="badge badge-count">${count} signed</span>
@@ -2407,13 +2407,13 @@ function renderDashboard() {
     recentEl.innerHTML = results.map((r) => {
       const runner = getRunner(r.runner_id);
       const marathon = getMarathon(r.marathon_id);
-      const time = displayFinishTime(r) || "—";
+      const time = displayFinishTime(r) || "â€”";
       const pace = paceForRegistration(r, marathon);
       return `
         <div class="list-item">
           <div class="list-item-main">
             <p class="list-item-title">${escapeHtml(runner?.name || "Unknown")}</p>
-            <p class="list-item-sub">${escapeHtml(marathon?.name || "Race")}${pace ? " · " + pace.label : ""}</p>
+            <p class="list-item-sub">${escapeHtml(marathon?.name || "Race")}${pace ? " Â· " + pace.label : ""}</p>
           </div>
           <div style="display:flex;gap:0.45rem;align-items:center">
             ${r.is_pr ? `<span class="badge badge-pr">PR</span>` : ""}
@@ -2515,7 +2515,7 @@ function renderWhosRunningChart() {
     const x = padL + i * (barW + gap);
     const y = padT + chartH - h;
     const selected = s.marathon.id === selectedWhosRunningMarathonId;
-    const label = s.marathon.name.length > 11 ? `${s.marathon.name.slice(0, 10)}…` : s.marathon.name;
+    const label = s.marathon.name.length > 11 ? `${s.marathon.name.slice(0, 10)}â€¦` : s.marathon.name;
     const dateShort = String(s.marathon.race_date).slice(5);
     let stackY = y + h;
     const stacks = chartStatuses.map((status) => {
@@ -2547,7 +2547,7 @@ function renderWhosRunningChart() {
     return `<div class="wr-bar-group${selected ? " is-selected" : ""}" data-marathon-id="${s.marathon.id}" role="button" tabindex="0" aria-label="${escapeHtml(s.marathon.name)}: ${s.count} runners">
       <div class="wr-row-label"><div class="wr-row-title"><strong>${escapeHtml(s.marathon.name)}</strong><span class="wr-race-state">${isPast(s.marathon) ? "Completed" : "Upcoming"}</span></div><span>${escapeHtml(formatRaceDateTime(s.marathon))}</span></div>
       <div class="wr-row-track"><div class="wr-row-fill" style="width:${(s.count / max) * 100}%"><div class="wr-stack-track">${stacks}</div></div></div>
-      <div class="wr-row-people">${avatarStack || `<span class="wr-no-avatar">—</span>`}<strong class="wr-row-count">${s.count}<small> runner${s.count === 1 ? "" : "s"}</small></strong></div>
+      <div class="wr-row-people">${avatarStack || `<span class="wr-no-avatar">â€”</span>`}<strong class="wr-row-count">${s.count}<small> runner${s.count === 1 ? "" : "s"}</small></strong></div>
     </div>`;
   }).join("");
 
@@ -2559,7 +2559,7 @@ function renderWhosRunningChart() {
       <div class="wr-detail">
         <div class="wr-detail-head">
           <h4 class="wr-detail-title">${escapeHtml(selected.marathon.name)}</h4>
-          <p class="panel-hint" style="margin:0">${formatRaceDateTime(selected.marathon)} · ${escapeHtml(selected.marathon.distance || "")} · ${selected.count} runner${selected.count === 1 ? "" : "s"}</p>
+          <p class="panel-hint" style="margin:0">${formatRaceDateTime(selected.marathon)} Â· ${escapeHtml(selected.marathon.distance || "")} Â· ${selected.count} runner${selected.count === 1 ? "" : "s"}</p>
         </div>
         ${selectedRegs.length
           ? `<ul class="wr-runner-list">
@@ -2677,7 +2677,7 @@ function renderMarathons() {
     const best = times.length ? formatSeconds(times[0]) : null;
     const regOpen = m.reg_open_date ? `Opens ${formatDate(m.reg_open_date)}` : "";
     const regClose = m.reg_close_date ? `Closes ${formatDate(m.reg_close_date)}` : "";
-    const regPeriod = [regOpen, regClose].filter(Boolean).join(" · ");
+    const regPeriod = [regOpen, regClose].filter(Boolean).join(" Â· ");
     const signupUrl = safeUrl(m.reg_link);
     const regButton = signupUrl
       ? `<a class="btn btn-secondary btn-sm" href="${escapeHtml(signupUrl)}" target="_blank" rel="noopener noreferrer">Sign up</a>`
@@ -2696,14 +2696,14 @@ function renderMarathons() {
           <span class="badge badge-distance">${escapeHtml(m.distance)}</span>
         </div>
         <div class="card-meta">
-          <span>📅 ${formatRaceDateTime(m)}${isPast(m) ? " · past" : ""}</span>
-          <span>📍 ${escapeHtml(m.location || "TBD")}</span>
-          ${regPeriod ? `<span>📝 ${escapeHtml(regPeriod)}</span>` : ""}
-          ${best ? `<span>🏆 <span class="time-mono">${best}</span></span>` : ""}
+          <span>ðŸ“… ${formatRaceDateTime(m)}${isPast(m) ? " Â· past" : ""}</span>
+          <span>ðŸ“ ${escapeHtml(m.location || "TBD")}</span>
+          ${regPeriod ? `<span>ðŸ“ ${escapeHtml(regPeriod)}</span>` : ""}
+          ${best ? `<span>ðŸ† <span class="time-mono">${best}</span></span>` : ""}
         </div>
         ${m.notes ? `<p class="card-notes">${escapeHtml(m.notes)}</p>` : ""}
         <div class="card-footer">
-          <span class="badge badge-count">${regs.length} entries · ${finished.length} results</span>
+          <span class="badge badge-count">${regs.length} entries Â· ${finished.length} results</span>
           <div class="card-actions">
             ${regButton}
             <button class="btn btn-ghost btn-sm" data-action="results" data-id="${m.id}">Results</button>
@@ -2765,7 +2765,7 @@ function renderRunners() {
         </div>
         ${m.notes ? `<p class="card-notes">${escapeHtml(m.notes)}</p>` : ""}
         <div class="card-footer">
-          <span class="badge badge-count">${finishes.length} result${finishes.length === 1 ? "" : "s"}${prs ? ` · ${prs} PR` : ""}</span>
+          <span class="badge badge-count">${finishes.length} result${finishes.length === 1 ? "" : "s"}${prs ? ` Â· ${prs} PR` : ""}</span>
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" data-action="profile" data-id="${m.id}">View Profile</button>
             ${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${m.id}">Edit</button>` : ""}
@@ -2832,7 +2832,7 @@ function renderRegistrations() {
         <td>${escapeHtml(runner?.name || "Unknown")}</td>
         <td>${escapeHtml(marathon?.name || "Unknown")}</td>
         <td>${escapeHtml(registrationDistance(r, marathon))}</td>
-        <td>${marathon ? formatDate(marathon.race_date) : "—"}</td>
+        <td>${marathon ? formatDate(marathon.race_date) : "â€”"}</td>
         <td>${statusBadge(r.status)}</td>
         <td><div class="actions">
           ${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}
@@ -2864,11 +2864,11 @@ function renderResults() {
   const sel = document.getElementById("results-marathon");
   const current = sel.value;
   sel.innerHTML =
-    `<option value="">Select a race…</option>` +
+    `<option value="">Select a raceâ€¦</option>` +
     sortMarathons(state.marathons).slice().reverse()
       .map((m) => {
         const count = regsForMarathon(m.id).length;
-        return `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.race_date)}) — ${count} registered</option>`;
+        return `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.race_date)}) â€” ${count} registered</option>`;
       })
       .join("");
   if (current && [...sel.options].some((o) => o.value === current)) sel.value = current;
@@ -2938,153 +2938,7 @@ function renderResults() {
   if (certificatesContainer) renderResultsCertificates(marathonId);
 }
 
-function renderResultsResults() {
-  const marathonId = document.getElementById("results-marathon")?.value;
-  const completedOnly = document.getElementById("results-completed-only")?.checked ?? true;
-  const summary = document.getElementById("results-summary");
-  const tbody = document.getElementById("results-tbody");
-
-  if (!marathonId) {
-    summary.innerHTML = `<div class="empty" style="border:none;padding:1rem"><strong>Pick a race</strong></div>`;
-    tbody.innerHTML = "";
-    return;
-  }
-
-  const marathon = getMarathon(marathonId);
-  let list = regsForMarathon(marathonId);
-  if (completedOnly) {
-    list = list.filter((r) => ["completed", "dnf", "dns"].includes(r.status) || displayFinishTime(r));
-  }
-
-  const timed = list.map((r) => ({ r, sec: bestFinishSeconds(r) }))
-    .filter((x) => x.sec != null)
-    .sort((a, b) => a.sec - b.sec);
-  const best = timed[0]?.sec;
-  const median = timed.length ? timed[Math.floor(timed.length / 2)].sec : null;
-  const prCount = list.filter((r) => r.is_pr).length;
-  const finishers = list.filter((r) => r.status === "completed" || displayFinishTime(r)).length;
-
-  summary.innerHTML = `
-    <div class="panel-header" style="margin-bottom:0.85rem">
-      <h3>${escapeHtml(marathon?.name || "Race")} results</h3>
-      <p class="panel-hint">${marathon ? formatDate(marathon.race_date) + " · " + escapeHtml(marathon.distance) : ""}</p>
-    </div>
-    <div class="results-summary-grid">
-      <div class="results-stat"><p class="label">Finishers</p><p class="value">${finishers}</p></div>
-      <div class="results-stat"><p class="label">Group best</p><p class="value time-mono time-best">${best != null ? formatSeconds(best) : "—"}</p></div>
-      <div class="results-stat"><p class="label">Median</p><p class="value time-mono">${median != null ? formatSeconds(median) : "—"}</p></div>
-      <div class="results-stat"><p class="label">PRs</p><p class="value">${prCount}</p></div>
-    </div>`;
-  }
-
-  list = [...list];
-  list.sort((a, b) => {
-    if (sortBy === "name") return (getRunner(a.runner_id)?.name || "").localeCompare(getRunner(b.runner_id)?.name || "");
-    if (sortBy === "place") {
-      const pa = parseInt(a.place_overall, 10);
-      const pb = parseInt(b.place_overall, 10);
-      if (!Number.isNaN(pa) && !Number.isNaN(pb)) return pa - pb;
-      if (!Number.isNaN(pa)) return -1;
-      if (!Number.isNaN(pb)) return 1;
-    }
-    const sa = bestFinishSeconds(a);
-    const sb = bestFinishSeconds(b);
-    if (sa != null && sb != null) return sa - sb;
-    if (sa != null) return -1;
-    if (sb != null) return 1;
-    return 0;
-  });
-
-  const rankById = new Map();
-  timed.forEach((x, i) => rankById.set(x.r.id, i + 1));
-
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty" style="border:none;margin:0.5rem"><strong>No results for this race</strong></div></td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = list.map((r) => {
-    const runner = getRunner(r.runner_id);
-    const pace = paceForRegistration(r, marathon);
-    const rank = rankById.get(r.id);
-    return `
-      <tr>
-        <td>${rank != null ? rank : "—"}</td>
-        <td><div class="member-head" style="gap:0.6rem;justify-content:flex-start;min-width:0">
-          ${renderProfileAvatar(runner, runner?.name || "Unknown", runner?.id || r.runner_id)}
-          <span>${escapeHtml(runner?.name || "Unknown")}</span>
-        </div></td>
-        <td>${escapeHtml(registrationDistance(r, marathon))}</td>
-        <td>${statusBadge(r.status)}</td>
-        <td class="time-mono">${r.gun_time ? escapeHtml(r.gun_time) : "—"}</td>
-        <td class="time-mono time-best">${r.chip_time ? escapeHtml(r.chip_time) : "—"}</td>
-        <td>${pace ? escapeHtml(pace.perKm) + "/km" : "—"}</td>
-        <td>${r.place_overall ? escapeHtml(r.place_overall) : "—"}</td>
-        <td>${r.place_gender ? escapeHtml(r.place_gender) : "—"}</td>
-        <td>${canEdit() ? `<button class="btn btn-secondary btn-sm" data-action="edit" data-id="${r.id}">Edit</button>` : ""}</td>
-      </tr>`;
-  }).join("");
-
-  tbody.querySelectorAll("[data-action=edit]").forEach((btn) => {
-    btn.addEventListener("click", () => openResultForm(btn.dataset.id));
-  });
-}
-
-function renderResultsCertificates(marathonId) {
-  const runnerId = myRunner?.id;
-  if (!runnerId) return;
-
-  // Check if user has a result for this marathon
-  const regs = regsForRunner(runnerId).filter((r) => r.marathon_id === marathonId);
-  if (!regs.length) {
-    const certificatesContainer = document.getElementById("results-certificates");
-    if (certificatesContainer) {
-      certificatesContainer.innerHTML = `<div class="empty"><strong>No results logged for this race. Log a result first before uploading a certificate.</strong></div>`;
-    }
-    return;
-  }
-
-  // Fetch certificates for this runner and marathon
-  fetchRunnerCertificates(runnerId).then((certs) => {
-    const userCerts = certs.filter((cert) => cert.marathon_id === marathonId);
-    const certificatesContainer = document.getElementById("results-certificates");
-    
-    if (!certificatesContainer) return;
-
-    if (!userCerts.length) {
-      certificatesContainer.innerHTML = `<div class="empty"><strong>No certificates yet</strong>Log a result to upload a certificate.</div>`;
-      return;
-    }
-
-    certificatesContainer.innerHTML = `
-      <div class="certificates-grid">
-        ${userCerts.map((cert) => {
-          const url = safeUrl(cert.url);
-          return `
-            <div class="certificate-card">
-              <div class="certificate-card-head">
-                <span class="certificate-icon">🏅</span>
-                <div>
-                  <strong>${escapeHtml(cert.marathon_name || "Race")}</strong>
-                  <small>${escapeHtml(cert.distance || "")} · ${escapeHtml(formatDate(new Date(cert.issued_at)))}</small>
-                </div>
-              </div>
-              <div class="certificate-card-meta">
-                <span>Time: <b class="time-mono">${escapeHtml(cert.finish_time || "—")}</b></span>
-                ${cert.place_overall ? `<span>Place: <b>#${escapeHtml(cert.place_overall)}</b></span>` : ""}
-              </div>
-              <div class="certificate-card-actions">
-                ${url
-                  ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View certificate</a>`
-                  : `<span class="badge badge-count">Certificate available</span>`}
-              </div>
-            </div>`;
-        }).join("")}
-      </div>`;
-  };
-}
-
-// ─── Profile helpers ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Profile helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getMyRunner() {
   const linked = getRunnerForUser(session?.user?.id);
@@ -3267,9 +3121,9 @@ function derivePaceGroup(prs) {
   if (best < 210) return "Sub-3:30";
   if (best < 240) return "Sub-4:00";
   if (best < 270) return "Sub-4:30";
-  if (best < 300) return "4:30–5:00";
-  if (best < 330) return "5:00–5:30";
-  if (best < 360) return "5:30–6:00";
+  if (best < 300) return "4:30â€“5:00";
+  if (best < 330) return "5:00â€“5:30";
+  if (best < 360) return "5:30â€“6:00";
   return "6:00+";
 }
 
@@ -3278,21 +3132,21 @@ function computeBadges(runnerId) {
   // Badge awards are system-owned. The database backfill/trigger is the
   // source of truth; do not re-award browser-only badges from partial state.
   const systemLabels = {
-    first_race: ["First Race", "🏁"],
-    new_personal_record: ["New Personal Record", "🏅"],
-    first_10k: ["First 10K", "🏃"],
-    first_half_marathon: ["First Half Marathon", "🎖"],
-    first_marathon: ["First Marathon", "🎖"],
-    sub_5_marathon: ["Sub-5:00 Marathon", "⚡"],
-    sub_4_marathon: ["Sub-4:00 Marathon", "⚡"],
-    five_races: ["5 Races Completed", "🏁"],
-    ten_races: ["10 Races Completed", "🏆"],
-    "1000km": ["1000 km Club", "🏅"],
+    first_race: ["First Race", "ðŸ"],
+    new_personal_record: ["New Personal Record", "ðŸ…"],
+    first_10k: ["First 10K", "ðŸƒ"],
+    first_half_marathon: ["First Half Marathon", "ðŸŽ–"],
+    first_marathon: ["First Marathon", "ðŸŽ–"],
+    sub_5_marathon: ["Sub-5:00 Marathon", "âš¡"],
+    sub_4_marathon: ["Sub-4:00 Marathon", "âš¡"],
+    five_races: ["5 Races Completed", "ðŸ"],
+    ten_races: ["10 Races Completed", "ðŸ†"],
+    "1000km": ["1000 km Club", "ðŸ…"],
   };
   const storedBadges = state.runnerBadges
     .filter((badge) => badge.runner_id === runnerId)
     .map((badge) => {
-      const [label, icon] = systemLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "🏅"];
+      const [label, icon] = systemLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "ðŸ…"];
       return { key: badge.badge_key, label, icon, awardedAt: badge.awarded_at };
     });
   const regs = regsForRunner(runnerId);
@@ -3303,7 +3157,7 @@ function computeBadges(runnerId) {
   const earned = new Set(storedBadges.map((badge) => badge.key));
   const add = (key) => {
     if (earned.has(key)) return;
-    const [label, icon] = systemLabels[key] || [key.replaceAll("_", " "), "🏅"];
+    const [label, icon] = systemLabels[key] || [key.replaceAll("_", " "), "ðŸ…"];
     storedBadges.push({ key, label, icon, auto: true });
     earned.add(key);
   };
@@ -3331,25 +3185,25 @@ function computeBadges(runnerId) {
   const legacyPrs = getRunnerPRs(runnerId);
   const legacyStored = state.runnerBadges.filter((badge) => badge.runner_id === runnerId);
   const storedLabels = {
-    new_personal_record: ["New Personal Record", "🏅"],
-    first_10k: ["First 10K", "🏃"],
-    first_half_marathon: ["First Half Marathon", "🎖"],
-    first_marathon: ["First Marathon", "🎖"],
-    sub_5_marathon: ["Sub-5:00 Marathon", "⚡"],
-    sub_4_marathon: ["Sub-4:00 Marathon", "⚡"],
-    five_races: ["5 Races Completed", "🏁"],
-    ten_races: ["10 Races Completed", "🏆"],
+    new_personal_record: ["New Personal Record", "ðŸ…"],
+    first_10k: ["First 10K", "ðŸƒ"],
+    first_half_marathon: ["First Half Marathon", "ðŸŽ–"],
+    first_marathon: ["First Marathon", "ðŸŽ–"],
+    sub_5_marathon: ["Sub-5:00 Marathon", "âš¡"],
+    sub_4_marathon: ["Sub-4:00 Marathon", "âš¡"],
+    five_races: ["5 Races Completed", "ðŸ"],
+    ten_races: ["10 Races Completed", "ðŸ†"],
   };
 
   const marathonFinish = timed.find((r) => {
     const m = getMarathon(r.marathon_id);
     return m?.distance === "Marathon";
   });
-  if (marathonFinish) badges.push({ key: "first_marathon", label: "First Marathon", icon: "🎖" });
+  if (marathonFinish) badges.push({ key: "first_marathon", label: "First Marathon", icon: "ðŸŽ–" });
 
   const legacyMarathonPR = legacyPrs.find((pr) => pr.distance === "Marathon" && pr.time_seconds != null);
   if (legacyMarathonPR && legacyMarathonPR.time_seconds < 14400) {
-    badges.push({ key: "sub4", label: "Sub-4 Marathon", icon: "⚡" });
+    badges.push({ key: "sub4", label: "Sub-4 Marathon", icon: "âš¡" });
   }
 
   const legacyTotalKm = legacyTimed.reduce((sum, r) => {
@@ -3357,40 +3211,40 @@ function computeBadges(runnerId) {
     const km = getDistanceKmValue(registrationDistance(r, m));
     return sum + (km || 0);
   }, 0);
-  if (totalKm >= 1000) badges.push({ key: "1000km", label: "1000 km Club", icon: "🏅" });
+  if (totalKm >= 1000) badges.push({ key: "1000km", label: "1000 km Club", icon: "ðŸ…" });
 
   const halfPR = prs.find((pr) => pr.distance === "Half Marathon" && pr.time_seconds != null);
   if (halfPR && halfPR.time_seconds < 5400) {
-    badges.push({ key: "sub1h30", label: "Sub-1:30 Half", icon: "🚀" });
+    badges.push({ key: "sub1h30", label: "Sub-1:30 Half", icon: "ðŸš€" });
   }
   const tenKPR = prs.find((pr) => pr.distance === "10K" && pr.time_seconds != null);
   if (tenKPR && tenKPR.time_seconds < 2700) {
-    badges.push({ key: "sub45_10k", label: "Sub-45 10K", icon: "🔥" });
+    badges.push({ key: "sub45_10k", label: "Sub-45 10K", icon: "ðŸ”¥" });
   }
-  if (badges.length) badges.push({ key: "first_race", label: "First Race", icon: "🏁", auto: true });
+  if (badges.length) badges.push({ key: "first_race", label: "First Race", icon: "ðŸ", auto: true });
   const known = new Set(badges.map((badge) => badge.key));
   stored.forEach((badge) => {
     if (known.has(badge.badge_key)) return;
-    const [label, icon] = storedLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "🏅"];
+    const [label, icon] = storedLabels[badge.badge_key] || [badge.badge_key.replaceAll("_", " "), "ðŸ…"];
     badges.push({ key: badge.badge_key, label, icon, awardedAt: badge.awarded_at });
   });
   return badges;
 }
 
 function formatPace(paceSecondsPerKm) {
-  if (paceSecondsPerKm == null) return "—";
+  if (paceSecondsPerKm == null) return "â€”";
   return formatSeconds(paceSecondsPerKm) + " /km";
 }
 
 function formatDistance(km) {
-  if (km == null) return "—";
+  if (km == null) return "â€”";
   if (km >= 42.195) return `${(km / 42.195).toFixed(2)} marathons`;
   if (km >= 21.0975) return `${(km / 21.0975).toFixed(1)} HM`;
   return `${km.toFixed(1)} km`;
 }
 
 function monthShortYear(iso) {
-  if (!iso) return "—";
+  if (!iso) return "â€”";
   const d = new Date(String(iso).slice(0, 10) + "T12:00:00");
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
@@ -3471,7 +3325,7 @@ function renderProfileAnalytics(runnerId) {
     const distances = Object.keys(grouped);
     progression.innerHTML = distances.length ? distances.map((distance) => {
       const points = grouped[distance].slice(-5);
-      return `<div class="profile-pr-progress-row"><strong>${escapeHtml(distance)}</strong><div class="profile-pr-progress-points">${points.map((point) => `<span title="${escapeHtml(monthShortYear(point.marathon.race_date))}">${escapeHtml(displayFinishTime(point.reg) || formatSeconds(point.seconds))}</span>`).join("<i>→</i>")}</div></div>`;
+      return `<div class="profile-pr-progress-row"><strong>${escapeHtml(distance)}</strong><div class="profile-pr-progress-points">${points.map((point) => `<span title="${escapeHtml(monthShortYear(point.marathon.race_date))}">${escapeHtml(displayFinishTime(point.reg) || formatSeconds(point.seconds))}</span>`).join("<i>â†’</i>")}</div></div>`;
     }).join("") : `<p class="profile-chart-empty">Your PR progression will appear after your first detected personal record.</p>`;
   }
 
@@ -3499,7 +3353,7 @@ function renderProfileAnalytics(runnerId) {
   const recent = document.getElementById("profile-recent-form");
   if (recent) {
     const points = results.slice(-5).reverse();
-    recent.innerHTML = points.length ? points.map((point) => `<div class="profile-form-row"><span class="profile-form-race" title="${escapeHtml(point.marathon.name)}">${escapeHtml(point.marathon.name)}</span><span class="profile-form-meta">${escapeHtml(registrationDistance(point.reg, point.marathon))} · ${escapeHtml(monthShortYear(point.marathon.race_date))}</span><span class="profile-form-time">${escapeHtml(displayFinishTime(point.reg) || "—")}</span></div>`).join("") : `<p class="profile-chart-empty">Your recent finishes will appear here.</p>`;
+    recent.innerHTML = points.length ? points.map((point) => `<div class="profile-form-row"><span class="profile-form-race" title="${escapeHtml(point.marathon.name)}">${escapeHtml(point.marathon.name)}</span><span class="profile-form-meta">${escapeHtml(registrationDistance(point.reg, point.marathon))} Â· ${escapeHtml(monthShortYear(point.marathon.race_date))}</span><span class="profile-form-time">${escapeHtml(displayFinishTime(point.reg) || "â€”")}</span></div>`).join("") : `<p class="profile-chart-empty">Your recent finishes will appear here.</p>`;
   }
 
   const monthly = document.getElementById("profile-monthly-activity");
@@ -3525,7 +3379,7 @@ function shareLinkFor(runner) {
   return `${base}?runner=${encodeURIComponent(getShareSlug(runner))}`;
 }
 
-// ─── Profile rendering ───────────────────────────────────────────────────────
+// â”€â”€â”€ Profile rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function renderProfile() {
   if (!profile && !session) return;
@@ -3566,9 +3420,9 @@ function renderProfile() {
   document.getElementById("profile-header-name").textContent = name || "You";
   const paceGroup = myRunner?.pace_group || derivePaceGroup(getRunnerPRs(myRunner?.id)) || "No pace group yet";
   const paceEl = document.getElementById("profile-header-pace");
-  if (paceEl) paceEl.textContent = paceGroup ? `Pace group: ${paceGroup}` : "Pace group: —";
+  if (paceEl) paceEl.textContent = paceGroup ? `Pace group: ${paceGroup}` : "Pace group: â€”";
   document.getElementById("profile-join-date-label")?.remove();
-  const joinDateText = myRunner?.join_date ? formatDate(myRunner.join_date) : "Joined —";
+  const joinDateText = myRunner?.join_date ? formatDate(myRunner.join_date) : "Joined â€”";
   const joinDateMeta = document.getElementById("profile-join-date-meta");
   if (joinDateMeta) joinDateMeta.textContent = `Joined: ${joinDateText}`;
   const streak = computeStreak(myRunner?.id);
@@ -3624,11 +3478,11 @@ function renderProfile() {
         const isNew = pr.is_new_pr || pr.derived || pr.id === newestPrId;
         return `
           <tr class="${isFastest ? "pr-fastest" : ""}">
-            <td>${escapeHtml(pr.distance)}${isFastest ? ' <span class="pr-trophy">🏆</span>' : ""}</td>
+            <td>${escapeHtml(pr.distance)}${isFastest ? ' <span class="pr-trophy">ðŸ†</span>' : ""}</td>
             <td class="time-mono">${formatSeconds(pr.time_seconds)}</td>
             <td class="time-mono">${formatPace(pr.pace_seconds_per_km)}</td>
             <td>${monthShortYear(pr.race_date)}</td>
-            <td>${escapeHtml(pr.race_name || "—")}${pr.location ? ` <span class="text-dim">· ${escapeHtml(pr.location)}</span>` : ""}</td>
+            <td>${escapeHtml(pr.race_name || "â€”")}${pr.location ? ` <span class="text-dim">Â· ${escapeHtml(pr.location)}</span>` : ""}</td>
             <td>
               ${isNew ? `<span class="badge badge-pr">New PR</span>` : ""}
             </td>
@@ -3653,11 +3507,11 @@ function renderProfile() {
           <div class="list-item">
             <div class="list-item-main">
               <p class="list-item-title">${escapeHtml(marathon.name)}</p>
-              <p class="list-item-sub">${formatDate(marathon.race_date)} · ${escapeHtml(registrationDistance(r, marathon))}${pace ? ` · ${pace.perKm}/km` : ""}</p>
+              <p class="list-item-sub">${formatDate(marathon.race_date)} Â· ${escapeHtml(registrationDistance(r, marathon))}${pace ? ` Â· ${pace.perKm}/km` : ""}</p>
             </div>
             <div style="display:flex;gap:0.45rem;align-items:center">
               ${(r.is_pr || canonicalPRRegistrations().has(r.id)) ? `<span class="badge badge-pr">PR</span>` : ""}
-              <span class="time-mono">${escapeHtml(displayFinishTime(r) || "—")}</span>
+              <span class="time-mono">${escapeHtml(displayFinishTime(r) || "â€”")}</span>
               ${r.place_overall ? `<span class="badge badge-count">#${escapeHtml(r.place_overall)}</span>` : ""}
             </div>
           </div>`;
@@ -3670,7 +3524,7 @@ function renderProfile() {
   if (badgesEl) {
     const badges = computeBadges(myRunner?.id);
     if (!badges.length) {
-      badgesEl.innerHTML = `<p class="panel-hint">Earn badges by finishing races (First Marathon, Sub-4, 1000 km Club…).</p>`;
+      badgesEl.innerHTML = `<p class="panel-hint">Earn badges by finishing races (First Marathon, Sub-4, 1000 km Clubâ€¦).</p>`;
     } else {
       badgesEl.innerHTML = badges.map((b) => `
         <div class="profile-badge">
@@ -3686,7 +3540,7 @@ function renderProfile() {
   }
 }
 
-// ─── PR CRUD ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ PR CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function openPrForm(prId) {
   const myRunner = getMyRunner();
@@ -3832,7 +3686,7 @@ async function deletePr(id) {
   });
 }
 
-// ─── Share / public toggle ───────────────────────────────────────────────────
+// â”€â”€â”€ Share / public toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function togglePublicProfile() {
   const myRunner = getMyRunner();
@@ -3865,7 +3719,7 @@ async function copyShareLink() {
   }
 }
 
-// ─── Runner public profile detail (from Runners menu) ────────────────────────
+// â”€â”€â”€ Runner public profile detail (from Runners menu) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function openRunnerProfileDetail(runnerId) {
   const runner = getRunner(runnerId);
@@ -3879,7 +3733,7 @@ function openRunnerProfileDetail(runnerId) {
   const stats = computeRunnerStats(runnerId);
   const streak = computeStreak(runnerId);
   const badges = computeBadges(runnerId);
-  const paced = derivePaceGroup(prs) || runner.pace_group || "—";
+  const paced = derivePaceGroup(prs) || runner.pace_group || "â€”";
 
   openModal({
     title: "Runner Profile",
@@ -3893,7 +3747,7 @@ function openRunnerProfileDetail(runnerId) {
             <p class="profile-header-pace">Pace group: ${escapeHtml(paced)}</p>
             <p class="panel-hint" style="margin:0.2rem 0 0">
               ${runner.join_date ? `Joined ${formatDate(runner.join_date)}` : ""}
-              ${streak > 0 ? ` · ${streak}-month streak` : ""}
+              ${streak > 0 ? ` Â· ${streak}-month streak` : ""}
             </p>
           </div>
         </div>
@@ -3918,7 +3772,7 @@ function openRunnerProfileDetail(runnerId) {
                   <td class="time-mono">${formatSeconds(pr.time_seconds)}</td>
                   <td class="time-mono">${formatPace(pr.pace_seconds_per_km)}</td>
                   <td>${monthShortYear(pr.race_date)}</td>
-                  <td>${escapeHtml(pr.race_name || "—")}</td>
+                  <td>${escapeHtml(pr.race_name || "â€”")}</td>
                 </tr>`).join("")
               : `<tr><td colspan="5"><div class="empty" style="border:none;margin:0.5rem">No PRs yet</div></td></tr>`}
             </tbody>
@@ -3933,8 +3787,8 @@ function openRunnerProfileDetail(runnerId) {
 
         ${me && me.id !== runnerId ? `
           <div class="room-actions" style="margin-top:1.25rem">
-            <button class="btn btn-secondary btn-sm" id="btn-compare-with-me">⚖ Compare with me</button>
-            <button class="btn btn-ghost btn-sm" id="btn-copy-runner-link">🔗 Copy link</button>
+            <button class="btn btn-secondary btn-sm" id="btn-compare-with-me">âš– Compare with me</button>
+            <button class="btn btn-ghost btn-sm" id="btn-copy-runner-link">ðŸ”— Copy link</button>
           </div>` : ""}
       </div>`,
     onMount() {
@@ -3982,8 +3836,8 @@ function openCompareModal(runnerId) {
             ${distances.length ? distances.map((dist) => {
               const my = myPRs.find((p) => p.distance === dist);
               const ot = otherPRs.find((p) => p.distance === dist);
-              const myTime = my ? formatSeconds(my.time_seconds) : "—";
-              const otTime = ot ? formatSeconds(ot.time_seconds) : "—";
+              const myTime = my ? formatSeconds(my.time_seconds) : "â€”";
+              const otTime = ot ? formatSeconds(ot.time_seconds) : "â€”";
               return `<tr><td>${escapeHtml(dist)}</td><td class="time-mono">${myTime}</td><td class="time-mono">${otTime}</td></tr>`;
             }).join("") : `<tr><td colspan="3"><div class="empty" style="border:none;margin:0.5rem">No PRs to compare</div></td></tr>`}
           </tbody>
@@ -3997,11 +3851,11 @@ function openCompareModal(runnerId) {
 }
 
 const NOTIFICATION_CHANNELS = [
-  { key: "enable_new_marathon", label: "New race added", desc: "Notify all members when a new race is added", icon: "🏁" },
-  { key: "enable_result_added", label: "Result logged", desc: "Notify all members when a result is entered", icon: "⏱" },
-  { key: "enable_race_reminders", label: "Race reminders", desc: "Remind registered runners before race start", icon: "🔔" },
-  { key: "enable_registration_nudge", label: "Registration nudge", desc: "Remind registered runners to confirm entry", icon: "📝" },
-  { key: "enable_race_announcement", label: "Race announcement", desc: "Announce upcoming races to all members", icon: "📣" },
+  { key: "enable_new_marathon", label: "New race added", desc: "Notify all members when a new race is added", icon: "ðŸ" },
+  { key: "enable_result_added", label: "Result logged", desc: "Notify all members when a result is entered", icon: "â±" },
+  { key: "enable_race_reminders", label: "Race reminders", desc: "Remind registered runners before race start", icon: "ðŸ””" },
+  { key: "enable_registration_nudge", label: "Registration nudge", desc: "Remind registered runners to confirm entry", icon: "ðŸ“" },
+  { key: "enable_race_announcement", label: "Race announcement", desc: "Announce upcoming races to all members", icon: "ðŸ“£" },
 ];
 
 const SCHEDULE_CHANNEL_LABELS = {
@@ -4078,7 +3932,7 @@ function renderNotificationSettingsForm() {
   tbody.querySelectorAll("[data-action='delete-schedule']").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Remove this schedule point?")) return;
-      const restoreButton = setButtonBusy(btn, "Removing…");
+      const restoreButton = setButtonBusy(btn, "Removingâ€¦");
       try {
         const { error } = await sb.from("notification_schedules").delete().eq("id", btn.dataset.id);
         if (error) throw error;
@@ -4111,7 +3965,7 @@ function renderNotificationReadonlySummary() {
       ${schedules.length ? `
         <p class="panel-hint" style="margin:1rem 0 0.75rem"><strong>Reminder cadence:</strong></p>
         <ul>
-          ${schedules.map((s) => `<li>${escapeHtml(SCHEDULE_CHANNEL_LABELS[s.channel] || s.channel)} — ${s.days_before}d before at ${String(s.hours_before).padStart(2, "0")}:00 (${s.frequency})</li>`).join("")}
+          ${schedules.map((s) => `<li>${escapeHtml(SCHEDULE_CHANNEL_LABELS[s.channel] || s.channel)} â€” ${s.days_before}d before at ${String(s.hours_before).padStart(2, "0")}:00 (${s.frequency})</li>`).join("")}
         </ul>
       ` : ""}
     </div>`;
@@ -4203,7 +4057,7 @@ function addScheduleRow() {
   });
 }
 
-// ─── Community board ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Community board â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function loadCommunityPosts() {
   if (!group?.id) {
@@ -4221,7 +4075,7 @@ async function loadCommunityPosts() {
     state.communityPosts = data || [];
     communityUnavailable = false;
   } catch (e) {
-    // Table may not exist yet (community-schema.sql not run) — keep board empty
+    // Table may not exist yet (community-schema.sql not run) â€” keep board empty
     console.warn("load community:", e);
     state.communityPosts = [];
     communityUnavailable = true;
@@ -4373,7 +4227,7 @@ function renderCommunity() {
                 : `<div class="empty" style="padding:1rem;margin:0"><strong>No replies yet</strong>Start the thread below.</div>`}
             </div>
             <form class="community-reply-form" data-action="reply-form" data-parent-id="${topic.id}">
-              <textarea class="textarea" name="reply" required maxlength="4000" placeholder="Write a reply…" rows="2"></textarea>
+              <textarea class="textarea" name="reply" required maxlength="4000" placeholder="Write a replyâ€¦" rows="2"></textarea>
               <div class="community-reply-actions">
                 <button type="submit" class="btn btn-primary btn-sm">Reply</button>
               </div>
@@ -4389,7 +4243,7 @@ async function toggleCommunityPostPin(postId) {
   const post = (state.communityPosts || []).find((item) => item.id === postId);
   if (!post) return;
   const button = document.querySelector(`[data-action='toggle-pin'][data-id='${postId}']`);
-  const restoreButton = setButtonBusy(button, post.is_pinned ? "Unpinning…" : "Pinning…");
+  const restoreButton = setButtonBusy(button, post.is_pinned ? "Unpinningâ€¦" : "Pinningâ€¦");
   try {
     const { error } = await sb.from("community_posts").update({ is_pinned: !post.is_pinned }).eq("id", postId);
     if (error) throw error;
@@ -4429,7 +4283,7 @@ async function createCommunityTopic() {
 
   const myRunner = getMyRunner();
   const btn = document.getElementById("btn-post-topic");
-  const restoreButton = setButtonBusy(btn, "Posting topic…");
+  const restoreButton = setButtonBusy(btn, "Posting topicâ€¦");
 
   try {
     const { data, error } = await sb
@@ -4470,7 +4324,7 @@ async function createCommunityReply(parentId, content, submitButton) {
   if (!parentId || !text) return toast("Write a reply first", "error");
 
   const myRunner = getMyRunner();
-  const restoreButton = setButtonBusy(submitButton, "Posting reply…");
+  const restoreButton = setButtonBusy(submitButton, "Posting replyâ€¦");
   try {
     const { data, error } = await sb
       .from("community_posts")
@@ -4505,7 +4359,7 @@ async function deleteCommunityPost(postId) {
   const label = post.parent_id ? "reply" : "topic";
   if (!confirm(`Delete this ${label}?`)) return;
 
-  const restoreButton = setButtonBusy(document.querySelector(`[data-action='delete-post'][data-id='${postId}']`), `Deleting ${label}…`);
+  const restoreButton = setButtonBusy(document.querySelector(`[data-action='delete-post'][data-id='${postId}']`), `Deleting ${label}â€¦`);
   try {
     const { error } = await sb.from("community_posts").delete().eq("id", postId);
     if (error) throw error;
@@ -4624,7 +4478,7 @@ function renderTeam() {
     return `
       <tr>
         <td>${escapeHtml(m.profile.display_name || "User")}</td>
-        <td>${escapeHtml(m.profile.email || "—")}</td>
+        <td>${escapeHtml(m.profile.email || "â€”")}</td>
         <td>${roleBadge(m.role)}</td>
         <td><div class="actions" style="flex-wrap:wrap">${actions}</div></td>
       </tr>`;
@@ -4653,7 +4507,7 @@ function renderTeam() {
   tbody.querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Remove this person from app access?")) return;
-      const restoreButton = setButtonBusy(btn, "Removing member…");
+      const restoreButton = setButtonBusy(btn, "Removing memberâ€¦");
       try {
         const { error } = await sb.rpc("remove_group_member", {
           p_group_id: group.id,
@@ -4672,7 +4526,7 @@ function renderTeam() {
   });
 }
 
-// ─── Forms / CRUD ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Forms / CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function openDistanceManager(returnToMarathonId = null) {
   if (!hasMinRole("admin")) return toast("Only admins can manage distances", "error");
@@ -4897,7 +4751,7 @@ function openMarathonForm(id) {
         if (payload.reg_open_date && payload.reg_close_date && payload.reg_close_date < payload.reg_open_date) {
           return toast("Registration close date must be on or after the open date", "error");
         }
-        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Creating race…");
+        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changesâ€¦" : "Creating raceâ€¦");
         try {
           if (existing) {
             const { error } = await sb.from("marathons").update(payload).eq("id", existing.id);
@@ -4943,7 +4797,7 @@ function confirmDeleteMarathon(id) {
       document.getElementById("del-cancel").onclick = closeModal;
       document.getElementById("del-confirm").onclick = async () => {
         const deleteButton = document.getElementById("del-confirm");
-        const restoreButton = setButtonBusy(deleteButton, "Deleting race…");
+        const restoreButton = setButtonBusy(deleteButton, "Deleting raceâ€¦");
         try {
           const { error } = await sb.from("marathons").delete().eq("id", id);
           if (error) throw error;
@@ -5099,7 +4953,7 @@ function openRunnerForm(id) {
         </div>
         <div class="field">
           <label for="p-image-url">Image URL</label>
-          <input class="input" id="p-image-url" type="url" placeholder="https://… (optional)" value="${escapeHtml(existing?.image_url || "")}" />
+          <input class="input" id="p-image-url" type="url" placeholder="https://â€¦ (optional)" value="${escapeHtml(existing?.image_url || "")}" />
         </div>
         <div class="field">
           <label for="p-notes">Notes</label>
@@ -5123,7 +4977,7 @@ function openRunnerForm(id) {
           created_by: session.user.id,
         };
         if (!payload.name) return toast("Name required", "error");
-        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Creating runner…");
+        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changesâ€¦" : "Creating runnerâ€¦");
         try {
           let savedRunner = existing;
           if (existing) {
@@ -5171,7 +5025,7 @@ function confirmDeleteRunner(id) {
       document.getElementById("del-cancel").onclick = closeModal;
       document.getElementById("del-confirm").onclick = async () => {
         const deleteButton = document.getElementById("del-confirm");
-        const restoreButton = setButtonBusy(deleteButton, "Deleting runner…");
+        const restoreButton = setButtonBusy(deleteButton, "Deleting runnerâ€¦");
         try {
           const { error } = await sb.from("runners").delete().eq("id", id);
           if (error) throw error;
@@ -5277,7 +5131,7 @@ function openRegistrationForm(id, defaults = {}) {
         }
         if (!payload.race_distance) return toast("Distance is required", "error");
 
-        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changes…" : "Registering runner…");
+        const restoreButton = setButtonBusy(saveButton, existing ? "Saving changesâ€¦" : "Registering runnerâ€¦");
         try {
           if (existing) {
             const { error } = await sb.from("registrations").update(payload).eq("id", existing.id);
@@ -5390,11 +5244,9 @@ function openResultForm(registrationId, defaults = {}) {
           </div>
         </div>
         <div class="field">
-          <label for="res-certificate">Certificate (optional)</label>
-          <input class="input" id="res-certificate" type="file" accept="image/*,application/pdf" style="display:none" /><span id="res-certificate-filename">${escapeHtml(existing?.certificate_url ? existing.certificate_url.split("/").pop() : "No file selected")}</span>
-          ${existing?.certificate_url ? `<p class="panel-hint" style="margin:0.35rem 0 0">Current certificate: <a href="${escapeHtml(existing.certificate_url)}" target="_blank" rel="noopener noreferrer">View existing</a></p>` : ""}
-          <button type="button" class="btn btn-secondary btn-sm" id="res-certificate-browse">Browse...</button>
-          <p class="panel-hint" style="margin:0.35rem 0 0">Upload a JPG, PNG, or PDF certificate. Required: Log a result first.</p>
+          <label for="res-certificate-url">Certificate URL (optional)</label>
+          <input class="input" id="res-certificate-url" type="url" placeholder="https://results.example.com/certificates/12345" value="${escapeHtml(existing?.certificate_url || "")}" />
+          <p class="panel-hint" style="margin:0.35rem 0 0">Paste a link to this runner's official finisher certificate. It will appear under <strong>Profile â†’ Race History â†’ Certificates</strong>.</p>
         </div>
         <div class="field">
           <label for="res-notes">Result notes</label>
@@ -5422,7 +5274,7 @@ function openResultForm(registrationId, defaults = {}) {
         const prefer = existing?.id || defaults.registrationId || "";
         regSel.innerHTML = regs.map((r) => {
           const runner = getRunner(r.runner_id);
-          const hasTime = displayFinishTime(r) ? " · has time" : "";
+          const hasTime = displayFinishTime(r) ? " Â· has time" : "";
           return `<option value="${r.id}" ${r.id === prefer ? "selected" : ""}>${escapeHtml(runner?.name || "Runner")}${hasTime}</option>`;
         }).join("");
         const selectedReg = regs.find((r) => r.id === regSel.value) || existing;
@@ -5450,7 +5302,7 @@ function openResultForm(registrationId, defaults = {}) {
           const runner = selected ? getRunner(selected.runner_id) : null;
           if (!runner) return toast("Select a registered runner first", "error");
           if (!/^https?:\/\//i.test(url)) return toast("Enter a valid http:// or https:// results URL", "error");
-          const restore = setButtonBusy(scrapeResultButton, "Scraping…");
+          const restore = setButtonBusy(scrapeResultButton, "Scrapingâ€¦");
           try {
             const { data, error } = await sb.functions.invoke("scrape-results", { body: { url } });
             if (error) throw new Error(data?.error || error.message || "Could not scrape results");
@@ -5461,7 +5313,7 @@ function openResultForm(registrationId, defaults = {}) {
             if (exact.length !== 1) throw new Error(exact.length ? "More than one matching result was found for this runner" : `No result found for ${runner.name}`);
             const row = exact[0];
             scrapeResultPreview.hidden = false;
-            scrapeResultPreview.innerHTML = `<strong>Review scraped result</strong><p class="panel-hint">${escapeHtml(runner.name)} · ${escapeHtml(data.data.race_name || "Race")}</p><p>Time: <b>${escapeHtml(row.finish_time || "—")}</b> · Place: <b>${escapeHtml(row.overall_place || "—")}</b> · Status: <b>${escapeHtml(row.status || "completed")}</b></p><p class="panel-hint">Source: <a href="${escapeHtml(data.data.source_url || url)}" target="_blank" rel="noopener">${escapeHtml(data.data.source_url || url)}</a></p><button type="button" class="btn btn-secondary btn-sm" id="res-use-scraped">Use this result</button>`;
+            scrapeResultPreview.innerHTML = `<strong>Review scraped result</strong><p class="panel-hint">${escapeHtml(runner.name)} Â· ${escapeHtml(data.data.race_name || "Race")}</p><p>Time: <b>${escapeHtml(row.finish_time || "â€”")}</b> Â· Place: <b>${escapeHtml(row.overall_place || "â€”")}</b> Â· Status: <b>${escapeHtml(row.status || "completed")}</b></p><p class="panel-hint">Source: <a href="${escapeHtml(data.data.source_url || url)}" target="_blank" rel="noopener">${escapeHtml(data.data.source_url || url)}</a></p><button type="button" class="btn btn-secondary btn-sm" id="res-use-scraped">Use this result</button>`;
             document.getElementById("res-use-scraped").onclick = () => {
               document.getElementById("res-chip").value = row.finish_time || "";
               document.getElementById("res-gun").value = row.finish_time || "";
@@ -5472,73 +5324,10 @@ function openResultForm(registrationId, defaults = {}) {
               const notes = document.getElementById("res-notes");
               notes.value = [notes.value.trim(), `Imported from ${data.data.source_url || url}`].filter(Boolean).join("\n");
               ["res-chip", "res-gun", "res-place", "res-place-g", "res-place-ag", "res-status"].forEach((id) => document.getElementById(id).dispatchEvent(new Event("input", { bubbles: true })));
-              scrapeResultPreview.innerHTML = `<strong>Result accepted for review</strong><p class="panel-hint">The fields below are filled but not saved. Review them, then click “Save result”.</p>`;
+              scrapeResultPreview.innerHTML = `<strong>Result accepted for review</strong><p class="panel-hint">The fields below are filled but not saved. Review them, then click â€œSave resultâ€.</p>`;
             };
           } catch (error) { toast(error?.message || "Failed to scrape this runner's result", "error"); }
           finally { restore(); }
-        };
-      }
-
-      // Certificate file browse button
-      const certificateBrowseButton = document.getElementById("res-certificate-browse");
-      const certificateFileInput = document.getElementById("res-certificate");
-      const certificateFilenameDisplay = document.getElementById("res-certificate-filename");
-      if (certificateBrowseButton && certificateFileInput && certificateFilenameDisplay) {
-        certificateBrowseButton.onclick = () => certificateFileInput.click();
-        certificateFileInput.onchange = async () => {
-          const file = certificateFileInput.files[0];
-          if (!file) return;
-          
-          // Check if a result exists for this runner and marathon
-          const selectedReg = state.registrations.find((r) => r.id === regSel.value);
-          if (!selectedReg) return toast("Select a registered runner first", "error");
-          
-          // Check if result has timing data (completed status)
-          const hasResult = displayFinishTime(selectedReg) || selectedReg.status === "completed";
-          if (!hasResult) {
-            return toast("Log a result first before uploading a certificate.", "error");
-          }
-          
-          // Validate file type
-          const validTypes = ["image/jpeg", "image/png", "application/pdf"];
-          if (!validTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|pdf)$/i)) {
-            return toast("Unsupported file type. Please upload JPG, PNG, or PDF.", "error");
-          }
-          
-          // Validate file size (limit to 10MB)
-          if (file.size > 10 * 1024 * 1024) {
-            return toast("File too large. Maximum size is 10MB.", "error");
-          }
-          
-          const restore = setButtonBusy(certificateBrowseButton, "Uploading…");
-          try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("runner_id", selectedReg.runner_id);
-            formData.append("marathon_id", selectedReg.marathon_id);
-            formData.append("result_id", selectedReg.id);
-            
-            const { data, error } = await sb.storage.from("certificates").upload(
-              `${selectedReg.runner_id}/${selectedReg.marathon_id}_${selectedReg.id}_${file.name}`,
-              formData
-            );
-            if (error) throw new Error(error.message || "Upload failed");
-            
-            const { publicUrl } = sb.storage.from("certificates").getPublicUrl(
-              `${selectedReg.runner_id}/${selectedReg.marathon_id}_${selectedReg.id}_${file.name}`
-            );
-            
-            // Update the form hidden input and filename display
-            document.getElementById("res-certificate").value = "";
-            certificateFilenameDisplay.textContent = file.name;
-            
-            // Store the certificate URL in a data attribute for form submission
-            document.getElementById("res-certificate").setAttribute("data-certificate-url", publicUrl);
-            
-            toast("Certificate uploaded successfully");
-          } catch (error) {
-            toast(error?.message || "Failed to upload certificate", "error");
-          } finally { restore(); }
         };
       }
 
@@ -5565,7 +5354,7 @@ function openResultForm(registrationId, defaults = {}) {
         const regId = existing?.id || regSel.value;
         if (!regId) return toast("Pick a registered runner", "error");
         const reg = state.registrations.find((r) => r.id === regId);
-        if (!reg) return toast("Registration not found — register the runner first", "error");
+        if (!reg) return toast("Registration not found â€” register the runner first", "error");
 
         const gunRaw = document.getElementById("res-gun").value;
         const chipRaw = document.getElementById("res-chip").value;
@@ -5589,11 +5378,11 @@ function openResultForm(registrationId, defaults = {}) {
           place_overall: document.getElementById("res-place").value.trim(),
           place_gender: document.getElementById("res-place-g").value.trim(),
           place_age_group: document.getElementById("res-place-ag").value.trim(),
-          certificate_url: document.getElementById("res-certificate").getAttribute("data-certificate-url") || "",
+          certificate_url: document.getElementById("res-certificate-url").value.trim(),
           result_notes: document.getElementById("res-notes").value.trim(),
         };
 
-        const restoreButton = setButtonBusy(saveButton, "Saving result…");
+        const restoreButton = setButtonBusy(saveButton, "Saving resultâ€¦");
         try {
           const { error } = await sb.from("registrations").update(payload).eq("id", regId);
           if (error) throw error;
@@ -5711,7 +5500,7 @@ function confirmDeleteRegistration(id) {
       document.getElementById("del-cancel").onclick = closeModal;
       document.getElementById("del-confirm").onclick = async () => {
         const deleteButton = document.getElementById("del-confirm");
-        const restoreButton = setButtonBusy(deleteButton, "Deleting registration…");
+        const restoreButton = setButtonBusy(deleteButton, "Deleting registrationâ€¦");
         try {
           const { error } = await sb.from("registrations").delete().eq("id", id);
           if (error) throw error;
@@ -5729,7 +5518,7 @@ function confirmDeleteRegistration(id) {
   });
 }
 
-// ─── Wire UI ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Wire UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function wireAuthUi() {
   const signinForm = document.getElementById("form-signin");
@@ -5771,7 +5560,7 @@ function wireAuthUi() {
       try {
         await createGroup(document.getElementById("group-name").value.trim());
         await enterApp();
-        toast("Group created — share your invite code from Team & access");
+        toast("Group created â€” share your invite code from Team & access");
       } catch (err) {
         errEl.textContent = errMsg(err);
         errEl.hidden = false;
@@ -5787,7 +5576,7 @@ function wireAuthUi() {
       const errEl = document.getElementById("create-user-error");
       const btn = document.getElementById("btn-create-user");
       errEl.hidden = true;
-      const restoreButton = setButtonBusy(btn, "Creating user…");
+      const restoreButton = setButtonBusy(btn, "Creating userâ€¦");
       try {
         const email = document.getElementById("new-user-email").value.trim();
         await adminCreateUser({
@@ -5817,7 +5606,7 @@ function wireAuthUi() {
   const onboardSignoutButton = document.getElementById("btn-signout-onboard");
   if (onboardSignoutButton) onboardSignoutButton.onclick = () => signOut();
 
-  // Profile menu: open dropdown (Profile + Sign out) — do not jump to profile immediately
+  // Profile menu: open dropdown (Profile + Sign out) â€” do not jump to profile immediately
   wireProfileDropdown();
 
   const passwordGateForm = document.getElementById("form-password-gate");
@@ -5852,7 +5641,7 @@ function wireAuthUi() {
       e.preventDefault();
       const errEl = document.getElementById("logo-error");
       const saveButton = logoForm.querySelector("button[type='submit']");
-      const restoreButton = setButtonBusy(saveButton, "Saving logo…");
+      const restoreButton = setButtonBusy(saveButton, "Saving logoâ€¦");
       errEl.hidden = true;
       try {
         await saveGroupLogo(document.getElementById("group-logo-url").value);
@@ -5869,7 +5658,7 @@ function wireAuthUi() {
     document.getElementById("btn-clear-logo")?.addEventListener("click", async () => {
       const errEl = document.getElementById("logo-error");
       const clearButton = document.getElementById("btn-clear-logo");
-      const restoreButton = setButtonBusy(clearButton, "Restoring logo…");
+      const restoreButton = setButtonBusy(clearButton, "Restoring logoâ€¦");
       errEl.hidden = true;
       try {
         document.getElementById("group-logo-url").value = "";
@@ -5897,7 +5686,7 @@ function wireAuthUi() {
       const errEl = document.getElementById("profile-error");
       const btn = document.getElementById("btn-save-profile");
       errEl.hidden = true;
-      const restoreButton = setButtonBusy(btn, "Saving profile…");
+      const restoreButton = setButtonBusy(btn, "Saving profileâ€¦");
       try {
         await saveProfile();
         toast("Profile updated successfully.");
@@ -6046,7 +5835,7 @@ function wireAppUi() {
     button.addEventListener("click", async () => {
       const status = button.parentElement?.querySelector("[data-push-status]");
       button.disabled = true;
-      if (status) status.textContent = "Requesting permission…";
+      if (status) status.textContent = "Requesting permissionâ€¦";
       try {
         await subscribeToPushNotifications();
         if (status) status.textContent = typeof Notification !== "undefined" && Notification.permission === "granted"
@@ -6105,7 +5894,7 @@ function wireAppUi() {
     e.preventDefault();
     const form = e.currentTarget;
     const saveButton = form.querySelector("button[type='submit']");
-    const restoreButton = setButtonBusy(saveButton, "Saving settings…");
+    const restoreButton = setButtonBusy(saveButton, "Saving settingsâ€¦");
     try {
       await saveNotificationSettings();
     } finally {
@@ -6131,7 +5920,7 @@ function wireAppUi() {
   communityFeed?.addEventListener("keydown", onCommunityFeedKeydown);
 }
 
-// ─── Boot ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
@@ -6146,7 +5935,7 @@ function registerServiceWorker() {
     });
 }
 
-// ─── PWA install prompt ──────────────────────────────────────────────────────
+// â”€â”€â”€ PWA install prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let deferredPrompt = null;
 
@@ -6173,7 +5962,7 @@ function renderInstallButton() {
     const btn = document.createElement("button");
     btn.id = "btn-install";
     btn.className = "btn btn-secondary btn-sm";
-    btn.innerHTML = "📱 Install";
+    btn.innerHTML = "ðŸ“± Install";
     btn.onclick = async () => {
       if (deferredPrompt) {
         deferredPrompt.prompt();
@@ -6267,7 +6056,7 @@ async function init() {
     applyBrandLogo();
     showScreen("auth");
   } else if (!initialSessionHandled) {
-    // Older supabase-js may not emit INITIAL_SESSION — boot once here
+    // Older supabase-js may not emit INITIAL_SESSION â€” boot once here
     await handleSession(data.session);
   }
 
@@ -6298,7 +6087,7 @@ init().catch((e) => {
   document.getElementById("boot-msg").textContent = errMsg(e);
 });
 
-// ─── Certificates ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Certificates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Fetch certificates for a runner from the user_certificates table.
@@ -6344,53 +6133,42 @@ function deriveCertificatesFromResults(runnerId) {
   }));
 }
 
-/** Render the certificates section in the Race History tab and Profile Certificates tab. */
-function renderCertificates(runnerId) {
-  const profileCertsContainer = document.getElementById("profile-certificates");
-  const certificatesGrid = document.getElementById("profile-certificates-grid");
-
-  if (!profileCertsContainer && !certificatesGrid) return;
+/** Render the certificates section in the Race History tab. */
+async function renderCertificates(runnerId) {
+  const container = document.getElementById("profile-certificates");
+  if (!container) return;
 
   let certs = await fetchRunnerCertificates(runnerId);
   if (!certs.length) certs = deriveCertificatesFromResults(runnerId);
 
-  // Build certificate HTML
-  const certsHtml = certs.map((cert) => {
-    const url = safeUrl(cert.certificate_url);
-    return `
-      <div class="certificate-card">
-        <div class="certificate-card-head">
-          <span class="certificate-icon">🏅</span>
-          <div>
-            <strong>${escapeHtml(cert.marathon_name || "Race")}</strong>
-            <small>${escapeHtml(cert.distance || "")} · ${escapeHtml(formatDate(cert.race_date))}</small>
-          </div>
-        </div>
-        <div class="certificate-card-meta">
-          <span>Time: <b class="time-mono">${escapeHtml(cert.finish_time || "—")}</b></span>
-          ${cert.place_overall ? `<span>Place: <b>#${escapeHtml(cert.place_overall)}</b></span>` : ""}
-        </div>
-        <div class="certificate-card-actions">
-          ${url
-            ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View certificate</a>`
-            : `<span class="badge badge-count">Certificate available</span>`}
-        </div>
-      </div>`;
-  }).join("");
+  if (!certs.length) {
+    container.innerHTML = `<div class="empty"><strong>No certificates yet</strong>Finish a race to earn a certificate.</div>`;
+    return;
+  }
 
-  // Render in both locations
-  if (profileCertsContainer) {
-    if (!certs.length) {
-      profileCertsContainer.innerHTML = `<div class="empty"><strong>No certificates yet</strong>Finish a race to earn a certificate.</div>`;
-    } else {
-      profileCertsContainer.innerHTML = `<div class="certificates-grid">${certsHtml}</div>`;
-    }
-  }
-  if (certificatesGrid) {
-    if (!certs.length) {
-      certificatesGrid.innerHTML = `<div class="empty"><strong>No certificates yet</strong>Finish a race to earn a certificate.</div>`;
-    } else {
-      certificatesGrid.innerHTML = `<div class="certificates-grid">${certsHtml}</div>`;
-    }
-  }
+  container.innerHTML = `
+    <div class="certificates-grid">
+      ${certs.map((cert) => {
+        const url = safeUrl(cert.certificate_url);
+        return `
+          <div class="certificate-card">
+            <div class="certificate-card-head">
+              <span class="certificate-icon">ðŸ…</span>
+              <div>
+                <strong>${escapeHtml(cert.marathon_name || "Race")}</strong>
+                <small>${escapeHtml(cert.distance || "")} Â· ${escapeHtml(formatDate(cert.race_date))}</small>
+              </div>
+            </div>
+            <div class="certificate-card-meta">
+              <span>Time: <b class="time-mono">${escapeHtml(cert.finish_time || "â€”")}</b></span>
+              ${cert.place_overall ? `<span>Place: <b>#${escapeHtml(cert.place_overall)}</b></span>` : ""}
+            </div>
+            <div class="certificate-card-actions">
+              ${url
+                ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View certificate</a>`
+                : `<span class="badge badge-count">Certificate available</span>`}
+            </div>
+          </div>`;
+      }).join("")}
+    </div>`;
 }
