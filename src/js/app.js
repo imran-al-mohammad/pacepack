@@ -5266,6 +5266,11 @@ function openResultForm(registrationId, defaults = {}) {
           </div>
         </div>
         <div class="field">
+          <label for="res-certificate-url">Certificate URL (optional)</label>
+          <input class="input" id="res-certificate-url" type="url" placeholder="https://results.example.com/certificates/12345" value="${escapeHtml(existing?.certificate_url || "")}" />
+          <p class="panel-hint" style="margin:0.35rem 0 0">Paste a link to this runner's official finisher certificate. It will appear under <strong>Profile → Race History → Certificates</strong>.</p>
+        </div>
+        <div class="field">
           <label for="res-notes">Result notes</label>
           <textarea class="textarea" id="res-notes">${escapeHtml(existing?.result_notes || "")}</textarea>
         </div>
@@ -5395,6 +5400,7 @@ function openResultForm(registrationId, defaults = {}) {
           place_overall: document.getElementById("res-place").value.trim(),
           place_gender: document.getElementById("res-place-g").value.trim(),
           place_age_group: document.getElementById("res-place-ag").value.trim(),
+          certificate_url: document.getElementById("res-certificate-url").value.trim(),
           result_notes: document.getElementById("res-notes").value.trim(),
         };
 

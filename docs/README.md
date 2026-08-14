@@ -141,6 +141,8 @@ pacepack/
 | View everything | ✓ | ✓ | ✓ |
 | Add/edit runners, races, results | ✓ | ✓ | ✓ |
 | Delete runners, races, registrations | ✓ | ✓ | — |
+| **Add certificate URLs** to results | ✓ | ✓ | ✓ |
+| **View certificates** (Profile → Race History) | ✓ | ✓ | ✓ |
 | **Create users** (email + password) | ✓ | — | — |
 | Change roles / remove users | ✓ | — | — |
 | Invite code | ✓ (share) | share | share |
