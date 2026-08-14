@@ -1,0 +1,25 @@
+{% include "partials/flash.html" %}
+{% if not topics %}
+  <div class="empty"><strong>No posts yet</strong>PRs, badges, and results will appear here automatically.</div>
+{% else %}
+  <div class="list">
+    {% for topic in topics %}
+      <article class="list-item community-post{% if topic.system %} is-system{% endif %}">
+        <div class="list-item-main">
+          <p class="list-item-title">{{ topic.title or "Board post" }}</p>
+          <p class="list-item-sub">{{ topic.runner_name or "Club" }} · {{ topic.created_at | date }}</p>
+          <p>{{ topic.content }}</p>
+          {% for reply in replies.get(topic.id, []) %}
+            <p class="community-reply"><strong>{{ reply.runner_name or "Member" }}:</strong> {{ reply.content }}</p>
+          {% endfor %}
+          <form class="reply-form" method="post" action="/community" hx-post="/community" hx-target="#community-feed">
+            <input type="hidden" name="parent_id" value="{{ topic.id }}">
+            <input class="input" name="content" placeholder="Reply" required>
+            <button class="btn btn-ghost btn-sm" type="submit">Reply</button>
+          </form>
+        </div>
+        {% if topic.system %}<span class="badge badge-pr">Auto</span>{% endif %}
+      </article>
+    {% endfor %}
+  </div>
+{% endif %}

@@ -1,0 +1,41 @@
+<div class="profile-tab-panel is-active">
+  {% include "partials/flash.html" %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Settings</h3>
+      <p class="panel-hint">Join date is set from your first race and cannot be edited.</p>
+    </div>
+    <form class="form-grid" method="post" action="/profile/settings"
+          hx-post="/profile/settings" hx-target="#profile-tab-content">
+      <div class="field">
+        <label for="display_name">Display name</label>
+        <input class="input" id="display_name" name="display_name" value="{{ display_name }}">
+      </div>
+      <div class="field">
+        <label>Join date</label>
+        <input class="input" value="{{ join_date_label }}" disabled>
+      </div>
+      <div class="field">
+        <label for="pace_group">Pace group</label>
+        <select class="select full" id="pace_group" name="pace_group">
+          {% for group in pace_groups %}
+            <option value="{{ group }}" {% if runner and runner.pace_group == group %}selected{% endif %}>{{ group or "None" }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <label class="field checkbox-field">
+        <input type="checkbox" name="public_profile" {% if runner and runner.public_profile_enabled %}checked{% endif %}>
+        Public profile enabled
+      </label>
+      <div class="field">
+        <label for="password">New password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label for="password_confirm">Confirm password</label>
+        <input class="input" id="password_confirm" name="password_confirm" type="password" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" type="submit">Save settings</button>
+    </form>
+  </section>
+</div>

@@ -1,0 +1,76 @@
+<div class="profile-tab-panel is-active">
+  <div class="profile-analytics-grid">
+    <section class="panel">
+      <div class="panel-header"><h3>Pace trend</h3></div>
+      <div class="profile-trend-chart">
+        {% if not analytics.trend %}
+          <p class="profile-chart-empty">Complete a timed race to see your pace trend.</p>
+        {% else %}
+          {% for point in analytics.trend %}
+            <div class="profile-trend-item" title="{{ point.race.name }}">
+              <span class="profile-trend-value">{{ point.pace | pace }}</span>
+              <span class="profile-trend-bar" style="height:{{ (point.ratio * 100) | round }}%"></span>
+              <span class="profile-trend-label">{{ point.race.race_date | month }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header"><h3>Completion</h3></div>
+      <div class="profile-progress-wrap">
+        <div class="profile-progress-percent">{{ analytics.completion_pct }}%</div>
+        <div class="profile-progress-track"><div class="profile-progress-fill" style="width:{{ analytics.completion_pct }}%"></div></div>
+        <div class="profile-progress-meta">
+          <span>{{ stats.completed }} finished</span>
+          <span>{{ stats.registrations - stats.completed }} pending</span>
+        </div>
+      </div>
+    </section>
+    <section class="panel profile-analytics-wide">
+      <div class="panel-header"><h3>PR progression</h3></div>
+      {% if not analytics.pr_groups %}
+        <p class="profile-chart-empty">Your PR progression will appear after your first detected personal record.</p>
+      {% else %}
+        <div class="profile-pr-progression">
+          {% for distance, points in analytics.pr_groups.items() %}
+            <div class="profile-pr-progress-row">
+              <strong>{{ distance }}</strong>
+              <div class="profile-pr-progress-points">
+                {% for point in points[-5:] %}
+                  <span>{{ point.seconds | time }}</span>{% if not loop.last %}<i>→</i>{% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+    <section class="panel">
+      <div class="panel-header"><h3>Distance mix</h3></div>
+      <div class="profile-bars">
+        {% for distance, count in analytics.mix %}
+          <div class="profile-bar-row">
+            <span>{{ distance }}</span>
+            <span class="profile-bar-track"><span class="profile-bar-fill" style="width:{{ (count / analytics.mix_max) * 100 }}%"></span></span>
+            <span class="profile-bar-count">{{ count }}</span>
+          </div>
+        {% else %}
+          <p class="profile-chart-empty">No timed races yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header"><h3>Monthly activity</h3></div>
+      <div class="profile-trend-chart">
+        {% for month in analytics.months %}
+          <div class="profile-month-item">
+            <span class="profile-month-count">{{ month.count or "" }}</span>
+            <span class="profile-month-bar" style="height:{{ [4, (month.count / analytics.month_max) * 100] | max }}%"></span>
+            <span class="profile-month-label">{{ month.label }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>

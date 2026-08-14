@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel profile-hero">
+    <div class="profile-header">
+      <span class="avatar avatar-lg" style="background:{{ avatar_color(ctx.user_id) }}">{{ initials(display_name) }}</span>
+      <div>
+        <h3>{{ display_name }}</h3>
+        <p class="panel-hint">
+          Pace group: {{ runner.pace_group if runner and runner.pace_group else "—" }}
+          · Joined: {{ join_date_label }}
+          · {% if stats.streak %}{{ stats.streak }}-month streak{% else %}No streak yet{% endif %}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <nav class="profile-tabs" role="tablist">
+    {% set tabs = [
+      ("overview", "Overview"),
+      ("analytics", "Analytics"),
+      ("records", "Records"),
+      ("badges", "Badges"),
+      ("history", "Race History"),
+      ("certificates", "Certificates"),
+      ("settings", "Settings"),
+    ] %}
+    {% for key, label in tabs %}
+      <a class="profile-tab{% if tab == key %} is-active{% endif %}"
+         href="/profile?tab={{ key }}"
+         hx-get="/profile/tabs/{{ key }}"
+         hx-target="#profile-tab-content"
+         hx-push-url="/profile?tab={{ key }}"
+         role="tab"
+         aria-selected="{{ 'true' if tab == key else 'false' }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  <div id="profile-tab-content">
+    {% include "partials/profile/" ~ tab ~ ".html" %}
+  </div>
+{% endblock %}

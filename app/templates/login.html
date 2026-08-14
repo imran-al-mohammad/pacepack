@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · PacePack</title>
+  <meta name="theme-color" content="#151515">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="brand-mark">
+          <svg viewBox="0 0 32 32" fill="none" aria-hidden="true" width="36" height="36">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <div>
+          <h1>PacePack</h1>
+          <p>Club race tracker</p>
+        </div>
+      </div>
+      <h2 class="auth-title">Sign in</h2>
+      <p class="auth-sub">Use the email and password for your club account.</p>
+      {% if not configured %}
+        <div class="flash flash-error">Server is missing SUPABASE_URL / SUPABASE_ANON_KEY. See docs/ENV.md.</div>
+      {% endif %}
+      {% if error %}
+        <div class="flash flash-error">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/login" class="form-grid">
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" value="{{ email or '' }}" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" required autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

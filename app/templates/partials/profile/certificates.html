@@ -1,0 +1,56 @@
+<div class="profile-tab-panel is-active">
+  {% include "partials/flash.html" %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Certificates</h3>
+      <p class="panel-hint">File upload is allowed only after a result is logged.</p>
+    </div>
+    {% set logged_history = history | selectattr("logged") | list %}
+    {% if runner and logged_history %}
+      <form class="upload-form" method="post" action="/profile/certificates" enctype="multipart/form-data"
+            hx-post="/profile/certificates" hx-encoding="multipart/form-data" hx-target="#profile-tab-content">
+        <div class="form-grid">
+          <div class="field">
+            <label for="profile-race">Race with a logged result</label>
+            <select class="select full" id="profile-race" name="race_id" required>
+              {% for row in logged_history %}
+                <option value="{{ row.marathon_id }}">{{ row.race_name }} · {{ (row.race.race_date if row.race else none) | date }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="profile-cert-file">Certificate file</label>
+            <input class="input" id="profile-cert-file" name="file" type="file" accept="image/*,application/pdf" required data-upload-input>
+            <p class="panel-hint" data-upload-name>No file selected</p>
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit">Upload</button>
+      </form>
+    {% endif %}
+    {% if not certificates %}
+      <div class="empty"><strong>No certificates yet</strong>Finish a race, then upload the file here.</div>
+    {% else %}
+      <div class="certificates-grid">
+        {% for cert in certificates %}
+          <div class="certificate-card">
+            <div class="certificate-card-head">
+              <span class="certificate-icon">🏅</span>
+              <div>
+                <strong>{{ cert.race_name }}</strong>
+                <small>{{ cert.distance }} · {{ (cert.issued_at or cert.created_at) | date }}</small>
+              </div>
+            </div>
+            <div class="certificate-card-meta">
+              <span>Time: <b class="time-mono">{{ cert.finish_time or "—" }}</b></span>
+            </div>
+            <div class="certificate-card-actions">
+              {% if cert.url %}
+                <a class="btn btn-primary btn-sm" href="{{ cert.url }}" target="_blank" rel="noopener">View certificate</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+</div>

@@ -1,0 +1,20 @@
+<div class="profile-tab-panel is-active">
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Badges</h3>
+      <p class="panel-hint">Awarded automatically from race results</p>
+    </div>
+    {% if not badges %}
+      <p class="panel-hint">Earn badges by finishing races (First Marathon, Sub-4, 1000 km Club…).</p>
+    {% else %}
+      <div class="profile-badges">
+        {% for badge in badges %}
+          <div class="profile-badge">
+            <span class="profile-badge-icon">{{ badge.icon }}</span>
+            <span>{{ badge.label }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+</div>

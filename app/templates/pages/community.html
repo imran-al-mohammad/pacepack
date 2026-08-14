@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Community</h3>
+    </div>
+    <div class="results-tab-bar">
+      {% for key, label in [("all", "All"), ("announcements", "Announcements"), ("board", "Board")] %}
+        <a class="results-tab-btn{% if tab == key %} is-active{% endif %}"
+           href="/community?tab={{ key }}"
+           hx-get="/community?tab={{ key }}"
+           hx-target="#community-feed"
+           hx-push-url="true">{{ label }}</a>
+      {% endfor %}
+    </div>
+    <form class="form-grid" method="post" action="/community" hx-post="/community" hx-target="#community-feed">
+      <div class="field">
+        <label for="title">Title (optional)</label>
+        <input class="input" id="title" name="title">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label for="content">Post</label>
+        <textarea class="input" id="content" name="content" rows="3" required></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Post</button>
+    </form>
+  </section>
+  <div id="community-feed">
+    {% include "partials/community_feed.html" %}
+  </div>
+{% endblock %}

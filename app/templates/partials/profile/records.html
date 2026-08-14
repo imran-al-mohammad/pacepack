@@ -1,0 +1,37 @@
+<div class="profile-tab-panel is-active">
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Personal records</h3>
+      <p class="panel-hint">Detected automatically from logged results. Manual entry is disabled.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Distance</th>
+            <th>Time</th>
+            <th>Pace</th>
+            <th>Date</th>
+            <th>Race</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if not prs %}
+            <tr><td colspan="6"><div class="empty" style="border:none"><strong>No PRs yet</strong>Complete a race and your best time will appear here automatically.</div></td></tr>
+          {% endif %}
+          {% for pr in prs %}
+            <tr>
+              <td>{{ pr.distance }}</td>
+              <td class="time-mono">{{ pr.time_seconds | time }}</td>
+              <td class="time-mono">{{ pr.pace_seconds_per_km | pace }}</td>
+              <td>{{ pr.race_date | month }}</td>
+              <td>{{ pr.race_name or "—" }}{% if pr.location %} <span class="text-dim">· {{ pr.location }}</span>{% endif %}</td>
+              <td>{% if pr.is_new_pr %}<span class="badge badge-pr">New PR</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

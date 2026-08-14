@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block actions %}
+  {% if race and ctx.can_write() and my_result %}
+    <a class="btn btn-secondary btn-sm" href="#log-result">Log / edit result</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Results & Times</h3>
+    </div>
+    <form class="results-toolbar" method="get" action="/results">
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <label class="field">
+        <span>Select a race</span>
+        <select class="select full" name="race_id" hx-get="/results/partials/{{ tab }}" hx-target="#results-panel" hx-include="closest form" hx-push-url="true">
+          {% for item in races %}
+            <option value="{{ item.id }}" {% if race and item.id == race.id %}selected{% endif %}>
+              {{ item.name }} ({{ item.race_date }}) — {{ item.entry_count }} registered
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+
+    <div class="results-tab-bar" role="tablist">
+      <a class="results-tab-btn{% if tab == 'results' %} is-active{% endif %}"
+         href="/results?tab=results{% if race %}&race_id={{ race.id }}{% endif %}"
+         hx-get="/results/partials/results{% if race %}?race_id={{ race.id }}{% endif %}"
+         hx-target="#results-panel"
+         hx-push-url="/results?tab=results{% if race %}&race_id={{ race.id }}{% endif %}">Results</a>
+      <a class="results-tab-btn{% if tab == 'certificates' %} is-active{% endif %}"
+         href="/results?tab=certificates{% if race %}&race_id={{ race.id }}{% endif %}"
+         hx-get="/results/partials/certificates{% if race %}?race_id={{ race.id }}{% endif %}"
+         hx-target="#results-panel"
+         hx-push-url="/results?tab=certificates{% if race %}&race_id={{ race.id }}{% endif %}">Certificates</a>
+    </div>
+
+    <div id="results-panel">
+      {% if tab == 'certificates' %}
+        {% include "partials/results/certificates.html" %}
+      {% else %}
+        {% include "partials/results/list.html" %}
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

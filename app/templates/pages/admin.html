@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+  {% if ctx.can_admin() %}
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Group logo</h3>
+      </div>
+      <form class="form-grid" method="post" action="/admin/logo">
+        <div class="field" style="grid-column:1/-1">
+          <label for="logo_url">Logo URL</label>
+          <input class="input" id="logo_url" name="logo_url" value="{{ ctx.group.logo_url or '' }}">
+        </div>
+        <button class="btn btn-primary" type="submit">Save logo</button>
+      </form>
+    </section>
+  {% endif %}
+
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Team & access</h3>
+      <p class="panel-hint">Invite code: <strong>{{ ctx.group.invite_code }}</strong></p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for member in team %}
+            <tr>
+              <td>{{ member.profile.display_name or "User" }}</td>
+              <td>{{ member.profile.email or "—" }}</td>
+              <td>{{ member.role }}</td>
+              <td>
+                {% if ctx.can_admin() and member.user_id != ctx.user_id %}
+                  <form method="post" action="/admin/role" class="inline-form">
+                    <input type="hidden" name="user_id" value="{{ member.user_id }}">
+                    <select class="select" name="role" onchange="this.form.submit()">
+                      {% for role in ["member", "moderator", "admin"] %}
+                        <option value="{{ role }}" {% if member.role == role %}selected{% endif %}>{{ role }}</option>
+                      {% endfor %}
+                    </select>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

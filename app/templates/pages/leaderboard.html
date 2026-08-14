@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="dashboard-grid">
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Fastest</h3>
+        <p class="panel-hint">Best recorded pace per runner</p>
+      </div>
+      <div id="full-fastest-list">
+        {% if not fastest %}
+          <div class="empty"><strong>No pace results yet</strong>Log finish times to rank runners.</div>
+        {% else %}
+          {% for entry in fastest %}
+            <div class="fastest-runner-item">
+              <span class="fastest-runner-rank">{{ loop.index }}</span>
+              <span class="fastest-runner-name">{{ entry.name }}</span>
+              <span class="fastest-runner-pace time-mono">{{ entry.best_pace_display }}/km</span>
+              <span class="fastest-runner-races">{{ entry.races }} race{{ 's' if entry.races != 1 else '' }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Contribution</h3>
+        <p class="panel-hint">Finishes + 2 points per PR</p>
+      </div>
+      {% if not activity %}
+        <div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>
+      {% else %}
+        <ol class="leaderboard-ranks">
+          {% for entry in activity %}
+            <li class="leaderboard-rank-item lb-rank-{{ loop.index }}">
+              <span class="lb-rank"><small>Rank</small>#{{ loop.index }}</span>
+              <span class="lb-avatar"><span class="avatar" style="background:{{ avatar_color(entry.runner_id) }}">{{ initials(entry.name) }}</span></span>
+              <span class="lb-name">{{ entry.name }}</span>
+              <span class="lb-meta">{{ entry.finishes }} finish{{ 'es' if entry.finishes != 1 else '' }} · {{ entry.entries }} entr{{ 'y' if entry.entries == 1 else 'ies' }}</span>
+              <span class="lb-score">{{ entry.score }}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

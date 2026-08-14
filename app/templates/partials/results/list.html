@@ -1,0 +1,113 @@
+{% include "partials/flash.html" %}
+{% if not race %}
+  <div class="empty"><strong>Pick a race</strong></div>
+{% else %}
+  <div class="results-summary">
+    <div class="panel-header">
+      <h3>{{ race.name }} results</h3>
+      <p class="panel-hint">{{ race.race_date | date }} · {{ race.distance }}</p>
+    </div>
+    <div class="results-summary-grid">
+      <div class="results-stat"><p class="label">Finishers</p><p class="value">{{ summary.finishers }}</p></div>
+      <div class="results-stat"><p class="label">Group best</p><p class="value time-mono time-best">{{ summary.best }}</p></div>
+      <div class="results-stat"><p class="label">Median</p><p class="value time-mono">{{ summary.median }}</p></div>
+      <div class="results-stat"><p class="label">PRs</p><p class="value">{{ summary.prs }}</p></div>
+    </div>
+  </div>
+
+  <form class="results-filters" method="get" action="/results"
+        hx-get="/results/partials/results" hx-target="#results-panel" hx-include="this">
+    <input type="hidden" name="race_id" value="{{ race.id }}">
+    <select class="select" name="sort">
+      <option value="time" {% if sort_by == 'time' %}selected{% endif %}>Time</option>
+      <option value="place" {% if sort_by == 'place' %}selected{% endif %}>Place</option>
+      <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+    </select>
+    <label><input type="checkbox" name="completed" value="1" {% if completed_only %}checked{% endif %}> Completed only</label>
+    <button class="btn btn-secondary btn-sm" type="submit">Apply</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Runner</th>
+          <th>Distance</th>
+          <th>Status</th>
+          <th>Gun Time</th>
+          <th>Chip Time</th>
+          <th>Pace</th>
+          <th>Overall Place</th>
+          <th>Gender Place</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not rows %}
+          <tr><td colspan="9"><div class="empty" style="border:none"><strong>No results for this race</strong></div></td></tr>
+        {% endif %}
+        {% for row in rows %}
+          <tr>
+            <td>{{ loop.index if row.finish_seconds is not none else "—" }}</td>
+            <td>
+              <div class="member-head">
+                <span class="avatar" style="background:{{ avatar_color(row.runner_id) }}">{{ initials(row.runner_name) }}</span>
+                <span>{{ row.runner_name }}</span>
+                {% if row.is_pr %}<span class="badge badge-pr">PR</span>{% endif %}
+              </div>
+            </td>
+            <td>{{ row.distance_label }}</td>
+            <td><span class="badge badge-{{ row.status }}">{{ row.status_label }}</span></td>
+            <td class="time-mono">{{ row.gun_time or "—" }}</td>
+            <td class="time-mono time-best">{{ row.chip_time or "—" }}</td>
+            <td>{{ row.pace_display or "—" }}</td>
+            <td>{{ row.place_overall or "—" }}</td>
+            <td>{{ row.place_gender or "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if ctx.can_write() and my_result %}
+    <form id="log-result" class="panel result-form" method="post" action="/results/{{ my_result.id }}"
+          hx-post="/results/{{ my_result.id }}" hx-target="#results-panel" hx-swap="innerHTML">
+      <input type="hidden" name="race_id" value="{{ race.id }}">
+      <div class="panel-header">
+        <h3>Log your result</h3>
+        <p class="panel-hint">PRs, badges, and join date update automatically after save.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="status">Status</label>
+          <select class="select full" id="status" name="status">
+            {% for value, label in statuses %}
+              <option value="{{ value }}" {% if my_result.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="chip_time">Chip time</label>
+          <input class="input" id="chip_time" name="chip_time" value="{{ my_result.chip_time or '' }}" placeholder="1:48:32">
+        </div>
+        <div class="field">
+          <label for="gun_time">Gun time</label>
+          <input class="input" id="gun_time" name="gun_time" value="{{ my_result.gun_time or '' }}" placeholder="1:49:10">
+        </div>
+        <div class="field">
+          <label for="place_overall">Overall place</label>
+          <input class="input" id="place_overall" name="place_overall" value="{{ my_result.place_overall or '' }}">
+        </div>
+        <div class="field">
+          <label for="place_gender">Gender place</label>
+          <input class="input" id="place_gender" name="place_gender" value="{{ my_result.place_gender or '' }}">
+        </div>
+        <div class="field">
+          <label for="race_distance">Distance</label>
+          <input class="input" id="race_distance" name="race_distance" value="{{ my_result.race_distance or race.distance }}">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Save result</button>
+    </form>
+  {% endif %}
+{% endif %}

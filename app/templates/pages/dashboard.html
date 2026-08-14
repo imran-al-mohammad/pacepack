@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block content %}
+  {% if countdown %}
+    <section class="panel next-race-panel">
+      <div class="panel-header">
+        <h3>Next race</h3>
+        <p class="panel-hint">{{ countdown.race.name }} · {{ countdown.race.race_date | date }} · {{ countdown.race.location or "TBD" }}</p>
+      </div>
+      <p class="next-race-countdown-label">{{ countdown.label }}</p>
+      <div class="next-race-timer" data-countdown="{{ countdown.race.race_date }}T{{ countdown.race.race_time or '09:00' }}">
+        <div class="timer-unit"><strong data-unit="days">{{ countdown.days }}</strong><span>days</span></div>
+        <div class="timer-unit"><strong data-unit="hours">00</strong><span>hrs</span></div>
+        <div class="timer-unit"><strong data-unit="minutes">00</strong><span>min</span></div>
+        <div class="timer-unit"><strong data-unit="seconds">00</strong><span>sec</span></div>
+      </div>
+    </section>
+  {% endif %}
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card" style="--stat-color: var(--accent)">
+      <p class="stat-label">Upcoming races</p>
+      <p class="stat-value">{{ upcoming_count }}</p>
+      <p class="stat-hint">{{ past_count }} past race{{ 's' if past_count != 1 else '' }}</p>
+    </div>
+    <div class="stat-card" style="--stat-color: var(--teal)">
+      <p class="stat-label">Runners</p>
+      <p class="stat-value">{{ runner_count }}</p>
+      <p class="stat-hint">{{ team_count }} app user{{ 's' if team_count != 1 else '' }} with access</p>
+    </div>
+    <div class="stat-card" style="--stat-color: var(--blue)">
+      <p class="stat-label">Registered</p>
+      <p class="stat-value">{{ registered_count }}</p>
+      <p class="stat-hint">{{ entry_count }} total entries</p>
+    </div>
+    <div class="stat-card" style="--stat-color: var(--green)">
+      <p class="stat-label">Results logged</p>
+      <p class="stat-value">{{ results_logged }}</p>
+      <p class="stat-hint">{{ completed_count }} completed</p>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Upcoming</h3>
+      </div>
+      {% if not upcoming %}
+        <div class="empty"><strong>No upcoming races</strong>Add a marathon to get started.</div>
+      {% else %}
+        <div class="list">
+          {% for race in upcoming %}
+            <div class="list-item">
+              <div class="list-item-main">
+                <p class="list-item-title">{{ race.name }}</p>
+                <p class="list-item-sub">{{ race.race_date | date }} · {{ race.location or "TBD" }} · {{ race.distance }}</p>
+              </div>
+              <span class="badge badge-count">{{ signup_counts.get(race.id, 0) }} signed</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Recent results</h3>
+      </div>
+      {% if not recent %}
+        <div class="empty"><strong>No results yet</strong>Log finish times after race day.</div>
+      {% else %}
+        <div class="list">
+          {% for row in recent %}
+            <div class="list-item">
+              <div class="list-item-main">
+                <p class="list-item-title">{{ row.runner_name }}</p>
+                <p class="list-item-sub">{{ row.race_name }}</p>
+              </div>
+              <div class="row-meta">
+                {% if row.is_pr %}<span class="badge badge-pr">PR</span>{% endif %}
+                <span class="time-mono time-best">{{ row.time }}</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Smart insights</h3>
+      <p class="panel-hint">Short, group-level signals from current entries</p>
+    </div>
+    <div class="insights-metrics">
+      <div class="insight-metric">
+        <p class="insight-metric-label">Participation rate</p>
+        <p class="insight-metric-value">{% if report.metrics.participation_rate_pct is not none %}{{ report.metrics.participation_rate_pct }}%{% else %}—{% endif %}</p>
+      </div>
+      <div class="insight-metric">
+        <p class="insight-metric-label">Avg signups / race</p>
+        <p class="insight-metric-value">{{ report.metrics.avg_signups_per_race or "—" }}</p>
+      </div>
+      <div class="insight-metric">
+        <p class="insight-metric-label">PR rate</p>
+        <p class="insight-metric-value">{% if report.metrics.pr_rate_pct is not none %}{{ report.metrics.pr_rate_pct }}%{% else %}—{% endif %}</p>
+      </div>
+      <div class="insight-metric">
+        <p class="insight-metric-label">Group median finish</p>
+        <p class="insight-metric-value time-mono">{{ report.metrics.median_finish_display or "—" }}</p>
+      </div>
+    </div>
+    <ul class="insights-list">
+      {% for line in report.insights %}
+        <li class="insight-item">{{ line }}</li>
+      {% else %}
+        <li class="insight-item">Add races and results to unlock insights.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <div class="dashboard-grid">
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Club leaderboard</h3>
+        <a href="/leaderboard">View full leaderboard</a>
+      </div>
+      {% if not leaderboard %}
+        <div class="empty"><strong>No contributors yet</strong>Log results to build the leaderboard.</div>
+      {% else %}
+        <ol class="leaderboard-ranks compact-leaderboard">
+          {% for entry in leaderboard %}
+            <li class="leaderboard-rank-item lb-rank-{{ loop.index }}">
+              <span class="lb-rank"><small>Rank</small>#{{ loop.index }}</span>
+              <span class="lb-avatar"><span class="avatar" style="background:{{ avatar_color(entry.runner_id) }}">{{ initials(entry.name) }}</span></span>
+              <span class="lb-name">{{ entry.name }}</span>
+              <span class="lb-meta">{{ entry.finishes }} finish{{ 'es' if entry.finishes != 1 else '' }}</span>
+              <span class="lb-score">{{ entry.score }}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      {% endif %}
+    </section>
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Fastest paces</h3>
+        <a href="/leaderboard">Full speed board</a>
+      </div>
+      {% if not fastest %}
+        <div class="empty"><strong>No pace results yet</strong></div>
+      {% else %}
+        {% for runner in fastest %}
+          <div class="fastest-runner-item">
+            <span class="fastest-runner-rank">{{ loop.index }}</span>
+            <span class="fastest-runner-name">{{ runner.name }}</span>
+            <span class="fastest-runner-pace time-mono">{{ runner.best_pace_display }}/km</span>
+            <span class="fastest-runner-races">{{ runner.races }} race{{ 's' if runner.races != 1 else '' }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

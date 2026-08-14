@@ -1,0 +1,22 @@
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <p class="sidebar-menu-title">Menu</p>
+    <button type="button" class="sidebar-toggle" data-sidebar-collapse aria-label="Collapse sidebar">
+      <svg class="sidebar-toggle-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M8 2 4 6l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <nav class="nav">
+    {% for item in nav %}
+      <a class="nav-item{% if item.active %} active{% endif %}" href="{{ item.href }}" data-view="{{ item.icon }}">
+        <span class="nav-icon"></span>
+        <span class="nav-label">{{ item.label }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+  <div class="sidebar-footer">
+    <span class="role-pill"><span class="role-pill-label">{{ ctx.role or "member" }}</span></span>
+    <form method="post" action="/logout">
+      <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
+    </form>
+  </div>
+</aside>

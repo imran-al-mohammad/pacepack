@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Roster</h3>
+      <p class="panel-hint">{{ runners | length }} runner{{ 's' if runners | length != 1 else '' }}</p>
+    </div>
+    {% if not runners %}
+      <div class="empty"><strong>No runners yet</strong></div>
+    {% else %}
+      <div class="list">
+        {% for runner in runners %}
+          <div class="list-item">
+            <span class="avatar" style="background:{{ avatar_color(runner.id) }}">{{ initials(runner.name) }}</span>
+            <div class="list-item-main">
+              <p class="list-item-title">{{ runner.name }}</p>
+              <p class="list-item-sub">
+                {% if runner.join_date %}Joined {{ runner.join_date | date }}{% else %}Join date pending first race{% endif %}
+                {% if runner.pace_group %} · Pace {{ runner.pace_group }}{% endif %}
+              </p>
+            </div>
+            <span class="badge badge-count">{{ stats.get(runner.id, {}).get('finishes', 0) }} finishes</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

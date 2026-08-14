@@ -1,0 +1,37 @@
+<div class="profile-tab-panel is-active">
+  {% include "partials/flash.html" %}
+  <div class="stats-grid profile-stats">
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">Best Pace (lifetime)</p>
+      <p class="profile-stat-value">{{ stats.best_pace_display }}</p>
+      <p class="profile-stat-hint">Fastest race pace</p>
+    </div>
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">Avg Pace (3 months)</p>
+      <p class="profile-stat-value">{{ stats.avg_pace_3mo_display }}</p>
+    </div>
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">Total Distance (year)</p>
+      <p class="profile-stat-value">{{ format_distance(stats.total_distance_year) }}</p>
+      <p class="profile-stat-hint">All time: {{ format_distance(stats.total_distance_all) }}</p>
+    </div>
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">Total Runs (year)</p>
+      <p class="profile-stat-value">{{ stats.total_runs_year }}</p>
+    </div>
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">Longest Run</p>
+      <p class="profile-stat-value">{{ format_distance(stats.longest_run) }}</p>
+    </div>
+    <div class="profile-stat-card">
+      <p class="profile-stat-label">Highest Weekly Volume</p>
+      <p class="profile-stat-value">{{ format_distance(stats.highest_weekly) }}</p>
+    </div>
+  </div>
+  <div class="profile-summary">
+    <div class="profile-summary-item"><span>Completed races</span><strong>{{ stats.completed }} of {{ stats.registrations }}</strong></div>
+    <div class="profile-summary-item"><span>Personal records</span><strong>{{ prs | length }}</strong></div>
+    <div class="profile-summary-item"><span>Badges</span><strong>{{ badges | length }}</strong></div>
+    <div class="profile-summary-item"><span>Join date</span><strong>{{ join_date_label }}</strong></div>
+  </div>
+</div>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Join a club · PacePack</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="auth-screen">
+    <div class="auth-card">
+      <h1 class="auth-title">Join your club</h1>
+      <p class="auth-sub">Your account is signed in, but it is not in a PacePack group yet.</p>
+      {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+      <form method="post" action="/onboarding/join" class="form-grid">
+        <div class="field">
+          <label for="code">Invite code</label>
+          <input class="input" id="code" name="code" maxlength="12" required>
+        </div>
+        <button class="btn btn-primary" type="submit">Join group</button>
+      </form>
+      {% if can_create %}
+        <hr class="soft-rule">
+        <form method="post" action="/onboarding/create" class="form-grid">
+          <div class="field">
+            <label for="name">Create a new group</label>
+            <input class="input" id="name" name="name" required>
+          </div>
+          <button class="btn btn-secondary" type="submit">Create group</button>
+        </form>
+      {% endif %}
+      <form method="post" action="/logout" style="margin-top:1rem">
+        <button class="btn btn-ghost" type="submit">Sign out</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

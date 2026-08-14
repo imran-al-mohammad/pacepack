@@ -1,0 +1,27 @@
+<div class="profile-tab-panel is-active">
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Race History</h3>
+      <p class="panel-hint">Chronological list of your races</p>
+    </div>
+    {% if not history %}
+      <div class="empty"><strong>No race history yet</strong>Log a result to see it here.</div>
+    {% else %}
+      <div class="list">
+        {% for row in history %}
+          <div class="list-item">
+            <div class="list-item-main">
+              <p class="list-item-title">{{ row.race_name }}</p>
+              <p class="list-item-sub">{{ (row.race.race_date if row.race else none) | date }} · {{ row.distance_label }}{% if row.pace_display %} · {{ row.pace_display }}{% endif %}</p>
+            </div>
+            <div class="row-meta">
+              {% if row.is_pr %}<span class="badge badge-pr">PR</span>{% endif %}
+              <span class="time-mono">{{ row.finish_display }}</span>
+              {% if row.place_overall %}<span class="badge badge-count">#{{ row.place_overall }}</span>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+</div>

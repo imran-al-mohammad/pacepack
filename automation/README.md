@@ -1,5 +1,15 @@
 # PacePack automation
 
+Prefer the FastAPI-era jobs:
+
+```bash
+python -m app.jobs.validate --group-id GROUP_UUID
+python -m app.jobs.backfill --group-id GROUP_UUID --dry-run
+python -m app.jobs.backfill --group-id GROUP_UUID --apply
+```
+
+The scripts below remain for snapshot dry-runs of the older SPA pipeline.
+
 These scripts are intentionally dependency-free and can run from cron, GitHub
 Actions, or a local admin machine. They do not run a web server.
 

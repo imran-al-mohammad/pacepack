@@ -1,0 +1,29 @@
+<header class="top-nav">
+  <div class="top-nav-brand">
+    <button type="button" class="sidebar-toggle-mobile" data-sidebar-toggle aria-label="Open menu">☰</button>
+    <span class="brand-mark">
+      {% if ctx.group and ctx.group.logo_url %}
+        <img src="{{ ctx.group.logo_url }}" alt="" width="36" height="36">
+      {% else %}
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 18c2-4 4-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M12 12l2 8 2-5 2 5 2-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% endif %}
+    </span>
+    <h1 id="brand-title">{{ group_name }}</h1>
+  </div>
+  <div class="top-nav-user">
+    <a class="notification-bell-wrap" href="/notifications" aria-label="Notifications">
+      <span class="notification-bell">🔔</span>
+      {% if ctx.unread %}
+        <span class="notification-count">{{ ctx.unread }}</span>
+      {% endif %}
+    </a>
+    <a class="user-chip" href="/profile">
+      <span class="avatar" style="background:{{ avatar_color(ctx.user_id) }}">{{ initials(display_name) }}</span>
+      <span class="user-display-label">{{ display_name }}</span>
+    </a>
+  </div>
+</header>

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Upcoming</h3>
+    </div>
+    {% if not upcoming %}
+      <div class="empty"><strong>No upcoming races</strong></div>
+    {% else %}
+      <div class="list">
+        {% for race in upcoming %}
+          <a class="list-item" href="/results?race_id={{ race.id }}">
+            <div class="list-item-main">
+              <p class="list-item-title">{{ race.name }}</p>
+              <p class="list-item-sub">{{ race.race_date | date }} · {{ race.location or "TBD" }} · {{ race.distance }}</p>
+            </div>
+            <span class="badge badge-count">{{ counts.get(race.id, 0) }} signed</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Past races</h3>
+    </div>
+    {% if not past %}
+      <div class="empty"><strong>No past races yet</strong></div>
+    {% else %}
+      <div class="list">
+        {% for race in past %}
+          <a class="list-item" href="/results?race_id={{ race.id }}">
+            <div class="list-item-main">
+              <p class="list-item-title">{{ race.name }}</p>
+              <p class="list-item-sub">{{ race.race_date | date }} · {{ race.location or "TBD" }} · {{ race.distance }}</p>
+            </div>
+            <span class="badge badge-distance">{{ counts.get(race.id, 0) }} entries</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

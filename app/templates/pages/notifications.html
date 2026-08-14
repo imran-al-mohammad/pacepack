@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block actions %}
+  <form method="post" action="/notifications/read-all">
+    <button class="btn btn-secondary btn-sm" type="submit">Mark all read</button>
+  </form>
+{% endblock %}
+{% block content %}
+  <section class="panel">
+    <div class="panel-header">
+      <h3>Inbox</h3>
+    </div>
+    {% if not notifications %}
+      <div class="empty"><strong>No notifications</strong>PR and badge events will land here.</div>
+    {% else %}
+      <div class="list">
+        {% for item in notifications %}
+          <div class="list-item {% if not item.is_read %}is-unread{% endif %}">
+            <div class="list-item-main">
+              <p class="list-item-title">{{ item.title }}</p>
+              <p class="list-item-sub">{{ item.body }} · {{ item.created_at | date }}</p>
+            </div>
+            {% if not item.is_read %}
+              <form method="post" action="/notifications/{{ item.id }}/read">
+                <button class="btn btn-ghost btn-sm" type="submit">Mark read</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
