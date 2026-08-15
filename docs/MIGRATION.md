@@ -1,62 +1,35 @@
 # Migration notes
 
-This cutover is additive. Legacy rows stay until the new path has been
-validated against a full group.
+The club database is already on the live schema. Incremental SQL files were
+removed from the repo. **Do not re-run old patches** and **do not drop**
+legacy tables.
 
-## 1. Apply SQL
+## New project only
 
-In Supabase → SQL Editor, run in order (or `supabase db push`):
+1. Run `docs/supabase-schema.sql` in the Supabase SQL editor
+2. Run `docs/certificate-upload-rls.sql` and `docs/image-upload-rls.sql`
+3. Put the project URL and anon key in `config.js`
 
-1. Existing club schema if this is a new project (`docs/MIGRATE-ALL.sql`)
-2. `supabase/migrations/20260815_0001_normalize_compat.sql`
-3. `supabase/migrations/20260815_0002_achievements.sql`
-4. `supabase/migrations/20260815_0003_results_certificates.sql`
+## Existing club project
 
-These scripts create views/tables and seed `results` / `certificates` from
-`registrations` and `user_certificates`. They do not drop anything.
+No further SQL is required if:
 
-## 2. Storage
+- Certificates upload after a logged result
+- Runner and race photos upload
+- Configured distances appear in Team & Access
+- Branding / group logo loads
 
-Create a `certificates` bucket if it does not exist. Certificate uploads are
-files (JPG/PNG/WebP/PDF), never a pasted URL.
+If a storage upload returns 403, re-run only the matching RLS file above.
 
-## 3. Dry-run the backfill
-
-```bash
-python -m app.jobs.validate --group-id GROUP_UUID
-python -m app.jobs.backfill --group-id GROUP_UUID --dry-run
-```
-
-The dry-run prints how many PRs, badges, and join dates would change. Re-run
-is safe: unique keys skip existing awards.
-
-## 4. Apply the backfill
+## Optional image copy
 
 ```bash
-python -m app.jobs.backfill --group-id GROUP_UUID --apply
+python -m app.jobs.migrate_images --group-id GROUP_UUID --dry-run
+python -m app.jobs.migrate_images --group-id GROUP_UUID --apply
 ```
 
-Omit `--announce` on the first historical pass so the community board is not
-flooded. After the new app is live, result saves announce incrementally.
+## Do not drop
 
-## 5. Validate profile tabs
-
-Sign in to the FastAPI app and open Profile:
-
-- Records must list PRs from historical results
-- Badges must list awards from historical results
-- Race History must list the runner's registrations
-- Join date must equal the first race date
-
-If those four match the legacy data, the backfill is good.
-
-## 6. After the app is live
-
-The static SPA has been removed from the repo. These **database** names are
-still the live source of truth and must not be dropped yet:
-
-- `marathons` (the `races` view reads it)
+- `marathons`
 - `registrations`
 - `user_certificates`
-
-See [DEPRECATIONS.md](DEPRECATIONS.md).

@@ -16,7 +16,7 @@ Copy `.env.example` to `.env` in the repo root.
 Also required in the Supabase dashboard:
 
 1. Authentication → Providers → Email enabled.
-2. Storage bucket `certificates` (public read or signed URLs).
-3. SQL migrations in `supabase/migrations/` applied in order.
+2. Storage buckets `certificates` and `images` (public read).
+3. New projects: run `docs/supabase-schema.sql`, then the two `*-upload-rls.sql` files.
 
 Put keys in `.env` only. That file is gitignored.

@@ -7,7 +7,7 @@
 // ─── Version: increment when assets change ─────────────────────────────────────
 // Update this string (or use a build step) whenever STATIC_ASSETS changes.
 // Must be declared BEFORE CACHE_NAME (const is not hoisted for use).
-const CACHE_VERSION = "20260815-image-uploads";
+const CACHE_VERSION = "20260815-sql-cleanup";
 const CACHE_NAME = `pacepack-v2-${CACHE_VERSION}`;
 const OFFLINE_PAGE = "offline.html";
 
@@ -25,6 +25,7 @@ const STATIC_ASSETS = [
   "./src/css/styles.css?v=20260815-team-distances",
   "./src/css/styles.css?v=20260815-brand-prereqs",
   "./src/css/styles.css?v=20260815-image-uploads",
+  "./src/css/styles.css?v=20260815-sql-cleanup",
   "./src/js/app.js?v=20260813-mobile-drawer",
   "./src/js/app.js?v=20260815-certificates-nav",
   "./src/js/app.js?v=20260815-certificates-rls",
@@ -32,9 +33,9 @@ const STATIC_ASSETS = [
   "./src/js/app.js?v=20260815-team-distances",
   "./src/js/app.js?v=20260815-brand-prereqs",
   "./src/js/app.js?v=20260815-image-uploads",
+  "./src/js/app.js?v=20260815-sql-cleanup",
   "./config.js",
   "./src/js/services/cache.js",
-  "./src/js/dev/cache-examples.js",
   "./src/js/analytics/insights.js",
   "./manifest.webmanifest",
   "./offline.html",

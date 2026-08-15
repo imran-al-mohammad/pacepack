@@ -844,7 +844,7 @@ async function loadMembership() {
     group = null;
     myRole = null;
     throw new Error(
-      "Group not found for your membership. Re-run supabase-schema.sql (or fix-relationships.sql) in Supabase SQL Editor."
+      "Group not found for your membership. Re-run docs/supabase-schema.sql in the Supabase SQL editor."
     );
   }
 
@@ -1606,7 +1606,7 @@ async function createGroup(name) {
       group = data;
       myRole = "admin";
     } else {
-      throw new Error("Group was created but could not be loaded. Run fix-relationships.sql in Supabase.");
+      throw new Error("Group was created but could not be loaded. Re-run docs/supabase-schema.sql in Supabase.");
     }
   }
 
@@ -1625,7 +1625,7 @@ async function joinGroup(code) {
       group = data;
       myRole = "member";
     } else {
-      throw new Error("Joined but group could not be loaded. Run fix-relationships.sql in Supabase.");
+      throw new Error("Joined but group could not be loaded. Re-run docs/supabase-schema.sql in Supabase.");
     }
   }
 }
@@ -1875,7 +1875,7 @@ async function saveGroupLogo(url) {
     .maybeSingle();
   if (error) {
     if (/logo_url|column/i.test(error.message || "")) {
-      throw new Error("Run SQL to add groups.logo_url (see add-image-url-columns.sql), then try again.");
+      throw new Error("Group logo column is missing. Re-run docs/supabase-schema.sql, then try again.");
     }
     throw error;
   }
@@ -4184,7 +4184,7 @@ async function loadCommunityPosts() {
     state.communityPosts = data || [];
     communityUnavailable = false;
   } catch (e) {
-    // Table may not exist yet (community-schema.sql not run) — keep board empty
+    // Table may not exist yet — keep board empty
     console.warn("load community:", e);
     state.communityPosts = [];
     communityUnavailable = true;
@@ -4267,7 +4267,7 @@ function renderCommunity() {
     feed.innerHTML = `
       <div class="empty">
         <strong>Community board unavailable</strong>
-        Run <code>docs/community-schema.sql</code> (or <code>docs/MIGRATE-ALL.sql</code>) in the Supabase SQL Editor, then refresh.
+        Run <code>docs/supabase-schema.sql</code> in the Supabase SQL editor, then refresh.
       </div>`;
     return;
   }
@@ -4927,7 +4927,7 @@ function openMarathonForm(id) {
             const { error } = await sb.from("marathons").update(payload).eq("id", existing.id);
             if (error) {
               if (/race_time|column/i.test(error.message || "")) {
-                throw new Error("Run SQL to add marathons.race_time (see add-image-url-columns.sql), then try again.");
+                throw new Error("Race start-time column is missing. Re-run docs/supabase-schema.sql, then try again.");
               }
               throw error;
             }
@@ -4935,7 +4935,7 @@ function openMarathonForm(id) {
             const { error } = await sb.from("marathons").insert(payload);
             if (error) {
               if (/race_time|column/i.test(error.message || "")) {
-                throw new Error("Run SQL to add marathons.race_time (see add-image-url-columns.sql), then try again.");
+                throw new Error("Race start-time column is missing. Re-run docs/supabase-schema.sql, then try again.");
               }
               throw error;
             }

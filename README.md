@@ -63,3 +63,5 @@ python -m unittest discover -s tests -v
 - `docs/ENV.md`
 - `docs/MIGRATION.md`
 - `docs/DEPRECATIONS.md`
+- `docs/supabase-schema.sql` — new projects only
+- `docs/certificate-upload-rls.sql` / `docs/image-upload-rls.sql` — storage 403s
