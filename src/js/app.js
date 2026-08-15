@@ -3283,7 +3283,7 @@ function profileStatCard(label, value, hint) {
 }
 
 function setProfileTab(tab) {
-  const valid = ["overview", "analytics", "records", "badges", "history", "settings"];
+  const valid = ["overview", "analytics", "records", "badges", "history", "certificates", "settings"];
   activeProfileTab = valid.includes(tab) ? tab : "overview";
   document.querySelectorAll("[data-profile-tab]").forEach((button) => {
     const selected = button.dataset.profileTab === activeProfileTab;
@@ -3557,6 +3557,8 @@ function renderProfile() {
         </div>`).join("");
     }
   }
+
+  renderProfileCertificates(myRunner);
 }
 
 // ─── PR CRUD ─────────────────────────────────────────────────────────────────
@@ -6219,6 +6221,97 @@ async function fetchCertificatesForRace(marathonId, runnerId) {
       return [];
     }
   }
+}
+
+async function fetchCertificatesForRunner(runnerId) {
+  if (!group?.id || !runnerId) return [];
+  const trySelect = async (table) => {
+    const { data, error } = await sb.from(table).select("*").eq("group_id", group.id).eq("runner_id", runnerId);
+    if (error) throw error;
+    return data || [];
+  };
+  try {
+    return await trySelect("user_certificates");
+  } catch (e) {
+    try {
+      return await trySelect("certificates");
+    } catch (inner) {
+      console.warn("fetch runner certificates:", e, inner);
+      return [];
+    }
+  }
+}
+
+function deriveCertificatesFromRunner(runnerId) {
+  return regsForRunner(runnerId)
+    .filter((reg) => isLoggedResult(reg) && certificatePublicUrl(reg))
+    .flatMap((reg) => deriveCertificatesFromResult(reg));
+}
+
+async function renderProfileCertificates(myRunner) {
+  const uploadEl = document.getElementById("profile-certificates-upload");
+  const gridEl = document.getElementById("profile-certificates-grid");
+  if (!uploadEl || !gridEl) return;
+  if (!myRunner) {
+    uploadEl.innerHTML = `<div class="empty"><strong>No linked runner profile</strong></div>`;
+    gridEl.innerHTML = "";
+    return;
+  }
+  const logged = regsForRunner(myRunner.id)
+    .filter(isLoggedResult)
+    .map((reg) => ({ reg, marathon: getMarathon(reg.marathon_id) }))
+    .filter((row) => row.marathon)
+    .sort((a, b) => String(b.marathon.race_date || "").localeCompare(String(a.marathon.race_date || "")));
+  if (logged.length) {
+    uploadEl.innerHTML = `
+      <div class="form-row">
+        <div class="field">
+          <label for="profile-certificate-race">Race with a logged result</label>
+          <select class="select full" id="profile-certificate-race">
+            ${logged.map(({ reg, marathon }) =>
+              `<option value="${reg.marathon_id}">${escapeHtml(marathon.name)} · ${escapeHtml(formatDate(marathon.race_date))}</option>`
+            ).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label for="profile-certificate-file">Certificate file</label>
+          <input class="input" id="profile-certificate-file" type="file" accept="image/*,application/pdf" />
+          <p class="panel-hint" id="profile-certificate-file-name">No file selected</p>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="button" id="profile-certificate-upload-btn">Upload certificate</button>`;
+    const fileInput = document.getElementById("profile-certificate-file");
+    const nameHint = document.getElementById("profile-certificate-file-name");
+    const button = document.getElementById("profile-certificate-upload-btn");
+    fileInput.onchange = () => {
+      if (nameHint) nameHint.textContent = fileInput.files?.[0]?.name || "No file selected";
+    };
+    button.onclick = async () => {
+      const file = fileInput.files?.[0];
+      const raceId = document.getElementById("profile-certificate-race")?.value;
+      if (!file) return toast("Choose a certificate file to upload", "error");
+      if (!raceId) return toast("Pick a race with a logged result", "error");
+      const restore = setButtonBusy(button, "Uploading…");
+      try {
+        await uploadCertificateForResult(file, raceId, myRunner.id);
+        toast("Certificate attached to this result");
+        renderProfile();
+      } catch (error) {
+        toast(error?.message || "Failed to upload certificate", "error");
+      } finally {
+        restore();
+      }
+    };
+  } else {
+    uploadEl.innerHTML = `<div class="empty"><strong>Log a result first</strong>Certificates can only be attached to a finished race.</div>`;
+  }
+
+  let certs = await fetchCertificatesForRunner(myRunner.id);
+  if (!certs.length) certs = deriveCertificatesFromRunner(myRunner.id);
+  certs.sort((a, b) => String(b.race_date || b.issued_at || "").localeCompare(String(a.race_date || a.issued_at || "")));
+  gridEl.innerHTML = certs.length
+    ? certs.map(certificateCardHtml).join("")
+    : `<div class="empty"><strong>No certificates yet</strong>Finish a race, then upload the file here.</div>`;
 }
 
 function deriveCertificatesFromResult(result) {

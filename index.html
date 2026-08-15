@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="src/css/styles.css?v=20260815-certificates-rls" />
+  <link rel="stylesheet" href="src/css/styles.css?v=20260815-profile-certs" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="src/js/services/cache.js"></script>
@@ -560,6 +560,7 @@
             <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-records" data-profile-tab="records">Records</button>
             <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-badges" data-profile-tab="badges">Badges</button>
             <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-history" data-profile-tab="history">Race History</button>
+            <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-certificates" data-profile-tab="certificates">Certificates</button>
             <button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-settings" data-profile-tab="settings">Settings</button>
           </nav>
 
@@ -646,6 +647,17 @@
             </div>
             <div id="profile-race-history" class="list"></div>
           </div>
+          </div>
+
+          <div class="profile-tab-panel" id="profile-panel-certificates" data-profile-panel="certificates" role="tabpanel" hidden>
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Certificates</h3>
+                <p class="panel-hint">Files attached to your logged results. JPG, PNG, WebP, or PDF.</p>
+              </div>
+              <div id="profile-certificates-upload"></div>
+              <div id="profile-certificates-grid" class="certificates-grid"></div>
+            </div>
           </div>
 
           <div class="profile-tab-panel" id="profile-panel-badges" data-profile-panel="badges" role="tabpanel" hidden>
@@ -873,6 +885,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/js/app.js?v=20260815-certificates-rls"></script>
+  <script type="module" src="src/js/app.js?v=20260815-profile-certs"></script>
 </body>
 </html>
