@@ -1,9 +1,12 @@
 # PacePack
 
-Club race tracker. FastAPI renders the pages, Jinja supplies the UI, HTMX
-handles tabs and forms, and Supabase remains auth, Postgres, and storage.
+Club race tracker. **V1.3 is the main branch** and GitHub Pages serves the
+static app from `index.html` (Supabase for auth, Postgres, and storage).
 
-See `docs/ARCHITECTURE.md` for the layout and `docs/ENV.md` for keys.
+Certificates is its own sidebar page. Upload requires a logged result.
+
+A FastAPI + HTMX app also lives in `app/` for local use. See
+`docs/ARCHITECTURE.md` and `docs/ENV.md`.
 
 ## Run the web app
 
