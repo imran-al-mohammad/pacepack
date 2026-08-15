@@ -41,14 +41,14 @@ Marathon saved to database
 
 ```
 ┌─────────────────┐
-│   Frontend      │
-│   (app.js)      │
+│   FastAPI app   │
+│   or CLI job    │
 │                 │
-│ 1. User enters  │
-│    URL          │
-│ 2. Calls        │
-│    sb.functions  │
-│    .invoke()     │
+│ 1. Operator     │
+│    provides URL │
+│ 2. Calls scrape │
+│    edge function│
+│    or local job │
 └────────┬────────┘
          │
          │ Supabase Function Call
@@ -80,23 +80,12 @@ Marathon saved to database
 
 ## Files Modified
 
-### 1. `src/js/app.js`
+### 1. Local / FastAPI job
 
-**Changes to `openMarathonForm` function:**
+Use `python -m app.jobs.scrape` or the scripts in this folder. The old
+`src/js/app.js` scrape UI was removed with the static SPA.
 
-- Added URL input field (only for new marathons, not edits)
-- Added "Scrape" button
-- Added click handler to call the edge function
-- Shows loading state while scraping
-
-**New function: `showScrapeConfirmation`**
-
-- Displays scraped data in an editable form
-- Allows user to review and modify fields
-- Maps scraped data to form fields
-- Shows success message when confirmed
-
-### 2. `supabase/functions/scrape-race/index.ts` (NEW)
+### 2. `supabase/functions/scrape-race/index.ts`
 
 **Edge Function: `scrape-race`**
 

@@ -1,3 +1,0 @@
-
----------- SRC\JS\APP.JS
-  const historyEl = document.getElementById("profile-race-history");

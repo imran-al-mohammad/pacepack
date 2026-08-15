@@ -19,5 +19,4 @@ Also required in the Supabase dashboard:
 2. Storage bucket `certificates` (public read or signed URLs).
 3. SQL migrations in `supabase/migrations/` applied in order.
 
-The old `config.js` keys are **not** used by the FastAPI app. Leave that file
-in place only for the deprecated static frontend.
+Put keys in `.env` only. That file is gitignored.

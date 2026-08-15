@@ -3,8 +3,7 @@
 Club race tracker. FastAPI renders the pages, Jinja supplies the UI, HTMX
 handles tabs and forms, and Supabase remains auth, Postgres, and storage.
 
-The previous static SPA is still in the repo but is deprecated. See
-`docs/ARCHITECTURE.md` and `docs/DEPRECATIONS.md`.
+See `docs/ARCHITECTURE.md` for the layout and `docs/ENV.md` for keys.
 
 ## Run the web app
 

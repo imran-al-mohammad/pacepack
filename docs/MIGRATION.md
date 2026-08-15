@@ -50,13 +50,13 @@ Sign in to the FastAPI app and open Profile:
 
 If those four match the legacy data, the backfill is good.
 
-## 6. Deprecate, then delete
+## 6. After the app is live
 
-Only after the new app has been stable in production:
+The static SPA has been removed from the repo. These **database** names are
+still the live source of truth and must not be dropped yet:
 
-1. Stop serving `index.html` / `src/js/app.js`
-2. Keep `marathons` and `registrations` until a later cutover if you want to
-   rename them physically to `races` / `results`
-3. Drop `user_certificates` only after `certificates` has been checked
+- `marathons` (the `races` view reads it)
+- `registrations`
+- `user_certificates`
 
 See [DEPRECATIONS.md](DEPRECATIONS.md).

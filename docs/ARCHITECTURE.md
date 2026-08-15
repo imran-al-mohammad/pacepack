@@ -4,8 +4,8 @@ PacePack is now a Python-centered web app. FastAPI renders pages, Jinja
 templates produce the UI, HTMX swaps tabs and forms, and Supabase remains
 auth, Postgres, and storage.
 
-The previous static SPA (`index.html` + `src/js/app.js`) is deprecated but
-not deleted. See [DEPRECATIONS.md](DEPRECATIONS.md).
+The old static SPA has been removed. See [DEPRECATIONS.md](DEPRECATIONS.md)
+for leftover database names that still exist in Supabase.
 
 ## Stack
 
