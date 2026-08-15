@@ -3,7 +3,11 @@
 Club race tracker. **V1.3 is the main branch** and GitHub Pages serves the
 static app from `index.html` (Supabase for auth, Postgres, and storage).
 
-Certificates is its own sidebar page. Upload requires a logged result.
+Certificates is its own sidebar page. Pick a race, then a runner who
+already has a result, and attach the file to that result.
+
+If upload returns 403 / "row-level security policy", run
+`docs/certificate-upload-rls.sql` in the Supabase SQL editor.
 
 A FastAPI + HTMX app also lives in `app/` for local use. See
 `docs/ARCHITECTURE.md` and `docs/ENV.md`.

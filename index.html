@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="src/css/styles.css?v=20260815-certificates-nav" />
+  <link rel="stylesheet" href="src/css/styles.css?v=20260815-certificates-rls" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="src/js/services/cache.js"></script>
@@ -423,11 +423,12 @@
       <section class="view" id="view-certificates">
         <div class="toolbar">
           <select id="certificates-marathon" class="select"><option value="">Select a race…</option></select>
+          <select id="certificates-runner" class="select"><option value="">Select a runner…</option></select>
         </div>
         <div class="panel">
           <div class="panel-header">
             <h3>Certificates</h3>
-            <p class="panel-hint">File upload only — JPG, PNG, WebP, or PDF. A logged result is required.</p>
+            <p class="panel-hint">Attach a file to a specific runner's logged result. JPG, PNG, WebP, or PDF.</p>
           </div>
           <div id="certificates-upload"></div>
           <div id="certificates-grid" class="certificates-grid"></div>
@@ -872,6 +873,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/js/app.js?v=20260815-certificates-nav"></script>
+  <script type="module" src="src/js/app.js?v=20260815-certificates-rls"></script>
 </body>
 </html>
