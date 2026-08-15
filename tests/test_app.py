@@ -24,3 +24,8 @@ class AppSmokeTests(unittest.TestCase):
         response = self.client.get("/", follow_redirects=False)
         self.assertIn(response.status_code, {303, 307, 302})
         self.assertEqual(response.headers["location"], "/login")
+
+    def test_certificates_page_redirects(self):
+        response = self.client.get("/certificates", follow_redirects=False)
+        self.assertIn(response.status_code, {303, 307, 302})
+        self.assertEqual(response.headers["location"], "/login")

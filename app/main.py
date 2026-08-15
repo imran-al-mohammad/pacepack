@@ -10,7 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
-from app.views import admin, auth, community, dashboard, leaderboard, notifications, profile, races, results, runners
+from app.views import admin, auth, certificates, community, dashboard, leaderboard, notifications, profile, races, results, runners
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RefreshCookieMiddleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    for module in (auth, dashboard, leaderboard, races, results, runners, profile, community, notifications, admin):
+    for module in (auth, dashboard, leaderboard, races, results, certificates, runners, profile, community, notifications, admin):
         app.include_router(module.router)
 
     @app.get("/health")

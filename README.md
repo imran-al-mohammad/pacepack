@@ -19,13 +19,11 @@ Open http://127.0.0.1:8000 and sign in with a Supabase club account.
 
 ## Pages
 
-Dashboard, Leaderboard, Marathons, Results & Times, Runners, Profile,
-Community, Notifications, Admin.
+Dashboard, Leaderboard, Marathons, Results & Times, Certificates, Runners,
+Profile, Community, Notifications, Admin.
 
 Profile tabs: Overview, Analytics, Records, Badges, Race History,
 Certificates, Settings.
-
-Results tabs: Results, Certificates.
 
 Certificates are file uploads and require a logged result. Personal records,
 badges, and join dates are computed from results — they are not typed in.

@@ -1,18 +1,14 @@
 {% extends "base.html" %}
-{% block actions %}
-  {% if race and ctx.can_write() and my_result %}
-    <a class="btn btn-secondary btn-sm" href="#log-result">Log / edit result</a>
-  {% endif %}
-{% endblock %}
 {% block content %}
   <section class="panel">
     <div class="panel-header">
-      <h3>Results & Times</h3>
+      <h3>Certificates</h3>
+      <p class="panel-hint">File upload only — JPG, PNG, WebP, or PDF. A logged result is required.</p>
     </div>
-    <form class="results-toolbar" method="get" action="/results">
+    <form class="results-toolbar" method="get" action="/certificates">
       <label class="field">
         <span>Select a race</span>
-        <select class="select full" name="race_id" hx-get="/results/partials/results" hx-target="#results-panel" hx-include="closest form" hx-push-url="true">
+        <select class="select full" name="race_id" hx-get="/certificates/partial" hx-target="#certificates-panel" hx-include="closest form" hx-push-url="true">
           {% for item in races %}
             <option value="{{ item.id }}" {% if race and item.id == race.id %}selected{% endif %}>
               {{ item.name }} ({{ item.race_date }}) — {{ item.entry_count }} registered
@@ -22,8 +18,8 @@
       </label>
     </form>
 
-    <div id="results-panel">
-      {% include "partials/results/list.html" %}
+    <div id="certificates-panel">
+      {% include "partials/certificates.html" %}
     </div>
   </section>
 {% endblock %}

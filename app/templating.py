@@ -35,6 +35,7 @@ NAV_ITEMS = [
     {"key": "leaderboard", "href": "/leaderboard", "label": "Leaderboard", "icon": "leaderboard"},
     {"key": "races", "href": "/races", "label": "Marathons", "icon": "marathons"},
     {"key": "results", "href": "/results", "label": "Results & Times", "icon": "results"},
+    {"key": "certificates", "href": "/certificates", "label": "Certificates", "icon": "certificates"},
     {"key": "runners", "href": "/runners", "label": "Runners", "icon": "members"},
     {"key": "community", "href": "/community", "label": "Community", "icon": "community"},
     {"key": "notifications", "href": "/notifications", "label": "Notifications", "icon": "notifications"},

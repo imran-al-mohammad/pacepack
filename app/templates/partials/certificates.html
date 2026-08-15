@@ -5,11 +5,11 @@
   <div class="empty">
     <strong>No results logged for this race.</strong>
     Log a result first before uploading a certificate.
-    {% if race %}<a href="/results?tab=results&amp;race_id={{ race.id }}" hx-get="/results/partials/results?race_id={{ race.id }}" hx-target="#results-panel" hx-push-url="/results?tab=results&amp;race_id={{ race.id }}">Log a result first</a>{% endif %}
+    {% if race %}<a href="/results?race_id={{ race.id }}">Log a result first</a>{% endif %}
   </div>
 {% else %}
-  <form class="panel upload-form" method="post" action="/results/certificates" enctype="multipart/form-data"
-        hx-post="/results/certificates" hx-encoding="multipart/form-data" hx-target="#results-panel">
+  <form class="panel upload-form" method="post" action="/certificates" enctype="multipart/form-data"
+        hx-post="/certificates" hx-encoding="multipart/form-data" hx-target="#certificates-panel">
     <input type="hidden" name="race_id" value="{{ race.id }}">
     <div class="panel-header">
       <h3>Upload certificate</h3>

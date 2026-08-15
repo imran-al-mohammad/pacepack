@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
 from app.deps import AppContext, require_group, wants_htmx
 from app.services import certificate_service, result_service
-from app.services.certificate_service import CertificateError
 from app.services.result_service import ResultError
 from app.services.time_utils import STATUSES, is_logged_result, is_past_race
 from app.templating import page_context, templates
 
 router = APIRouter(tags=["results"])
-PROFILE_TABS = ("results", "certificates")
 
 
 def _race_options(ctx: AppContext) -> list[dict]:
@@ -88,7 +86,11 @@ def results_page(
     completed: int = 1,
     ctx: AppContext = Depends(require_group),
 ):
-    tab = tab if tab in PROFILE_TABS else "results"
+    if tab == "certificates":
+        target = "/certificates"
+        if race_id:
+            target += f"?race_id={race_id}"
+        return RedirectResponse(target, status_code=303)
     data = _results_data(ctx, race_id, sort, bool(completed))
     context = page_context(
         request,
@@ -96,12 +98,10 @@ def results_page(
         "results",
         "Results & Times",
         "Finish times for registered runners",
-        tab=tab,
         **data,
     )
     if wants_htmx(request):
-        template = "partials/results/certificates.html" if tab == "certificates" else "partials/results/list.html"
-        return templates.TemplateResponse(request, template, context)
+        return templates.TemplateResponse(request, "partials/results/list.html", context)
     return templates.TemplateResponse(request, "pages/results.html", context)
 
 
@@ -114,13 +114,16 @@ def results_partial(
     completed: int = 1,
     ctx: AppContext = Depends(require_group),
 ):
-    tab = tab if tab in PROFILE_TABS else "results"
+    if tab == "certificates":
+        target = "/certificates/partial"
+        if race_id:
+            target += f"?race_id={race_id}"
+        return RedirectResponse(target, status_code=303)
     data = _results_data(ctx, race_id, sort, bool(completed))
-    template = "partials/results/certificates.html" if tab == "certificates" else "partials/results/list.html"
     return templates.TemplateResponse(
         request,
-        template,
-        page_context(request, ctx, "results", "Results & Times", "", tab=tab, **data),
+        "partials/results/list.html",
+        page_context(request, ctx, "results", "Results & Times", "", **data),
     )
 
 
@@ -166,56 +169,15 @@ def log_result(
         return templates.TemplateResponse(
             request,
             "partials/results/list.html",
-            page_context(request, ctx, "results", "Results & Times", "", tab="results", form_ok="Result saved.", **data),
+            page_context(request, ctx, "results", "Results & Times", "", form_ok="Result saved.", **data),
         )
-    target = f"/results?tab=results&race_id={race_id}" if race_id else "/results?tab=results"
+    target = f"/results?race_id={race_id}" if race_id else "/results"
     return RedirectResponse(f"{target}&flash=Result+saved", status_code=303)
-
-
-@router.post("/results/certificates")
-async def upload_certificate(
-    request: Request,
-    race_id: str = Form(...),
-    file: UploadFile = File(...),
-    ctx: AppContext = Depends(require_group),
-):
-    if not ctx.runner:
-        return _certificate_error(request, ctx, race_id, "No linked runner profile")
-    content = await file.read()
-    try:
-        certificate_service.upload_for_result(
-            ctx.db,
-            group_id=ctx.group_id,
-            runner_id=ctx.runner["id"],
-            user_id=ctx.user_id,
-            race_id=race_id,
-            filename=file.filename or "certificate",
-            content=content,
-            content_type=file.content_type or "",
-            registrations=ctx.rows("registrations"),
-            races=ctx.rows("marathons"),
-        )
-        ctx.invalidate()
-    except CertificateError as exc:
-        return _certificate_error(request, ctx, race_id, str(exc))
-    data = _results_data(ctx, race_id, "time", True)
-    context = page_context(request, ctx, "results", "Results & Times", "", tab="certificates", form_ok="Certificate uploaded.", **data)
-    if wants_htmx(request):
-        return templates.TemplateResponse(request, "partials/results/certificates.html", context)
-    return RedirectResponse(f"/results?tab=certificates&race_id={race_id}&flash=Certificate+uploaded", status_code=303)
 
 
 def _result_error(request: Request, ctx: AppContext, race_id: str | None, message: str):
     data = _results_data(ctx, race_id, "time", True)
-    context = page_context(request, ctx, "results", "Results & Times", "", tab="results", form_error=message, **data)
+    context = page_context(request, ctx, "results", "Results & Times", "", form_error=message, **data)
     if wants_htmx(request):
         return templates.TemplateResponse(request, "partials/results/list.html", context, status_code=400)
-    return templates.TemplateResponse(request, "pages/results.html", context, status_code=400)
-
-
-def _certificate_error(request: Request, ctx: AppContext, race_id: str, message: str):
-    data = _results_data(ctx, race_id, "time", True)
-    context = page_context(request, ctx, "results", "Results & Times", "", tab="certificates", form_error=message, **data)
-    if wants_htmx(request):
-        return templates.TemplateResponse(request, "partials/results/certificates.html", context, status_code=400)
     return templates.TemplateResponse(request, "pages/results.html", context, status_code=400)
