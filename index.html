@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="src/css/styles.css?v=20260815-profile-certs" />
+  <link rel="stylesheet" href="src/css/styles.css?v=20260815-team-distances" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="src/js/services/cache.js"></script>
@@ -789,13 +789,34 @@
             </form>
           </div>
 
+          <div class="panel" id="distances-panel" hidden>
+            <div class="panel-header">
+              <h3>Configured race distances</h3>
+              <p class="panel-hint">Admins set the distance options used when creating races and logging results.</p>
+            </div>
+            <div id="team-distances-list" class="list"></div>
+            <form id="form-add-distance" class="form-grid" style="margin-top:1rem">
+              <div class="form-row">
+                <div class="field">
+                  <label for="team-new-distance-label">Distance name</label>
+                  <input class="input" id="team-new-distance-label" placeholder="e.g. 3K" autocomplete="off" />
+                </div>
+                <div class="field">
+                  <label for="team-new-distance-km">Kilometres</label>
+                  <input class="input" id="team-new-distance-km" type="number" min="0.01" step="0.001" placeholder="3" />
+                </div>
+              </div>
+              <button class="btn btn-primary" type="submit" id="btn-add-distance">Add distance</button>
+            </form>
+          </div>
+
           <div class="panel team-roles-panel">
             <div class="panel-header">
               <h3>Team Roles</h3>
               <p class="panel-hint">
-                <strong>Admin</strong> — full control, create users & roles ·
-                <strong>Moderator</strong> — manage races & delete ·
-                <strong>Member</strong> — add/update runners, races, results
+                <strong>Admin</strong> — full control, create users &amp; roles, race distances ·
+                <strong>Moderator</strong> — manage races, delete, certificates for any runner ·
+                <strong>Member</strong> — add/update runners, races, results, own certificate
               </p>
             </div>
             <div class="table-wrap">
@@ -832,6 +853,8 @@
                   <tr><td>Edit / delete system announcements</td><td>✓</td><td>—</td><td>—</td></tr>
                   <tr><td>Edit / delete own board topics and comments</td><td>✓</td><td>✓</td><td>✓</td></tr>
                   <tr><td>Manage configured race distances</td><td>✓</td><td>—</td><td>—</td></tr>
+                  <tr><td>Upload own race certificate</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                  <tr><td>Upload a certificate for any runner</td><td>✓</td><td>✓</td><td>—</td></tr>
                   <tr><td>View all data</td><td>✓</td><td>✓</td><td>✓</td></tr>
                   <tr><td>Edit runners, races, results</td><td>✓</td><td>✓</td><td>✓</td></tr>
                   <tr><td>Delete runners, races, registrations</td><td>✓</td><td>✓</td><td>—</td></tr>
@@ -885,6 +908,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/js/app.js?v=20260815-profile-certs"></script>
+  <script type="module" src="src/js/app.js?v=20260815-team-distances"></script>
 </body>
 </html>

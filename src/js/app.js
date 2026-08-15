@@ -192,6 +192,14 @@ function canEdit() {
   return hasMinRole("moderator");
 }
 
+function canManageDistances() {
+  return hasMinRole("admin");
+}
+
+function canAttachAnyCertificate() {
+  return hasMinRole("moderator");
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function todayISO() {
@@ -4475,6 +4483,8 @@ function renderTeam() {
     }
   }
 
+  renderTeamDistances();
+
   const tbody = document.getElementById("team-tbody");
   const sorted = [...team].sort((a, b) => {
     const ra = ROLE_RANK[b.role] - ROLE_RANK[a.role];
@@ -4549,33 +4559,86 @@ function renderTeam() {
 
 // ─── Forms / CRUD ────────────────────────────────────────────────────────────
 
-function openDistanceManager(returnToMarathonId = null) {
-  if (!hasMinRole("admin")) return toast("Only admins can manage distances", "error");
-  const renderRows = () => (state.groupDistances || []).map((distance) => `
+function distanceRowsHtml() {
+  const rows = state.groupDistances || [];
+  if (!rows.length) return `<div class="empty"><strong>No configured distances</strong>Add 5K, 10K, Half Marathon, and any club-specific options.</div>`;
+  return rows.map((distance) => `
     <div class="list-item" data-distance-row="${escapeHtml(distance.id)}">
-      <div class="list-item-main"><strong>${escapeHtml(distance.label)}</strong><span class="list-item-sub">${distance.distance_km} km</span></div>
+      <div class="list-item-main">
+        <strong>${escapeHtml(distance.label)}</strong>
+        <span class="list-item-sub">${distance.distance_km} km</span>
+      </div>
       <button type="button" class="btn btn-danger btn-sm" data-delete-distance="${escapeHtml(distance.id)}">Remove</button>
     </div>`).join("");
+}
+
+function renderTeamDistances() {
+  const panel = document.getElementById("distances-panel");
+  const list = document.getElementById("team-distances-list");
+  if (!panel || !list) return;
+  panel.hidden = !canManageDistances();
+  if (!canManageDistances()) return;
+  list.innerHTML = distanceRowsHtml();
+}
+
+async function addGroupDistance(label, km) {
+  if (!canManageDistances()) throw new Error("Only admins can manage distances");
+  const name = String(label || "").trim();
+  const distanceKm = Number(km);
+  if (!name || !Number.isFinite(distanceKm) || distanceKm <= 0) {
+    throw new Error("Enter a distance name and positive kilometre value");
+  }
+  const { data, error } = await sb.from("group_distances").insert({
+    group_id: group.id,
+    label: name,
+    distance_km: distanceKm,
+  }).select().single();
+  if (error) throw new Error(error.message || "Could not add distance");
+  state.groupDistances.push(data);
+  return data;
+}
+
+async function deleteGroupDistance(id) {
+  if (!canManageDistances()) throw new Error("Only admins can manage distances");
+  const { error } = await sb.from("group_distances").delete().eq("id", id);
+  if (error) throw new Error(error.message || "Could not remove distance");
+  state.groupDistances = state.groupDistances.filter((item) => item.id !== id);
+}
+
+function openDistanceManager(returnToMarathonId = null) {
+  if (!canManageDistances()) return toast("Only admins can manage distances", "error");
   openModal({
     title: "Manage race distances",
-    bodyHtml: `<div class="form-grid"><p class="panel-hint" style="margin:0">These options are available when creating races and recording results.</p><div id="distance-manager-list" class="list">${renderRows() || `<div class="empty"><strong>No configured distances</strong></div>`}</div><div class="form-row"><div class="field"><label for="new-distance-label">Distance name</label><input class="input" id="new-distance-label" placeholder="e.g. 3K" /></div><div class="field"><label for="new-distance-km">Kilometres</label><input class="input" id="new-distance-km" type="number" min="0.01" step="0.001" placeholder="3" /></div></div></div>`,
+    bodyHtml: `<div class="form-grid"><p class="panel-hint" style="margin:0">These options are available when creating races and recording results. Admins can also manage them in Team &amp; Access.</p><div id="distance-manager-list" class="list">${distanceRowsHtml()}</div><div class="form-row"><div class="field"><label for="new-distance-label">Distance name</label><input class="input" id="new-distance-label" placeholder="e.g. 3K" /></div><div class="field"><label for="new-distance-km">Kilometres</label><input class="input" id="new-distance-km" type="number" min="0.01" step="0.001" placeholder="3" /></div></div></div>`,
     footerHtml: `<button class="btn btn-ghost" id="distance-manager-close">Done</button><button class="btn btn-primary" id="distance-manager-add">Add distance</button>`,
     onMount() {
-      document.getElementById("distance-manager-close").onclick = () => { closeModal(); openMarathonForm(returnToMarathonId); };
+      document.getElementById("distance-manager-close").onclick = () => {
+        closeModal();
+        if (returnToMarathonId !== null) openMarathonForm(returnToMarathonId);
+      };
       document.getElementById("distance-manager-add").onclick = async () => {
-        const label = document.getElementById("new-distance-label").value.trim();
-        const km = Number(document.getElementById("new-distance-km").value);
-        if (!label || !Number.isFinite(km) || km <= 0) return toast("Enter a distance name and positive kilometre value", "error");
-        const { data, error } = await sb.from("group_distances").insert({ group_id: group.id, label, distance_km: km }).select().single();
-        if (error) return toast(error.message || "Could not add distance", "error");
-        state.groupDistances.push(data); closeModal(); openDistanceManager(returnToMarathonId);
+        try {
+          await addGroupDistance(
+            document.getElementById("new-distance-label").value,
+            document.getElementById("new-distance-km").value,
+          );
+          closeModal();
+          openDistanceManager(returnToMarathonId);
+          renderTeamDistances();
+        } catch (error) {
+          toast(error.message || "Could not add distance", "error");
+        }
       };
       document.querySelectorAll("[data-delete-distance]").forEach((button) => {
         button.onclick = async () => {
-          const { error } = await sb.from("group_distances").delete().eq("id", button.dataset.deleteDistance);
-          if (error) return toast(error.message || "Could not remove distance", "error");
-          state.groupDistances = state.groupDistances.filter((item) => item.id !== button.dataset.deleteDistance);
-          closeModal(); openDistanceManager(returnToMarathonId);
+          try {
+            await deleteGroupDistance(button.dataset.deleteDistance);
+            closeModal();
+            openDistanceManager(returnToMarathonId);
+            renderTeamDistances();
+          } catch (error) {
+            toast(error.message || "Could not remove distance", "error");
+          }
         };
       });
     },
@@ -4623,7 +4686,7 @@ function openMarathonForm(id) {
         <div class="field">
           <label for="m-distance">Distance</label>
           <select class="select full" id="m-distance">${distanceOptions}</select>
-          ${hasMinRole("admin") ? `<button type="button" class="btn btn-ghost btn-sm" id="m-manage-distances" style="margin-top:0.45rem">Manage distances</button>` : ""}
+          ${canManageDistances() ? `<button type="button" class="btn btn-ghost btn-sm" id="m-manage-distances" style="margin-top:0.45rem">Manage distances</button>` : ""}
         </div>
         <div class="field">
           <label for="m-location">Location</label>
@@ -5893,10 +5956,42 @@ function wireAppUi() {
   });
   document.getElementById("certificates-marathon")?.addEventListener("change", () => {
     const runnerSel = document.getElementById("certificates-runner");
-    if (runnerSel) runnerSel.value = "";
+    if (runnerSel) {
+      runnerSel.value = "";
+      delete runnerSel.dataset.picked;
+    }
     renderCertificatesView();
   });
-  document.getElementById("certificates-runner")?.addEventListener("change", () => renderCertificatesView());
+  document.getElementById("certificates-runner")?.addEventListener("change", (event) => {
+    event.currentTarget.dataset.picked = event.currentTarget.value;
+    renderCertificatesView();
+  });
+  document.getElementById("form-add-distance")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await addGroupDistance(
+        document.getElementById("team-new-distance-label")?.value,
+        document.getElementById("team-new-distance-km")?.value,
+      );
+      document.getElementById("team-new-distance-label").value = "";
+      document.getElementById("team-new-distance-km").value = "";
+      toast("Distance added");
+      renderTeamDistances();
+    } catch (error) {
+      toast(error.message || "Could not add distance", "error");
+    }
+  });
+  document.getElementById("team-distances-list")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-delete-distance]");
+    if (!button) return;
+    try {
+      await deleteGroupDistance(button.dataset.deleteDistance);
+      toast("Distance removed");
+      renderTeamDistances();
+    } catch (error) {
+      toast(error.message || "Could not remove distance", "error");
+    }
+  });
 
   // Profile: share link + public toggle. PRs are result-derived.
   document.querySelectorAll("[data-profile-tab]").forEach((button) => {
@@ -6126,7 +6221,7 @@ function loggedResultsForRace(marathonId) {
 
 function canAttachCertificate(result) {
   if (!result || !isLoggedResult(result)) return false;
-  if (hasMinRole("moderator")) return true;
+  if (canAttachAnyCertificate()) return true;
   const mine = getMyRunner();
   return !!(mine && result.runner_id === mine.id);
 }
@@ -6156,9 +6251,9 @@ function fillRaceSelect(selectEl) {
 
 function fillCertificateRunnerSelect(selectEl, marathonId) {
   if (!selectEl) return "";
-  const results = loggedResultsForRace(marathonId).filter(canAttachCertificate);
-  const current = selectEl.value;
   const mine = getMyRunner();
+  const results = loggedResultsForRace(marathonId).filter(canAttachCertificate);
+  selectEl.hidden = !canAttachAnyCertificate();
   selectEl.innerHTML =
     `<option value="">Select a runner…</option>` +
     results.map((reg) => {
@@ -6167,6 +6262,11 @@ function fillCertificateRunnerSelect(selectEl, marathonId) {
       const time = displayFinishTime(reg) || "logged";
       return `<option value="${reg.runner_id}">${escapeHtml(name)} — ${escapeHtml(time)}</option>`;
     }).join("");
+  if (!canAttachAnyCertificate()) {
+    selectEl.value = mine && results.some((reg) => reg.runner_id === mine.id) ? mine.id : "";
+    return selectEl.value;
+  }
+  const current = selectEl.dataset.picked || "";
   if (current && [...selectEl.options].some((o) => o.value === current)) {
     selectEl.value = current;
   } else if (mine && results.some((reg) => reg.runner_id === mine.id)) {
@@ -6405,7 +6505,11 @@ async function uploadCertificateForResult(file, marathonId, runnerId) {
   if (!session?.user?.id) throw new Error("Sign in to upload a certificate");
   const result = regsForMarathon(marathonId).find((r) => r.runner_id === runnerId && isLoggedResult(r));
   if (!result) throw new Error("Log a result for this runner first");
-  if (!canAttachCertificate(result)) throw new Error("You can only attach a certificate to your own result");
+  if (!canAttachCertificate(result)) {
+    throw new Error(canAttachAnyCertificate()
+      ? "Pick a runner who already has a logged result"
+      : "Members can only attach a certificate to their own logged result");
+  }
   const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
   if (!validTypes.includes(file.type) && !/\.(jpe?g|png|webp|pdf)$/i.test(file.name)) {
     throw new Error("Unsupported file type. Upload JPG, PNG, WebP, or PDF.");
@@ -6476,7 +6580,9 @@ async function renderCertificatesView() {
     uploadEl.innerHTML = `
       <div class="empty">
         <strong>No logged result to attach a certificate to.</strong>
-        Pick a runner who already has a result, or log one first.
+        ${canAttachAnyCertificate()
+          ? "Pick a runner who already has a result, or log one first."
+          : "Members can only upload a certificate after logging their own result."}
         <button class="btn btn-secondary btn-sm" type="button" id="certificates-log-result">Log a result first</button>
       </div>`;
     document.getElementById("certificates-log-result")?.addEventListener("click", () => {
@@ -6490,7 +6596,7 @@ async function renderCertificatesView() {
 
   const runner = getRunner(runnerId);
   uploadEl.innerHTML = `
-    <p class="panel-hint">Attaching to <strong>${escapeHtml(runner?.name || "this runner")}</strong> for this race result.</p>
+    <p class="panel-hint">${canAttachAnyCertificate() ? "Admins and moderators can attach a file to any logged result." : "You can attach a file to your own logged result."} Attaching to <strong>${escapeHtml(runner?.name || "this runner")}</strong>.</p>
     <div class="field">
       <label for="certificate-file">Certificate file</label>
       <input class="input" id="certificate-file" type="file" accept="image/*,application/pdf" />
