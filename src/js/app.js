@@ -135,6 +135,8 @@ let enterAppInFlight = null;
 let lastHandledSessionUserId = null;
 const SIDEBAR_COLLAPSED_KEY = "pacepack_sidebar_collapsed";
 const BRAND_CACHE_KEY = "pacepack_brand_cache";
+const DEFAULT_ICON_SIZES = ["48", "72", "96", "120", "144", "152", "167", "180", "192", "384", "512"];
+let dynamicManifestUrl = null;
 
 // ─── Config / client ─────────────────────────────────────────────────────────
 
@@ -453,6 +455,14 @@ function regsForRunner(id) {
   return state.registrations.filter((r) => r && r.runner_id === id);
 }
 
+function registrationForRace(runnerId, marathonId) {
+  return state.registrations.find((r) => r && r.runner_id === runnerId && r.marathon_id === marathonId) || null;
+}
+
+function racesWithRegistrations() {
+  return sortMarathons(state.marathons).filter((m) => regsForMarathon(m.id).length);
+}
+
 function canonicalPRRegistrations() {
   const bestByKey = new Map();
   const prIds = new Set();
@@ -609,50 +619,75 @@ function logoMimeType(url) {
   return "image/png";
 }
 
+function defaultAppIcon(size) {
+  return new URL(`public/icons/icon-${size}.png`, window.location.href).href;
+}
+
+function upsertHeadLink(selector, attrs) {
+  let el = document.querySelector(selector);
+  if (!el) {
+    el = document.createElement("link");
+    document.head.appendChild(el);
+  }
+  Object.entries(attrs).forEach(([key, value]) => {
+    if (value == null) el.removeAttribute(key);
+    else el.setAttribute(key, value);
+  });
+  return el;
+}
+
 function updateFavicon(url) {
-  const src = (url || "").trim();
-  if (!src) return;
-  
-  // Update shortcut icon
-  let shortcutIcon = document.querySelector('link[rel="shortcut icon"]');
-  if (!shortcutIcon) {
-    shortcutIcon = document.createElement('link');
-    shortcutIcon.rel = 'shortcut icon';
-    document.head.appendChild(shortcutIcon);
-  }
-  shortcutIcon.href = src;
-  shortcutIcon.type = logoMimeType(src);
-  
-  // Update standard favicon
-  let favicon = document.querySelector('link[rel="icon"]');
-  if (!favicon) {
-    favicon = document.createElement('link');
-    favicon.rel = 'icon';
-    document.head.appendChild(favicon);
-  }
-  favicon.href = src;
-  favicon.type = logoMimeType(src);
-  
-  // Update apple-touch-icons to use group logo
-  const appleIconSizes = ['48x48', '72x72', '96x96', '120x120', '144x144', '152x152', '167x167', '180x180', '192x192', '512x512'];
-  appleIconSizes.forEach(size => {
-    let appleIcon = document.querySelector(`link[rel="apple-touch-icon"][sizes="${size}"]`);
-    if (!appleIcon) {
-      appleIcon = document.createElement('link');
-      appleIcon.rel = 'apple-touch-icon';
-      appleIcon.setAttribute('sizes', size);
-      document.head.appendChild(appleIcon);
-    }
-    appleIcon.href = src;
+  const logo = (url || "").trim();
+  const faviconSrc = logo || defaultAppIcon("48");
+  const appleSrc = logo || defaultAppIcon("180");
+  const type = logo ? logoMimeType(logo) : "image/png";
+
+  upsertHeadLink('link[rel="icon"]', { rel: "icon", href: faviconSrc, type, sizes: "any" });
+  upsertHeadLink('link[rel="shortcut icon"]', { rel: "shortcut icon", href: faviconSrc, type });
+  upsertHeadLink('link[rel="apple-touch-icon"]:not([sizes])', { rel: "apple-touch-icon", href: appleSrc });
+  DEFAULT_ICON_SIZES.forEach((px) => {
+    const sizes = `${px}x${px}`;
+    upsertHeadLink(`link[rel="apple-touch-icon"][sizes="${sizes}"]`, {
+      rel: "apple-touch-icon",
+      sizes,
+      href: logo || defaultAppIcon(px === "384" ? "512" : px),
+    });
   });
 }
 
 function updateManifestIcons(url) {
-  // The installable PWA manifest must remain the static manifest served from
-  // /pacepack/manifest.webmanifest. Replacing it with a blob URL makes the
-  // manifest origin opaque and causes browsers to reject start_url/scope.
-  // updateFavicon() still applies the group logo to the browser chrome.
-  void url;
+  const logo = (url || "").trim();
+  const name = group?.name || getBrandCache()?.group_name || "PacePack";
+  const startUrl = new URL("./?source=pwa", window.location.href).href;
+  const scope = new URL("./", window.location.href).href;
+  const icons = DEFAULT_ICON_SIZES.map((px) => ({
+    src: logo || defaultAppIcon(px === "384" ? "512" : px),
+    sizes: `${px}x${px}`,
+    type: logo ? logoMimeType(logo) : "image/png",
+    purpose: "any",
+  }));
+  if (logo) {
+    icons.push({ src: logo, sizes: "any", type: logoMimeType(logo), purpose: "any maskable" });
+  }
+  const manifest = {
+    name,
+    short_name: name.length > 12 ? "PacePack" : name,
+    description: "Online group race tracker for running clubs.",
+    start_url: startUrl,
+    scope,
+    display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
+    background_color: "#151515",
+    theme_color: "#151515",
+    orientation: "portrait-primary",
+    icons,
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+  const nextUrl = URL.createObjectURL(blob);
+  const link = document.querySelector('link[rel="manifest"]') || upsertHeadLink('link[rel="manifest"]', { rel: "manifest" });
+  link.href = nextUrl;
+  if (dynamicManifestUrl) URL.revokeObjectURL(dynamicManifestUrl);
+  dynamicManifestUrl = nextUrl;
 }
 
 function applyBrandLogo() {
@@ -5252,11 +5287,9 @@ function openResultForm(registrationId, defaults = {}) {
   if (!existing && !canWrite()) return toast("No permission", "error");
   if (!state.marathons.length) return toast("Add a marathon first", "error");
 
-  const registeredEntries = state.registrations.filter((r) =>
-    ["interested", "registered", "waitlisted", "completed", "dns", "dnf"].includes(r.status)
-  );
-  if (!existing && !registeredEntries.length) {
-    return toast("Register runners for a race first, then enter results", "error");
+  const racesReadyForResults = racesWithRegistrations();
+  if (!existing && !racesReadyForResults.length) {
+    return toast("Register a runner for that race first, then enter the result", "error");
   }
 
   const resultStatuses = STATUSES.filter((s) =>
@@ -5266,7 +5299,10 @@ function openResultForm(registrationId, defaults = {}) {
     ? "completed"
     : existing?.status || "completed";
 
-  const marathonOpts = sortMarathons(state.marathons)
+  const marathonSource = existing
+    ? sortMarathons(state.marathons)
+    : racesReadyForResults;
+  const marathonOpts = marathonSource
     .map((m) => {
       const selected = (existing?.marathon_id || defaults.marathonId) === m.id;
       return `<option value="${m.id}" ${selected ? "selected" : ""}>${escapeHtml(m.name)} (${escapeHtml(m.race_date)})</option>`;
@@ -5278,7 +5314,7 @@ function openResultForm(registrationId, defaults = {}) {
     wide: true,
     bodyHtml: `
       <form class="form-grid">
-        <p class="panel-hint" style="margin:0">Results can only be added for runners who are already registered for the race.</p>
+        <p class="panel-hint" style="margin:0">A registration for this specific race is required before a result can be added.</p>
         <div class="field">
           <label for="res-marathon">Marathon *</label>
           <select class="select full" id="res-marathon" ${existing ? "disabled" : ""}>${marathonOpts}</select>
@@ -5347,7 +5383,7 @@ function openResultForm(registrationId, defaults = {}) {
             (getRunner(a.runner_id)?.name || "").localeCompare(getRunner(b.runner_id)?.name || "")
           );
         if (!regs.length) {
-          regSel.innerHTML = `<option value="">No registered runners for this race</option>`;
+          regSel.innerHTML = `<option value="">No registrations for this race — register a runner first</option>`;
           return;
         }
         const prefer = existing?.id || defaults.registrationId || "";
@@ -5431,9 +5467,12 @@ function openResultForm(registrationId, defaults = {}) {
       document.getElementById("res-save").onclick = async () => {
         const saveButton = document.getElementById("res-save");
         const regId = existing?.id || regSel.value;
-        if (!regId) return toast("Pick a registered runner", "error");
+        if (!regId) return toast("Pick a runner who is already registered for this race", "error");
         const reg = state.registrations.find((r) => r.id === regId);
-        if (!reg) return toast("Registration not found — register the runner first", "error");
+        if (!reg) return toast("No registration for this race — register the runner first", "error");
+        if (reg.marathon_id !== marathonSel.value && !existing) {
+          return toast("That runner is not registered for the selected race", "error");
+        }
 
         const gunRaw = document.getElementById("res-gun").value;
         const chipRaw = document.getElementById("res-chip").value;
@@ -6121,6 +6160,7 @@ async function init() {
   }
 
   sb = createClient();
+  applyBrandLogo();
   wireAuthUi();
   wireAppUi();
   fetchGroupBranding();
@@ -6226,25 +6266,28 @@ function canAttachCertificate(result) {
   return !!(mine && result.runner_id === mine.id);
 }
 
+function racesWithAttachableResults() {
+  return sortMarathons(state.marathons)
+    .filter((m) => loggedResultsForRace(m.id).some(canAttachCertificate))
+    .reverse();
+}
+
 function fillRaceSelect(selectEl) {
   if (!selectEl) return "";
   const current = selectEl.value;
+  const races = racesWithAttachableResults();
   selectEl.innerHTML =
     `<option value="">Select a race…</option>` +
-    sortMarathons(state.marathons).slice().reverse()
+    races
       .map((m) => {
-        const count = regsForMarathon(m.id).length;
-        return `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.race_date)}) — ${count} registered</option>`;
+        const count = loggedResultsForRace(m.id).filter(canAttachCertificate).length;
+        return `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.race_date)}) — ${count} result${count === 1 ? "" : "s"}</option>`;
       })
       .join("");
   if (current && [...selectEl.options].some((o) => o.value === current)) {
     selectEl.value = current;
-  } else {
-    const withResults = sortMarathons(state.marathons)
-      .filter((m) => regsForMarathon(m.id).some(isLoggedResult))
-      .reverse();
-    if (withResults[0]) selectEl.value = withResults[0].id;
-    else if (state.marathons.length) selectEl.value = sortMarathons(state.marathons).slice(-1)[0].id;
+  } else if (races[0]) {
+    selectEl.value = races[0].id;
   }
   return selectEl.value;
 }
@@ -6503,8 +6546,11 @@ async function saveCertificateRecord(result, marathon, publicUrl) {
 
 async function uploadCertificateForResult(file, marathonId, runnerId) {
   if (!session?.user?.id) throw new Error("Sign in to upload a certificate");
+  if (!registrationForRace(runnerId, marathonId)) {
+    throw new Error("Register this runner for the race before adding a result or certificate");
+  }
   const result = regsForMarathon(marathonId).find((r) => r.runner_id === runnerId && isLoggedResult(r));
-  if (!result) throw new Error("Log a result for this runner first");
+  if (!result) throw new Error("Log a result for this runner first, then attach the certificate");
   if (!canAttachCertificate(result)) {
     throw new Error(canAttachAnyCertificate()
       ? "Pick a runner who already has a logged result"
@@ -6569,7 +6615,7 @@ async function renderCertificatesView() {
   const marathonId = fillRaceSelect(raceSel);
   if (!marathonId) {
     runnerSel.innerHTML = `<option value="">Select a runner…</option>`;
-    uploadEl.innerHTML = `<div class="empty"><strong>Pick a race</strong></div>`;
+    uploadEl.innerHTML = `<div class="empty"><strong>No results to attach a certificate to</strong>Register for a race, log the result, then come back here.</div>`;
     gridEl.innerHTML = "";
     return;
   }
