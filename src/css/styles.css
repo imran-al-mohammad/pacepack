@@ -3482,17 +3482,17 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
 /* Profile tabs and lightweight personal analytics */
 .profile-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  overflow-x: auto;
   padding: 0.25rem;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  scrollbar-width: thin;
 }
 
 .profile-tab {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: max-content;
   border: 0;
   border-radius: calc(var(--radius-sm) - 2px);
   background: transparent;
@@ -3502,6 +3502,7 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
+  text-align: center;
   transition: background 0.15s, color 0.15s;
 }
 
@@ -3678,11 +3679,25 @@ button.sidebar-toggle:not(.sidebar-toggle-mobile):hover {
     align-items: flex-start;
     width: 100%;
   }
+  .profile-tab {
+    flex: 1 1 calc(50% - 0.35rem);
+    min-width: 0;
+    padding: 0.55rem 0.5rem;
+    font-size: 0.76rem;
+  }
 }
 
 @media (max-width: 480px) {
   .profile-stats-grid {
     grid-template-columns: 1fr;
+  }
+  .profile-tabs {
+    gap: 0.25rem;
+  }
+  .profile-tab {
+    flex: 1 1 calc(50% - 0.25rem);
+    padding: 0.5rem 0.4rem;
+    font-size: 0.72rem;
   }
 }
 

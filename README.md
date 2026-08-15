@@ -7,7 +7,15 @@ Certificates is its own sidebar page. Pick a race, then a runner who
 already has a result, and attach the file to that result.
 
 If upload returns 403 / "row-level security policy", run
-`docs/certificate-upload-rls.sql` in the Supabase SQL editor.
+`docs/certificate-upload-rls.sql` and `docs/image-upload-rls.sql` in the
+Supabase SQL editor.
+
+Copy existing runner and race image URLs into Storage:
+
+```bash
+python -m app.jobs.migrate_images --group-id GROUP_UUID --dry-run
+python -m app.jobs.migrate_images --group-id GROUP_UUID --apply
+```
 
 A FastAPI + HTMX app also lives in `app/` for local use. See
 `docs/ARCHITECTURE.md` and `docs/ENV.md`.

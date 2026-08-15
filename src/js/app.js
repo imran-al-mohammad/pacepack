@@ -402,6 +402,51 @@ function profileImageUrl(p) {
   return (p?.profile_picture_url || p?.image_url || "").trim();
 }
 
+const IMAGE_BUCKET = "images";
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+async function uploadPublicImage(file, folder) {
+  if (!session?.user?.id || !group?.id) throw new Error("Sign in to upload an image");
+  if (!IMAGE_TYPES.includes(file.type) && !/\.(jpe?g|png|webp|gif)$/i.test(file.name)) {
+    throw new Error("Upload a JPG, PNG, WebP, or GIF image");
+  }
+  if (file.size > 8 * 1024 * 1024) throw new Error("Image must be 8 MB or smaller");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = `${group.id}/${folder}/${session.user.id}/${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from(IMAGE_BUCKET).upload(path, file, {
+    contentType: file.type || "image/jpeg",
+    upsert: false,
+  });
+  if (error) throw new Error(storageErrorMessage(error));
+  const { data } = sb.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+  if (!data?.publicUrl) throw new Error("Could not get a public URL for the image");
+  return data.publicUrl;
+}
+
+function bindImagePicker(fileId, urlId, hintId, folder) {
+  const fileInput = document.getElementById(fileId);
+  const urlInput = document.getElementById(urlId);
+  const hint = document.getElementById(hintId);
+  if (!fileInput || !urlInput) return;
+  fileInput.onchange = async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (hint) hint.textContent = "Uploading…";
+    try {
+      const url = await uploadPublicImage(file, folder);
+      urlInput.value = url;
+      urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+      if (hint) hint.textContent = file.name;
+      toast("Image uploaded");
+    } catch (error) {
+      if (hint) hint.textContent = "Upload failed";
+      toast(error?.message || "Failed to upload image", "error");
+    } finally {
+      fileInput.value = "";
+    }
+  };
+}
+
 async function syncRunnerProfileImage(runner, { imageUrl, name, email } = {}) {
   if (!runner?.id) return;
 
@@ -4742,6 +4787,11 @@ function openMarathonForm(id) {
           <input class="input" type="url" id="m-reg-link" placeholder="https://..." value="${escapeHtml(existing?.reg_link || "")}" />
         </div>
         <div class="field">
+          <label for="m-image-file">Race picture</label>
+          <input class="input" id="m-image-file" type="file" accept="image/*" />
+          <p class="panel-hint" id="m-image-file-name">Upload a file or paste a URL below</p>
+        </div>
+        <div class="field">
           <label for="m-image-url">Image URL</label>
           <input class="input" id="m-image-url" placeholder="https://..." value="${escapeHtml(existing?.image_url || "")}" />
         </div>
@@ -4758,6 +4808,7 @@ function openMarathonForm(id) {
         closeModal();
         openDistanceManager(id || null);
       });
+      bindImagePicker("m-image-file", "m-image-url", "m-image-file-name", "marathons");
       // Scrape from URL functionality
       const scrapeBtn = document.getElementById("m-scrape-btn")
       const scrapeUrlInput = document.getElementById("m-scrape-url")
@@ -5071,6 +5122,11 @@ function openRunnerForm(id) {
           </div>
         </div>
         <div class="field">
+          <label for="p-image-file">Profile picture</label>
+          <input class="input" id="p-image-file" type="file" accept="image/*" />
+          <p class="panel-hint" id="p-image-file-name">Upload a file or paste a URL below</p>
+        </div>
+        <div class="field">
           <label for="p-image-url">Image URL</label>
           <input class="input" id="p-image-url" type="url" placeholder="https://… (optional)" value="${escapeHtml(existing?.image_url || "")}" />
         </div>
@@ -5083,6 +5139,7 @@ function openRunnerForm(id) {
       <button class="btn btn-ghost" id="pf-cancel">Cancel</button>
       <button class="btn btn-primary" id="pf-save">${existing ? "Save changes" : "Create runner"}</button>`,
     onMount() {
+      bindImagePicker("p-image-file", "p-image-url", "p-image-file-name", "runners");
       document.getElementById("pf-cancel").onclick = closeModal;
       document.getElementById("pf-save").onclick = async () => {
         const saveButton = document.getElementById("pf-save");
@@ -5204,7 +5261,7 @@ function openRegistrationForm(id, defaults = {}) {
           <select class="select full" id="r-marathon">${marathonOpts}</select>
         </div>
         <div class="field">
-          <label for="r-distance">Distance completed *</label>
+          <label for="r-distance">Distance *</label>
           <select class="select full" id="r-distance">${configuredDistanceOptions(registrationDistanceValue)}</select>
           <p class="panel-hint" style="margin:0.35rem 0 0">Different runners can record different distances for the same marathon event.</p>
         </div>
@@ -5818,6 +5875,7 @@ function wireAuthUi() {
       }
     });
 
+    bindImagePicker("profile-image-file", "profile-image-url", "profile-image-file-name", "runners");
     document.getElementById("profile-image-url")?.addEventListener("input", () => {
       const name = document.getElementById("profile-name")?.value || "You";
       const image = document.getElementById("profile-image-url")?.value || "";
@@ -6479,7 +6537,7 @@ function deriveCertificatesFromResult(result) {
 function storageErrorMessage(error) {
   const message = error?.message || error?.error || "Upload failed";
   if (/row-level security|AccessDenied|Unauthorized|403/i.test(message)) {
-    return "Storage blocked this upload (RLS). Run docs/certificate-upload-rls.sql in the Supabase SQL editor, then try again.";
+    return "Storage blocked this upload (RLS). Run docs/certificate-upload-rls.sql and docs/image-upload-rls.sql in the Supabase SQL editor, then try again.";
   }
   return message;
 }

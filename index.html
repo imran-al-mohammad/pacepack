@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="src/css/styles.css?v=20260815-brand-prereqs" />
+  <link rel="stylesheet" href="src/css/styles.css?v=20260815-image-uploads" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="src/js/services/cache.js"></script>
@@ -689,6 +689,11 @@
                 <input class="input" id="profile-email" type="email" readonly />
               </div>
               <div class="field">
+                <label for="profile-image-file">Profile picture</label>
+                <input class="input" id="profile-image-file" type="file" accept="image/*" />
+                <p class="panel-hint" id="profile-image-file-name">Upload a file or keep using a URL below</p>
+              </div>
+              <div class="field">
                 <label for="profile-image-url">Profile image URL</label>
                 <input class="input" id="profile-image-url" type="url" placeholder="https://… (optional)" autocomplete="off" />
               </div>
@@ -908,6 +913,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/js/app.js?v=20260815-brand-prereqs"></script>
+  <script type="module" src="src/js/app.js?v=20260815-image-uploads"></script>
 </body>
 </html>
